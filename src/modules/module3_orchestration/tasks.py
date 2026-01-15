@@ -35,7 +35,7 @@ def process_sentiment_task(
         product_id: Product identifier
         client_id: Client identifier
         commentaire: Comment text to analyze
-        product_type: Type of product (vehicle/livreur)
+        product_type: Type of product (vehicle)
 
     Returns:
         Dict with sentiment analysis results
@@ -201,10 +201,7 @@ def vectorize_products_task(
         EmbeddingService,
         VectorStore,
     )
-    from src.database.repositories import (
-        vehicle_repository,
-        livreur_repository,
-    )
+    from src.database.repositories import vehicle_repository
 
     logger.info(f"Starting vectorization for {product_type}")
 
@@ -219,37 +216,21 @@ def vectorize_products_task(
         session = get_sync_session()
         try:
             # Get all products
-            if pt == ProductType.VEHICLE:
-                products = vehicle_repository.get_all_sync(session)
-                items = [
-                    {
-                        "real_product_id": str(p.vehicle_id),
-                        "vector": embedding_service.encode_for_qdrant(
-                            p.to_description()
-                        ),
-                        "metadata": {
-                            "brand": p.brand,
-                            "model": p.model,
-                            "disponible": p.disponible,
-                        },
-                    }
-                    for p in products
-                ]
-            else:
-                products = livreur_repository.get_all_sync(session)
-                items = [
-                    {
-                        "real_product_id": str(p.id),
-                        "vector": embedding_service.encode_for_qdrant(
-                            p.to_description()
-                        ),
-                        "metadata": {
-                            "nom_commerciale": p.nom_commerciale,
-                            "disponible": p.disponible,
-                        },
-                    }
-                    for p in products
-                ]
+            products = vehicle_repository.get_all_sync(session)
+            items = [
+                {
+                    "real_product_id": str(p.vehicle_id),
+                    "vector": embedding_service.encode_for_qdrant(
+                        p.to_description()
+                    ),
+                    "metadata": {
+                        "brand": p.brand,
+                        "model": p.model,
+                        "disponible": p.disponible,
+                    },
+                }
+                for p in products
+            ]
 
             # Batch insert
             total_inserted = 0

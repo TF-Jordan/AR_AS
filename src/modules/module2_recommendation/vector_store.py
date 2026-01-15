@@ -26,10 +26,10 @@ logger = logging.getLogger(__name__)
 
 class VectorStore:
     """
-    Qdrant vector store for product embeddings.
+    Qdrant vector store for vehicle embeddings.
 
     Supports:
-    - Two collections: vehicles and livreurs
+    - Vehicle collection for rental platform
     - HNSW-based similarity search
     - Metadata storage with real_product_id mapping
     """
@@ -52,7 +52,6 @@ class VectorStore:
         self.dimension = settings.embedding_dimension
         self.collections = {
             ProductType.VEHICLE: settings.qdrant_collection_vehicles,
-            ProductType.LIVREUR: settings.qdrant_collection_livreurs,
         }
 
     def connect(self) -> None:

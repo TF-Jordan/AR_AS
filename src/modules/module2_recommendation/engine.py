@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session
 
 from src.config import settings
 from src.config.constants import ProductType
-from src.database.models import Vehicle, Livreur
-from src.database.repositories import vehicle_repository, livreur_repository
+from src.database.models import Vehicle
+from src.database.repositories import vehicle_repository
 
 from .cache import CacheManager, get_cache_manager
 from .embeddings import EmbeddingService, get_embedding_service
@@ -243,39 +243,22 @@ class RecommendationEngine:
             logger.error(f"Invalid product ID format: {product_id}")
             return None
 
-        if product_type == ProductType.VEHICLE:
-            product = await vehicle_repository.get_by_id(session, uuid_id)
-            if product:
-                return ProductDetails(
-                    product_id=str(product.vehicle_id),
-                    product_type=product_type,
-                    description=product.to_description(),
-                    disponible=product.disponible,
-                    reputation=product.note_moyenne,
-                    localisation=product.localisation,
-                    metadata={
-                        "brand": product.brand,
-                        "model": product.model,
-                        "year": product.year,
-                        "prix_journalier": product.prix_journalier,
-                    },
-                )
-        else:
-            product = await livreur_repository.get_by_id(session, uuid_id)
-            if product:
-                return ProductDetails(
-                    product_id=str(product.id),
-                    product_type=product_type,
-                    description=product.to_description(),
-                    disponible=product.disponible,
-                    reputation=product.reputation,
-                    localisation=product.localisation,
-                    metadata={
-                        "nom_commerciale": product.nom_commerciale,
-                        "nombre_livraisons": product.nombre_livraisons,
-                        "statut": product.statut,
-                    },
-                )
+        product = await vehicle_repository.get_by_id(session, uuid_id)
+        if product:
+            return ProductDetails(
+                product_id=str(product.vehicle_id),
+                product_type=product_type,
+                description=product.to_description(),
+                disponible=product.disponible,
+                reputation=product.note_moyenne,
+                localisation=product.localisation,
+                metadata={
+                    "brand": product.brand,
+                    "model": product.model,
+                    "year": product.year,
+                    "prix_journalier": product.prix_journalier,
+                },
+            )
 
         return None
 
@@ -291,35 +274,20 @@ class RecommendationEngine:
         except ValueError:
             return None
 
-        if product_type == ProductType.VEHICLE:
-            product = vehicle_repository.get_by_id_sync(session, uuid_id)
-            if product:
-                return ProductDetails(
-                    product_id=str(product.vehicle_id),
-                    product_type=product_type,
-                    description=product.to_description(),
-                    disponible=product.disponible,
-                    reputation=product.note_moyenne,
-                    localisation=product.localisation,
-                    metadata={
-                        "brand": product.brand,
-                        "model": product.model,
-                    },
-                )
-        else:
-            product = livreur_repository.get_by_id_sync(session, uuid_id)
-            if product:
-                return ProductDetails(
-                    product_id=str(product.id),
-                    product_type=product_type,
-                    description=product.to_description(),
-                    disponible=product.disponible,
-                    reputation=product.reputation,
-                    localisation=product.localisation,
-                    metadata={
-                        "nom_commerciale": product.nom_commerciale,
-                    },
-                )
+        product = vehicle_repository.get_by_id_sync(session, uuid_id)
+        if product:
+            return ProductDetails(
+                product_id=str(product.vehicle_id),
+                product_type=product_type,
+                description=product.to_description(),
+                disponible=product.disponible,
+                reputation=product.note_moyenne,
+                localisation=product.localisation,
+                metadata={
+                    "brand": product.brand,
+                    "model": product.model,
+                },
+            )
 
         return None
 

@@ -10,7 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from .models import Base, Vehicle, Livreur, Personne, Comment
+from .models import Base, Vehicle, Personne, Comment
 
 T = TypeVar("T", bound=Base)
 
@@ -134,88 +134,6 @@ class VehicleRepository(BaseRepository):
         return list(result.scalars().all())
 
 
-class LivreurRepository(BaseRepository):
-    """Repository for Livreur operations."""
-
-    def __init__(self):
-        super().__init__(Livreur)
-
-    async def get_by_id(
-        self, session: AsyncSession, livreur_id: UUID
-    ) -> Optional[Livreur]:
-        """Get livreur by ID."""
-        result = await session.execute(
-            select(Livreur).where(Livreur.id == livreur_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def get_available(
-        self, session: AsyncSession, limit: int = 100
-    ) -> List[Livreur]:
-        """Get all available livreurs."""
-        result = await session.execute(
-            select(Livreur)
-            .where(Livreur.disponible == True)
-            .where(Livreur.statut == "disponible")
-            .limit(limit)
-        )
-        return list(result.scalars().all())
-
-    async def get_by_location(
-        self, session: AsyncSession, localisation: str
-    ) -> List[Livreur]:
-        """Get livreurs by location."""
-        result = await session.execute(
-            select(Livreur).where(
-                Livreur.localisation.ilike(f"%{localisation}%")
-            )
-        )
-        return list(result.scalars().all())
-
-    async def get_top_rated(
-        self, session: AsyncSession, limit: int = 10
-    ) -> List[Livreur]:
-        """Get top rated livreurs."""
-        result = await session.execute(
-            select(Livreur)
-            .where(Livreur.disponible == True)
-            .order_by(Livreur.reputation.desc())
-            .limit(limit)
-        )
-        return list(result.scalars().all())
-
-    async def get_all_for_vectorization(
-        self, session: AsyncSession
-    ) -> List[Livreur]:
-        """Get all livreurs for initial vectorization."""
-        result = await session.execute(select(Livreur))
-        return list(result.scalars().all())
-
-    async def update_status(
-        self, session: AsyncSession, livreur_id: UUID, statut: str
-    ) -> bool:
-        """Update livreur status."""
-        await session.execute(
-            update(Livreur)
-            .where(Livreur.id == livreur_id)
-            .values(statut=statut, disponible=(statut == "disponible"))
-        )
-        await session.flush()
-        return True
-
-    def get_by_id_sync(self, session: Session, livreur_id: UUID) -> Optional[Livreur]:
-        """Sync version for Celery tasks."""
-        result = session.execute(
-            select(Livreur).where(Livreur.id == livreur_id)
-        )
-        return result.scalar_one_or_none()
-
-    def get_all_sync(self, session: Session) -> List[Livreur]:
-        """Sync version for getting all livreurs."""
-        result = session.execute(select(Livreur))
-        return list(result.scalars().all())
-
-
 class CommentRepository(BaseRepository):
     """Repository for Comment operations."""
 
@@ -248,5 +166,4 @@ class CommentRepository(BaseRepository):
 
 # Repository instances
 vehicle_repository = VehicleRepository()
-livreur_repository = LivreurRepository()
 comment_repository = CommentRepository()

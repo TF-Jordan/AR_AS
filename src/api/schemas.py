@@ -17,7 +17,7 @@ class RecommendationRequestSchema(BaseModel):
     product_id: str = Field(..., description="Product identifier")
     client_id: str = Field(..., description="Client identifier")
     commentaire: str = Field(..., description="Comment text to analyze")
-    product_type: ProductType = Field(..., description="Type: vehicle or livreur")
+    product_type: ProductType = Field(..., description="Type: vehicle")
     top_k: int = Field(default=10, ge=1, le=100, description="Number of results")
     async_processing: bool = Field(
         default=False, description="Process asynchronously via Celery"

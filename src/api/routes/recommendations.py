@@ -155,26 +155,3 @@ async def get_vehicle_recommendations(
     return result
 
 
-@router.get(
-    "/livreurs",
-    summary="Get livreur recommendations",
-    description="Shortcut endpoint for delivery person recommendations.",
-)
-async def get_livreur_recommendations(
-    product_id: str,
-    client_id: str,
-    commentaire: str,
-    top_k: int = 10,
-    session: AsyncSession = Depends(get_db_session),
-    orchestrator: Orchestrator = Depends(get_orchestrator_dep),
-):
-    """Get livreur recommendations."""
-    result = await orchestrator.process_recommendation_request(
-        product_id=product_id,
-        client_id=client_id,
-        commentaire=commentaire,
-        product_type="livreur",
-        session=session,
-        top_k=top_k,
-    )
-    return result

@@ -4,7 +4,7 @@ from .connection import (
     async_engine,
     Base,
 )
-from .models import Vehicle, Livreur, Personne
+from .models import Vehicle, Personne
 
 __all__ = [
     "get_async_session",
@@ -12,6 +12,5 @@ __all__ = [
     "async_engine",
     "Base",
     "Vehicle",
-    "Livreur",
     "Personne",
 ]

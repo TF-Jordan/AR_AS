@@ -1,8 +1,6 @@
-# Système de Recommandation Basé sur l'Analyse de Sentiment
+# Système de Recommandation de Véhicules Basé sur l'Analyse de Sentiment
 
-Un système modulaire de recommandation basé sur l'analyse de sentiment, conçu pour deux types de plateformes :
-- **Plateforme de livraison** → Recommandation de livreurs
-- **Plateforme de location de véhicules** → Recommandation de véhicules
+Un système modulaire de recommandation basé sur l'analyse de sentiment, conçu pour les plateformes de location de véhicules.
 
 ## 🏗️ Architecture
 
@@ -89,7 +87,7 @@ cp .env.example .env
 python main.py init-db
 
 # Initialiser les vecteurs
-python main.py init-vectors --type all
+python main.py init-vectors --type vehicles
 
 # Démarrer l'API
 python main.py api

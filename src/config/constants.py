@@ -6,7 +6,6 @@ from enum import Enum
 
 # Product Types
 PRODUCT_TYPE_VEHICLE = "vehicle"
-PRODUCT_TYPE_LIVREUR = "livreur"
 
 # Cache Settings
 CACHE_TTL_SECONDS = 3600
@@ -22,7 +21,6 @@ DEFAULT_REPUTATION_WEIGHT = 0.15
 class ProductType(str, Enum):
     """Enumeration of supported product types."""
     VEHICLE = "vehicle"
-    LIVREUR = "livreur"
 
 
 class SentimentLabel(str, Enum):
@@ -63,8 +61,3 @@ VEHICLE_TRANSMISSION_TYPES = [
     "automatique",
     "semi-automatique",
 ]
-
-# Livreur-specific constants
-LIVREUR_STATUS_AVAILABLE = "disponible"
-LIVREUR_STATUS_BUSY = "occupe"
-LIVREUR_STATUS_OFFLINE = "hors_ligne"

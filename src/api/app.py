@@ -53,7 +53,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         from src.config.constants import ProductType
         vector_store = get_vector_store()
         vector_store.create_collection_sync(ProductType.VEHICLE)
-        vector_store.create_collection_sync(ProductType.LIVREUR)
         logger.info("Qdrant collections initialized")
     except Exception as e:
         logger.error(f"Qdrant initialization failed: {e}")
@@ -85,9 +84,9 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         description="""
-        # Sentiment-Based Recommendation System
+        # Sentiment-Based Vehicle Recommendation System
 
-        A modular microservices system for product recommendations based on sentiment analysis.
+        A modular microservices system for vehicle recommendations based on sentiment analysis.
 
         ## Features
 
@@ -95,10 +94,9 @@ def create_app() -> FastAPI:
         - **Recommendation Engine (Module 2)**: Generates semantic similarity-based recommendations
         - **Orchestration (Module 3)**: Coordinates the workflow with async task support
 
-        ## Paths
+        ## Use Case
 
-        - **Chemin A**: Vehicle recommendations for rental platforms
-        - **Chemin B**: Livreur (delivery person) recommendations for delivery platforms
+        - **Vehicle Recommendations**: Intelligent vehicle recommendations for rental platforms
 
         ## Architecture
 

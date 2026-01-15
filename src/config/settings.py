@@ -80,7 +80,6 @@ class Settings(BaseSettings):
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
     qdrant_collection_vehicles: str = "vehicles"
-    qdrant_collection_livreurs: str = "livreurs"
 
     # Embedding Model
     embedding_model_name: str = "paraphrase-multilingual-mpnet-base-v2"

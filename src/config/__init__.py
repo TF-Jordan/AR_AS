@@ -1,7 +1,6 @@
 from .settings import settings
 from .constants import (
     PRODUCT_TYPE_VEHICLE,
-    PRODUCT_TYPE_LIVREUR,
     SENTIMENT_SCORE_TOLERANCE,
     DEFAULT_TOP_K,
     CACHE_TTL_SECONDS,
@@ -10,7 +9,6 @@ from .constants import (
 __all__ = [
     "settings",
     "PRODUCT_TYPE_VEHICLE",
-    "PRODUCT_TYPE_LIVREUR",
     "SENTIMENT_SCORE_TOLERANCE",
     "DEFAULT_TOP_K",
     "CACHE_TTL_SECONDS",

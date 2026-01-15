@@ -24,7 +24,6 @@ DROP TABLE IF EXISTS vehicle_type CASCADE;
 DROP TABLE IF EXISTS vehicle_size CASCADE;
 DROP TABLE IF EXISTS manufacturer CASCADE;
 
-DROP TABLE IF EXISTS livreurs CASCADE;
 DROP TABLE IF EXISTS personnes CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
 
@@ -331,27 +330,7 @@ CREATE TABLE IF NOT EXISTS personnes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Livreurs table
-CREATE TABLE IF NOT EXISTS livreurs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    statut VARCHAR(50) DEFAULT 'disponible',
-    reputation FLOAT DEFAULT 0.0,
-    localisation VARCHAR(255),
-    registre_commerce VARCHAR(255),
-    nom_commerciale VARCHAR(255),
-    nui VARCHAR(100) UNIQUE,
-    disponible BOOLEAN DEFAULT TRUE,
-    nombre_livraisons INTEGER DEFAULT 0,
-    note_moyenne FLOAT DEFAULT 0.0,
-    zone_couverture TEXT,
-    personne_id UUID REFERENCES personnes(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Create indexes
-CREATE INDEX IF NOT EXISTS idx_livreurs_statut ON livreurs(statut);
-CREATE INDEX IF NOT EXISTS idx_livreurs_disponible ON livreurs(disponible);
 CREATE INDEX IF NOT EXISTS idx_vehicles_disponible ON vehicles(disponible);
 CREATE INDEX IF NOT EXISTS idx_vehicles_brand ON vehicles(brand);
 CREATE INDEX IF NOT EXISTS idx_vehicles_registration ON vehicles(registration_number);
@@ -367,12 +346,6 @@ INSERT INTO personnes (id_client, nom, telephone, email, password) VALUES
     ('client_003', 'Paul Bernard', '+237 655 345 678', 'paul.bernard@example.com', '$2b$12$hash')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO livreurs (statut, reputation, localisation, nom_commerciale, nui, disponible, nombre_livraisons, note_moyenne, zone_couverture) VALUES
-    ('disponible', 4.5, 'Douala, Cameroun', 'Express Livraison', 'NUI001', TRUE, 150, 4.5, 'Douala Centre, Akwa, Bonapriso'),
-    ('disponible', 4.2, 'Yaoundé, Cameroun', 'Rapide Service', 'NUI002', TRUE, 89, 4.2, 'Yaoundé Centre, Bastos, Mvan'),
-    ('occupe', 4.8, 'Douala, Cameroun', 'Flash Delivery', 'NUI003', FALSE, 230, 4.8, 'Douala, Bonaberi, Deido'),
-    ('disponible', 3.9, 'Bafoussam, Cameroun', 'West Express', 'NUI004', TRUE, 45, 3.9, 'Bafoussam Centre')
-ON CONFLICT DO NOTHING;
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -387,12 +360,6 @@ $$ language 'plpgsql';
 DROP TRIGGER IF EXISTS update_personnes_updated_at ON personnes;
 CREATE TRIGGER update_personnes_updated_at
     BEFORE UPDATE ON personnes
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_livreurs_updated_at ON livreurs;
-CREATE TRIGGER update_livreurs_updated_at
-    BEFORE UPDATE ON livreurs
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
