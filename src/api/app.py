@@ -93,10 +93,12 @@ def create_app() -> FastAPI:
         - **Sentiment Analysis (Module 1)**: Analyzes customer comments using fine-tuned distil-camembert
         - **Recommendation Engine (Module 2)**: Generates semantic similarity-based recommendations
         - **Orchestration (Module 3)**: Coordinates the workflow with async task support
+        - **Livreur Ranking (Module 4)**: Multi-criteria ranking of delivery persons using AHP + TOPSIS
 
-        ## Use Case
+        ## Use Cases
 
         - **Vehicle Recommendations**: Intelligent vehicle recommendations for rental platforms
+        - **Delivery Person Ranking**: Stateless ranking service for delivery platform integration
 
         ## Architecture
 
