@@ -4,6 +4,7 @@ Implements HNSW-based similarity search.
 """
 
 import logging
+import time
 from typing import Dict, List, Optional, Any
 from uuid import  uuid4
 
@@ -19,6 +20,7 @@ from qdrant_client.http.models import (
 
 from src.config import settings
 from src.config.constants import ProductType
+from src.utils.context import get_correlation_id
 from .schemas import SimilarProduct
 
 logger = logging.getLogger(__name__)
@@ -258,6 +260,7 @@ class VectorStore:
         Returns:
             List of SimilarProduct objects
         """
+        start_time = time.time()
         self.connect()
         collection_name = self._get_collection_name(product_type)
 
@@ -274,6 +277,7 @@ class VectorStore:
             )
 
             similar_products = []
+            scores = []
             for result in results:
                 similar_products.append(
                     SimilarProduct(
@@ -282,12 +286,48 @@ class VectorStore:
                         vector_id=str(result.id),
                     )
                 )
+                scores.append(result.score)
 
-            logger.debug(f"Found {len(similar_products)} similar products")
+            duration_ms = (time.time() - start_time) * 1000
+
+            # Log vector search metrics
+            logger.info(
+                f"Vector search completed: {len(similar_products)} results",
+                extra={
+                    "event": "vector_search",
+                    "metric_type": "vector_search",
+                    "operation": "search",
+                    "collection": collection_name,
+                    "product_type": product_type.value,
+                    "query_limit": top_k,
+                    "results_count": len(similar_products),
+                    "score_threshold": score_threshold,
+                    "duration_ms": round(duration_ms, 2),
+                    "avg_score": round(sum(scores) / len(scores), 3) if scores else 0,
+                    "max_score": round(max(scores), 3) if scores else 0,
+                    "min_score": round(min(scores), 3) if scores else 0,
+                    "vector_dim": len(query_vector),
+                    "hnsw_ef": 128,
+                    "correlation_id": get_correlation_id(),
+                }
+            )
+
             return similar_products
 
         except Exception as e:
-            logger.error(f"Search error: {e}")
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(
+                f"Vector search error: {e}",
+                extra={
+                    "event": "vector_search_error",
+                    "metric_type": "vector_search",
+                    "operation": "search",
+                    "collection": collection_name,
+                    "error": str(e),
+                    "duration_ms": round(duration_ms, 2),
+                    "correlation_id": get_correlation_id(),
+                }
+            )
             return []
 
     def delete_by_product_id(

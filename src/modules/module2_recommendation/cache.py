@@ -6,6 +6,7 @@ Implements cache verification with sentiment score tolerance.
 import hashlib
 import json
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -13,6 +14,7 @@ import redis.asyncio as redis
 
 from src.config import settings, SENTIMENT_SCORE_TOLERANCE, CACHE_TTL_SECONDS
 from src.config.constants import CacheKeyPrefix
+from src.utils.context import get_correlation_id
 from .schemas import RecommendationRequest, RecommendationResult
 
 logger = logging.getLogger(__name__)
@@ -97,7 +99,12 @@ class CacheManager:
         Returns:
             Cached result if found, None otherwise
         """
+        start_time = time.time()
         await self.connect()
+
+        cache_hit = False
+        cache_hit_type = None
+        result = None
 
         try:
             # Try exact match first
@@ -110,10 +117,29 @@ class CacheManager:
 
             cached_data = await self.client.get(cache_key)
             if cached_data:
+                cache_hit = True
+                cache_hit_type = "exact"
                 logger.info(f"Cache hit (exact): {cache_key}")
                 result = RecommendationResult.model_validate_json(cached_data)
                 result.cached = True
                 result.cache_key = cache_key
+
+                # Log cache metrics
+                duration_ms = (time.time() - start_time) * 1000
+                logger.info(
+                    "Cache operation completed",
+                    extra={
+                        "event": "cache_get",
+                        "metric_type": "cache_operation",
+                        "operation": "get",
+                        "cache_hit": True,
+                        "cache_hit_type": "exact",
+                        "duration_ms": round(duration_ms, 2),
+                        "product_id": request.product_id,
+                        "product_type": request.product_type.value,
+                        "correlation_id": get_correlation_id(),
+                    }
+                )
                 return result
 
             # Try fuzzy match with nearby sentiment scores
@@ -128,10 +154,30 @@ class CacheManager:
                     )
                     cached_data = await self.client.get(fuzzy_key)
                     if cached_data:
+                        cache_hit = True
+                        cache_hit_type = "fuzzy"
                         logger.info(f"Cache hit (fuzzy): {fuzzy_key}")
                         result = RecommendationResult.model_validate_json(cached_data)
                         result.cached = True
                         result.cache_key = fuzzy_key
+
+                        # Log cache metrics
+                        duration_ms = (time.time() - start_time) * 1000
+                        logger.info(
+                            "Cache operation completed",
+                            extra={
+                                "event": "cache_get",
+                                "metric_type": "cache_operation",
+                                "operation": "get",
+                                "cache_hit": True,
+                                "cache_hit_type": "fuzzy",
+                                "duration_ms": round(duration_ms, 2),
+                                "product_id": request.product_id,
+                                "product_type": request.product_type.value,
+                                "sentiment_delta": delta,
+                                "correlation_id": get_correlation_id(),
+                            }
+                        )
                         return result
 
             # Check product-only cache (same product, any client)
@@ -143,16 +189,61 @@ class CacheManager:
                 # Verify sentiment score is within tolerance
                 cached_result = RecommendationResult.model_validate_json(product_cache)
                 if abs(cached_result.sentiment_score - request.sentiment_score) <= self.sentiment_tolerance:
+                    cache_hit = True
+                    cache_hit_type = "product"
                     logger.info(f"Cache hit (product): {product_key}")
                     cached_result.cached = True
                     cached_result.cache_key = product_key
+
+                    # Log cache metrics
+                    duration_ms = (time.time() - start_time) * 1000
+                    logger.info(
+                        "Cache operation completed",
+                        extra={
+                            "event": "cache_get",
+                            "metric_type": "cache_operation",
+                            "operation": "get",
+                            "cache_hit": True,
+                            "cache_hit_type": "product",
+                            "duration_ms": round(duration_ms, 2),
+                            "product_id": request.product_id,
+                            "product_type": request.product_type.value,
+                            "correlation_id": get_correlation_id(),
+                        }
+                    )
                     return cached_result
 
-            logger.debug(f"Cache miss for request: {request.product_id}")
+            # Cache miss
+            duration_ms = (time.time() - start_time) * 1000
+            logger.info(
+                "Cache miss",
+                extra={
+                    "event": "cache_get",
+                    "metric_type": "cache_operation",
+                    "operation": "get",
+                    "cache_hit": False,
+                    "cache_hit_type": None,
+                    "duration_ms": round(duration_ms, 2),
+                    "product_id": request.product_id,
+                    "product_type": request.product_type.value,
+                    "correlation_id": get_correlation_id(),
+                }
+            )
             return None
 
         except Exception as e:
-            logger.error(f"Cache lookup error: {e}")
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(
+                f"Cache lookup error: {e}",
+                extra={
+                    "event": "cache_error",
+                    "metric_type": "cache_operation",
+                    "operation": "get",
+                    "error": str(e),
+                    "duration_ms": round(duration_ms, 2),
+                    "correlation_id": get_correlation_id(),
+                }
+            )
             return None
 
     async def store_result(
@@ -170,6 +261,7 @@ class CacheManager:
         Returns:
             True if stored successfully
         """
+        start_time = time.time()
         await self.connect()
 
         try:
@@ -182,6 +274,7 @@ class CacheManager:
             )
 
             result_json = result.model_dump_json()
+            data_size_bytes = len(result_json.encode('utf-8'))
 
             # Set with TTL
             await self.client.setex(
@@ -200,11 +293,37 @@ class CacheManager:
                 result_json,
             )
 
-            logger.info(f"Cached result: {cache_key}")
+            duration_ms = (time.time() - start_time) * 1000
+
+            logger.info(
+                f"Cache store completed: {cache_key}",
+                extra={
+                    "event": "cache_set",
+                    "metric_type": "cache_operation",
+                    "operation": "set",
+                    "duration_ms": round(duration_ms, 2),
+                    "data_size_bytes": data_size_bytes,
+                    "ttl_seconds": self.ttl_seconds,
+                    "product_id": request.product_id,
+                    "product_type": request.product_type.value,
+                    "correlation_id": get_correlation_id(),
+                }
+            )
             return True
 
         except Exception as e:
-            logger.error(f"Cache store error: {e}")
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(
+                f"Cache store error: {e}",
+                extra={
+                    "event": "cache_error",
+                    "metric_type": "cache_operation",
+                    "operation": "set",
+                    "error": str(e),
+                    "duration_ms": round(duration_ms, 2),
+                    "correlation_id": get_correlation_id(),
+                }
+            )
             return False
 
     async def invalidate(

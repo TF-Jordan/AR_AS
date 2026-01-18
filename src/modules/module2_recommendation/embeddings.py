@@ -4,6 +4,7 @@ Model: paraphrase-multilingual-mpnet-base-v2
 """
 
 import logging
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -12,6 +13,7 @@ import torch
 from sentence_transformers import SentenceTransformer
 
 from src.config import settings
+from src.utils.context import get_correlation_id
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +133,10 @@ class EmbeddingService:
         Returns:
             Numpy array of shape (n_texts, dimension)
         """
+        start_time = time.time()
+        batch_size = len(texts)
+        avg_text_length = sum(len(t) for t in texts) / batch_size if batch_size > 0 else 0
+
         if self._model is None:
             self._load_model()
 
@@ -143,9 +149,43 @@ class EmbeddingService:
                 batch_size=32,
                 device=str(self._device)
             )
+
+            duration_ms = (time.time() - start_time) * 1000
+
+            # Log embedding generation metrics
+            logger.info(
+                f"Embeddings generated for {batch_size} texts",
+                extra={
+                    "event": "embedding_generation",
+                    "metric_type": "ml_inference",
+                    "model": "paraphrase-multilingual-mpnet-base-v2",
+                    "operation": "embedding_generation",
+                    "batch_size": batch_size,
+                    "avg_text_length": round(avg_text_length, 0),
+                    "embedding_dim": embeddings.shape[1] if embeddings.ndim > 1 else len(embeddings),
+                    "duration_ms": round(duration_ms, 2),
+                    "texts_per_second": round(batch_size / (duration_ms / 1000), 2),
+                    "device": str(self._device),
+                    "correlation_id": get_correlation_id(),
+                }
+            )
+
             return embeddings
         except Exception as e:
-            logger.error(f"Error encoding batch: {e}")
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(
+                f"Error encoding batch: {e}",
+                extra={
+                    "event": "embedding_generation_error",
+                    "metric_type": "ml_inference",
+                    "model": "paraphrase-multilingual-mpnet-base-v2",
+                    "operation": "embedding_generation",
+                    "error": str(e),
+                    "batch_size": batch_size,
+                    "duration_ms": round(duration_ms, 2),
+                    "correlation_id": get_correlation_id(),
+                }
+            )
             raise
 
     def encode_for_qdrant(self, text: str) -> List[float]:

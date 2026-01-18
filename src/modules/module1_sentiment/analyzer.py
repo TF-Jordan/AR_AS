@@ -10,6 +10,7 @@ This module provides an interface for sentiment analysis that:
 
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -22,6 +23,7 @@ from transformers import (
     AutoTokenizer,
 )
 
+from src.utils.context import get_correlation_id
 from .schemas import SentimentInput, SentimentResult
 
 logger = logging.getLogger(__name__)
@@ -181,6 +183,9 @@ class SentimentAnalyzer:
         Returns:
             SentimentResult with sentiment score and label
         """
+        start_time = time.time()
+        text_length = len(input_data.commentaire)
+
         try:
             # Get prediction from model
             prediction = self._predict(input_data.commentaire)
@@ -189,6 +194,28 @@ class SentimentAnalyzer:
             sentiment_score, sentiment_label, confidence = self._compute_sentiment_score(
                 prediction["probabilities"],
                 prediction["predicted_class"],
+            )
+
+            duration_ms = (time.time() - start_time) * 1000
+
+            # Log ML inference metrics
+            logger.info(
+                f"Sentiment analysis completed: {sentiment_label}",
+                extra={
+                    "event": "sentiment_analysis",
+                    "metric_type": "ml_inference",
+                    "model": "distil-camembert",
+                    "operation": "sentiment_analysis",
+                    "text_length": text_length,
+                    "sentiment_label": sentiment_label,
+                    "sentiment_score": round(sentiment_score, 3),
+                    "confidence": round(confidence, 3),
+                    "predicted_class": prediction["predicted_class"],
+                    "duration_ms": round(duration_ms, 2),
+                    "product_id": input_data.product_id,
+                    "product_type": input_data.product_type.value,
+                    "correlation_id": get_correlation_id(),
+                }
             )
 
             return SentimentResult(
@@ -201,7 +228,20 @@ class SentimentAnalyzer:
             )
 
         except Exception as e:
-            logger.error(f"Error analyzing sentiment: {e}")
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(
+                f"Error analyzing sentiment: {e}",
+                extra={
+                    "event": "sentiment_analysis_error",
+                    "metric_type": "ml_inference",
+                    "model": "distil-camembert",
+                    "operation": "sentiment_analysis",
+                    "error": str(e),
+                    "text_length": text_length,
+                    "duration_ms": round(duration_ms, 2),
+                    "correlation_id": get_correlation_id(),
+                }
+            )
             # Return neutral sentiment on error
             return SentimentResult(
                 client_id=input_data.client_id,

@@ -261,6 +261,33 @@ services:
       - recommendation-network
     restart: unless-stopped
 
+  # Metricbeat for infrastructure metrics
+  metricbeat:
+    image: docker.elastic.co/beats/metricbeat:8.11.0
+    container_name: metricbeat
+    user: root
+    volumes:
+      - ./monitoring/metricbeat/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
+      - /proc:/hostfs/proc:ro
+      - /:/hostfs:ro
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - recommendation-network
+    restart: unless-stopped
+    command: metricbeat -e -strict.perms=false
+
 networks:
   recommendation-network:
     driver: bridge
