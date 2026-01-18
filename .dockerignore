@@ -1,0 +1,128 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+*.iml
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+*.cover
+*.log
+
+# Documentation
+docs/_build/
+site/
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Monitoring (mount these as volumes instead)
+monitoring/
+logs/
+*.log
+
+# Data (mount these as volumes)
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Models (mount these as volumes for better performance)
+models/
+*.pth
+*.pt
+*.h5
+*.pkl
+*.pickle
+*.onnx
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.cache
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node (if any)
+node_modules/
+npm-debug.log
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment files (use docker-compose env instead)
+.env
+.env.production
+.env.development
+
+# Database dumps
+*.sql.gz
+*.dump
+
+# Large files
+*.tar
+*.tar.gz
+*.zip
+*.rar

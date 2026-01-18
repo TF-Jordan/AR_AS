@@ -1,89 +1,190 @@
-# Multi-stage Dockerfile for Sentiment Recommendation System
+# ==============================================================================
+# Multi-stage Dockerfile for AR_AS Recommendation System
+# Optimized for production with proper caching, security, and health checks
+# ==============================================================================
 
-# Stage 1: Base image with dependencies
+# ==============================================================================
+# Stage 1: Base Image with System Dependencies
+# ==============================================================================
 FROM python:3.11-slim AS base
 
-# Set environment variables
+# Prevent Python from writing .pyc files and buffering stdout/stderr
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_DEFAULT_TIMEOUT=300
+    PIP_DEFAULT_TIMEOUT=300 \
+    # Set locale
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies in a single layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build dependencies
     build-essential \
+    gcc \
+    g++ \
+    # PostgreSQL client library
     libpq-dev \
+    # Networking tools for healthchecks
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    wget \
+    netcat-traditional \
+    # SSL/TLS
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Copy requirements and install dependencies with retry and increased timeout
+# ==============================================================================
+# Stage 2: Python Dependencies
+# ==============================================================================
+FROM base AS dependencies
+
+# Copy only requirements first for better caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir --timeout=300 --retries=5 -r requirements.txt
 
-# Stage 2: API Server
-FROM base AS api
+# Install Python dependencies with optimized settings
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir --timeout=300 --retries=5 -r requirements.txt && \
+    # Clean up pip cache
+    rm -rf ~/.cache/pip
 
+# ==============================================================================
+# Stage 3: Application Base (shared by all services)
+# ==============================================================================
+FROM dependencies AS app-base
+
+# Copy application source code
 COPY src/ /app/src/
+
+# Copy essential configuration files
 COPY .env.example /app/.env
 
-# Create directory for models (mount your model here)
-RUN mkdir -p /app/src/modules/module1_sentiment/models
+# Create directories for models and data
+RUN mkdir -p \
+    /app/src/modules/module1_sentiment/models \
+    /app/src/modules/module2_recommendation/models \
+    /app/logs \
+    /app/data
 
-# Create non-root user
-RUN adduser --disabled-password --gecos "" appuser && \
-    chown -R appuser:appuser /app
+# Create non-root user for security
+RUN groupadd -r appgroup && \
+    useradd -r -g appgroup -u 1000 -d /app -s /bin/bash appuser && \
+    chown -R appuser:appgroup /app
+
+# ==============================================================================
+# Stage 4: API Server
+# ==============================================================================
+FROM app-base AS api
+
+# Copy healthcheck script
+COPY scripts/healthcheck_api.sh /app/healthcheck.sh
+RUN chmod +x /app/healthcheck.sh && \
+    chown appuser:appgroup /app/healthcheck.sh
+
+# Switch to non-root user
 USER appuser
 
+# Expose API port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/api/v1/health/live || exit 1
+# Enhanced health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD /app/healthcheck.sh || exit 1
 
-CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start API server with production settings
+CMD ["uvicorn", "src.api.app:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "4", \
+     "--log-level", "info", \
+     "--access-log", \
+     "--use-colors"]
 
-# Stage 3: Celery Worker
-FROM base AS worker
+# ==============================================================================
+# Stage 5: Celery Worker
+# ==============================================================================
+FROM app-base AS worker
 
-COPY src/ /app/src/
-COPY .env.example /app/.env
+# Copy worker healthcheck
+COPY scripts/healthcheck_worker.sh /app/healthcheck.sh
+RUN chmod +x /app/healthcheck.sh && \
+    chown appuser:appgroup /app/healthcheck.sh
 
-# Create directory for models
-RUN mkdir -p /app/src/modules/module1_sentiment/models
-
-# Create non-root user
-RUN adduser --disabled-password --gecos "" appuser && \
-    chown -R appuser:appuser /app
 USER appuser
 
-CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "worker", "--loglevel=info"]
+# Health check for worker (checks if it can connect to broker)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD /app/healthcheck.sh || exit 1
 
-# Stage 4: Celery Beat (Scheduler)
-FROM base AS beat
+# Start Celery worker with optimized settings
+CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "worker", \
+     "--loglevel=info", \
+     "--concurrency=4", \
+     "--max-tasks-per-child=1000", \
+     "--time-limit=3600", \
+     "--soft-time-limit=3000"]
 
-COPY src/ /app/src/
-COPY .env.example /app/.env
+# ==============================================================================
+# Stage 6: Celery Beat (Scheduler)
+# ==============================================================================
+FROM app-base AS beat
 
-RUN adduser --disabled-password --gecos "" appuser && \
-    chown -R appuser:appuser /app
 USER appuser
 
-CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "beat", "--loglevel=info"]
+# Start Celery beat scheduler
+CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "beat", \
+     "--loglevel=info", \
+     "--pidfile=/tmp/celerybeat.pid"]
 
-# Stage 5: Flower (Celery monitoring)
-FROM base AS flower
+# ==============================================================================
+# Stage 7: Flower (Celery Monitoring UI)
+# ==============================================================================
+FROM app-base AS flower
 
-COPY src/ /app/src/
-COPY .env.example /app/.env
-
-RUN adduser --disabled-password --gecos "" appuser && \
-    chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 5555
 
-CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "flower", "--port=5555"]
+# Start Flower with basic auth
+CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "flower", \
+     "--port=5555", \
+     "--broker_api=redis://redis:6379/0", \
+     "--persistent=True", \
+     "--max_tasks=10000"]
+
+# ==============================================================================
+# Stage 8: Development (with hot-reload)
+# ==============================================================================
+FROM app-base AS development
+
+# Install development dependencies
+RUN pip install --no-cache-dir \
+    watchdog \
+    ipython \
+    ipdb \
+    black \
+    flake8 \
+    mypy \
+    isort
+
+# Switch to root for development (for installing packages)
+USER root
+
+# Development server with hot-reload
+CMD ["uvicorn", "src.api.app:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--reload", \
+     "--log-level", "debug"]
+
+# ==============================================================================
+# Build Labels (for image metadata)
+# ==============================================================================
+LABEL maintainer="AR_AS Team" \
+      version="1.0.0" \
+      description="Sentiment-based Vehicle Recommendation System" \
+      org.opencontainers.image.source="https://github.com/TF-Jordan/AR_AS"
