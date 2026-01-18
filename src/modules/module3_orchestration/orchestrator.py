@@ -20,6 +20,7 @@ from src.modules.module2_recommendation import (
     RecommendationRequest,
     CacheManager,
 )
+from src.utils.context import get_correlation_id
 
 from .tasks import (
     process_sentiment_task,
@@ -177,7 +178,17 @@ class Orchestrator:
         Returns:
             Celery task ID for status tracking
         """
-        logger.info(f"Dispatching async task for product={product_id}")
+        # Get correlation ID from context to propagate to async task
+        correlation_id = get_correlation_id()
+
+        logger.info(
+            f"Dispatching async task for product={product_id}",
+            extra={
+                "product_id": product_id,
+                "client_id": client_id,
+                "correlation_id": correlation_id,
+            }
+        )
 
         task = process_full_workflow_task.delay(
             product_id=product_id,
@@ -185,6 +196,7 @@ class Orchestrator:
             commentaire=commentaire,
             product_type=product_type,
             top_k=top_k,
+            correlation_id=correlation_id,  # Propagate correlation_id
         )
 
         return task.id

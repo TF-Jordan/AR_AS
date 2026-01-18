@@ -18,6 +18,7 @@ from slowapi.util import get_remote_address
 from src.config import settings
 from src.database.connection import init_database, close_database
 from .routes import api_router
+from .middleware import CorrelationIdMiddleware, RequestLoggingMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,14 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Correlation ID middleware (must be early to propagate to all logs)
+    app.add_middleware(CorrelationIdMiddleware)
+    logger.info("CorrelationIdMiddleware registered")
+
+    # Request logging middleware (logs all HTTP requests/responses)
+    app.add_middleware(RequestLoggingMiddleware)
+    logger.info("RequestLoggingMiddleware registered")
 
     # Elastic APM integration
     if settings.apm_enabled:

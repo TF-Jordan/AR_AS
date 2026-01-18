@@ -11,6 +11,7 @@ import structlog
 from pythonjsonlogger import jsonlogger
 
 from src.config import settings
+from src.utils.context import get_correlation_id, get_user_id, get_session_id
 
 
 def configure_logging(log_level: Optional[str] = None) -> None:
@@ -31,6 +32,26 @@ def configure_logging(log_level: Optional[str] = None) -> None:
         configure_standard_logging(level)
 
 
+def add_context_to_log(logger, method_name, event_dict):
+    """
+    Structlog processor to add context variables (correlation_id, user_id, etc.)
+    to every log entry automatically.
+    """
+    correlation_id = get_correlation_id()
+    if correlation_id:
+        event_dict["correlation_id"] = correlation_id
+
+    user_id = get_user_id()
+    if user_id:
+        event_dict["user_id"] = user_id
+
+    session_id = get_session_id()
+    if session_id:
+        event_dict["session_id"] = session_id
+
+    return event_dict
+
+
 def configure_json_logging(level: str) -> None:
     """Configure JSON logging for production."""
     # Custom JSON formatter
@@ -41,6 +62,19 @@ def configure_json_logging(level: str) -> None:
             log_record["level"] = record.levelname
             log_record["logger"] = record.name
             log_record["service"] = settings.app_name
+
+            # Add context variables from contextvars
+            correlation_id = get_correlation_id()
+            if correlation_id:
+                log_record["correlation_id"] = correlation_id
+
+            user_id = get_user_id()
+            if user_id:
+                log_record["user_id"] = user_id
+
+            session_id = get_session_id()
+            if session_id:
+                log_record["session_id"] = session_id
 
     # Configure root logger
     handler = logging.StreamHandler(sys.stdout)
@@ -53,13 +87,14 @@ def configure_json_logging(level: str) -> None:
     logging.root.handlers = [handler]
     logging.root.setLevel(level)
 
-    # Configure structlog
+    # Configure structlog with context processor
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
             structlog.stdlib.add_logger_name,
             structlog.stdlib.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
+            add_context_to_log,  # Add context variables automatically
             structlog.processors.JSONRenderer(),
         ],
         context_class=dict,
@@ -78,12 +113,13 @@ def configure_standard_logging(level: str) -> None:
         handlers=[logging.StreamHandler(sys.stdout)],
     )
 
-    # Configure structlog for pretty printing
+    # Configure structlog for pretty printing with context
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
             structlog.stdlib.add_logger_name,
             structlog.stdlib.add_log_level,
+            add_context_to_log,  # Add context variables in dev mode too
             structlog.dev.ConsoleRenderer(colors=True),
         ],
         context_class=dict,
