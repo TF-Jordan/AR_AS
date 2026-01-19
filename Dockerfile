@@ -21,11 +21,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Configure DNS for build (fix for DNS resolution issues)
-RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf && \
-    echo "nameserver 8.8.4.4" >> /etc/resolv.conf && \
-    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-
 # Install system dependencies in a single layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build dependencies
