@@ -1,0 +1,101 @@
+# ==============================================================================
+# Dockerfile Simplifié - Utilise des binaires pré-compilés (pas de gcc)
+# ==============================================================================
+FROM python:3.11-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# Install MINIMAL dependencies (NO gcc, NO build-essential)
+# Only runtime libraries and health check tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # PostgreSQL runtime library only (no -dev)
+    libpq5 \
+    # Health check tools
+    curl \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# ==============================================================================
+# Python Dependencies with BINARY wheels
+# ==============================================================================
+FROM base AS dependencies
+
+COPY requirements-binary.txt .
+
+# Install Python packages using ONLY pre-compiled wheels
+# --only-binary :all: forces pip to use wheels (no compilation)
+RUN pip install --only-binary :all: -r requirements-binary.txt || \
+    pip install -r requirements-binary.txt
+
+# ==============================================================================
+# Application
+# ==============================================================================
+FROM dependencies AS app-base
+
+# Copy application code
+COPY src/ /app/src/
+COPY scripts/ /app/scripts/
+
+# Create non-root user
+RUN groupadd -r appgroup && \
+    useradd -r -g appgroup -u 1000 -d /app -s /bin/bash appuser && \
+    chown -R appuser:appgroup /app
+
+# ==============================================================================
+# API Service
+# ==============================================================================
+FROM app-base AS api
+
+USER appuser
+EXPOSE 8000
+
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+
+# ==============================================================================
+# Celery Worker
+# ==============================================================================
+FROM app-base AS worker
+
+USER appuser
+
+CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "worker", \
+     "--loglevel=info", \
+     "--concurrency=4"]
+
+# ==============================================================================
+# Celery Beat
+# ==============================================================================
+FROM app-base AS beat
+
+USER appuser
+
+CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "beat", \
+     "--loglevel=info"]
+
+# ==============================================================================
+# Flower
+# ==============================================================================
+FROM app-base AS flower
+
+USER appuser
+EXPOSE 5555
+
+CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "flower", \
+     "--port=5555"]
+
+# ==============================================================================
+# Development
+# ==============================================================================
+FROM app-base AS development
+
+USER appuser
+EXPOSE 8000
+
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
