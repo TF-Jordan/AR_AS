@@ -117,20 +117,26 @@ class LivreurClasseSchema(BaseModel):
     distances_topsis: Optional[DistancesTOPSISSchema] = Field(None, description="Distances TOPSIS")
 
 
-class PoidsCriteresSchema(BaseModel):
+class PoidsAHPSchema(BaseModel):
     """Poids des critères calculés par AHP."""
     proximite_geographique: float = Field(..., description="Poids de la proximité")
     reputation: float = Field(..., description="Poids de la réputation")
     capacite: float = Field(..., description="Poids de la capacité")
     type_vehicule: float = Field(..., description="Poids du type de véhicule")
-    coherence_ahp: Dict[str, Any] = Field(..., description="Informations sur la cohérence AHP")
+    CR: float = Field(..., description="Ratio de cohérence (Consistency Ratio)")
+    est_coherent: bool = Field(..., description="True si CR < 0.1 (AHP cohérent)")
+
+
+# Alias for backward compatibility
+PoidsCriteresSchema = PoidsAHPSchema
 
 
 class StatistiquesFiltrageSchema(BaseModel):
     """Statistiques du filtrage spatial."""
-    candidats_initiaux: int = Field(..., description="Nombre de candidats initiaux")
-    candidats_apres_filtrage: int = Field(..., description="Nombre de candidats après filtrage")
-    candidats_elimines: int = Field(..., description="Nombre de candidats éliminés")
+    total_candidats: int = Field(..., description="Nombre total de candidats initiaux")
+    candidats_eligibles: int = Field(..., description="Nombre de candidats éligibles après filtrage")
+    candidats_rejetes: int = Field(..., description="Nombre de candidats rejetés")
+    livreurs_rejetes: List[str] = Field(default_factory=list, description="IDs des livreurs rejetés")
 
 
 class MethodeUtiliseeSchema(BaseModel):
@@ -142,12 +148,11 @@ class MethodeUtiliseeSchema(BaseModel):
 
 class MetadataSchema(BaseModel):
     """Métadonnées du classement."""
-    candidats_initiaux: int
-    candidats_apres_filtrage: int
-    type_livraison: TypeLivraison
-    poids_utilises: PoidsCriteresSchema
-    methode: str = "AHP_TOPSIS"
-    processing_time_ms: float
+    type_livraison: TypeLivraison = Field(..., description="Type de livraison")
+    tolerance_spatiale_km: float = Field(..., description="Tolérance spatiale utilisée en km")
+    statistiques_filtrage: StatistiquesFiltrageSchema = Field(..., description="Statistiques du filtrage")
+    poids_ahp: PoidsAHPSchema = Field(..., description="Poids des critères calculés par AHP")
+    duree_traitement_ms: float = Field(..., description="Durée totale du traitement en millisecondes")
 
 
 class RankingResponseSchema(BaseModel):
