@@ -2,32 +2,49 @@
 
 > **Si Docker échoue avec des erreurs DNS**, suivez ces étapes:
 
-## ⚡ Solution Automatique (Recommandé)
+## ⚡ Solution Ultime - Build avec Réseau Host
 
-### Une seule commande pour tout réparer:
+### Si le DNS ne fonctionne toujours pas, utilisez cette commande magique:
 
 ```bash
 cd ~/Documents/Music/AR_AS
-bash scripts/fix-docker-dns.sh
+
+# Cette commande contourne TOUS les problèmes DNS
+bash scripts/build-with-host-network.sh
+
+# Puis démarrer les services
+docker-compose up -d
 ```
 
-Ce script va:
-1. ✅ Configurer les DNS Docker (Google DNS + Cloudflare)
-2. ✅ Redémarrer Docker automatiquement
-3. ✅ Vérifier que tout fonctionne
-4. ✅ Vous dire quoi faire ensuite
+**Pourquoi ça marche?** Le build utilise le réseau de votre machine directement (--network=host), donc il utilise votre connexion internet qui fonctionne!
 
 ---
 
-## 📦 Après avoir exécuté le script
+## 🎯 Méthode Alternative avec docker-compose
 
 ```bash
-# Option 1: Build complet
-make build
-make up
+cd ~/Documents/Music/AR_AS
 
-# Option 2: Mode développement (avec hot-reload)
-make dev
+# Build avec fix DNS intégré
+docker-compose -f docker-compose.yml -f docker-compose.build-fix.yml build
+
+# Démarrer
+docker-compose up -d
+```
+
+---
+
+## 📦 Après le build réussi
+
+```bash
+# Vérifier que tout tourne
+docker-compose ps
+
+# Voir les logs
+docker-compose logs -f api
+
+# Accéder à l'API
+curl http://localhost:8000/docs
 ```
 
 ---
