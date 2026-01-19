@@ -193,11 +193,16 @@ cd AR_AS
 
 # 2. Configurer l'environnement
 cp .env.production .env
-# Éditer .env et changer les mots de passe
+# Éditer .env et changer les mots de passe (POSTGRES_PASSWORD, SECRET_KEY, etc.)
 
-# 3. Démarrer tous les services
+# 3. Démarrer tous les services (build, up, migrate, init-vectors)
 make quickstart
+
+# OU sans Makefile:
+docker-compose up -d
 ```
+
+> **Note**: `make quickstart` construit les images, démarre les services, attend leur initialisation, exécute les migrations de base de données et initialise les vecteurs. C'est la méthode la plus simple pour démarrer.
 
 ### Accès aux Services
 
@@ -244,21 +249,31 @@ venv\Scripts\activate  # Windows
 # 2. Installer les dépendances
 pip install -r requirements.txt
 
-# 3. Configurer PostgreSQL
-createdb recommendation_db
-psql recommendation_db < scripts/init_db.sql
+# 3. Configurer les variables d'environnement
+cp .env.production .env
+# Éditer .env avec vos configurations
 
-# 4. Configurer Redis
+# 4. Démarrer les services requis (dans des terminaux séparés)
+# Terminal 1: PostgreSQL
+createdb recommendation_db
+
+# Terminal 2: Redis
 redis-server
 
-# 5. Configurer Qdrant
+# Terminal 3: Qdrant
 docker run -p 6333:6333 qdrant/qdrant:v1.7.4
 
-# 6. Lancer l'API
-uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --workers 4
+# 5. Initialiser la base de données
+python main.py init-db
 
-# 7. Lancer les workers Celery
-celery -A src.modules.module3_orchestration.celery_app worker --loglevel=info
+# 6. Initialiser les vecteurs
+python main.py init-vectors --type vehicles
+
+# 7. Démarrer l'API (Terminal 4)
+python main.py api
+
+# 8. Dans un autre terminal, démarrer le worker Celery (Terminal 5)
+python main.py worker
 ```
 
 ---
@@ -678,14 +693,22 @@ make quality
 # Tous les tests
 make test
 
-# Tests avec coverage
+# Tests avec coverage et rapport HTML
 make test-cov
 
+# OU manuellement:
+pytest tests/ -v --cov=src --cov-report=html
+
+# Ouvrir le rapport de couverture
+open htmlcov/index.html  # macOS
+xdg-open htmlcov/index.html  # Linux
+start htmlcov/index.html  # Windows
+
 # Tests spécifiques
-pytest tests/test_sentiment.py
+pytest tests/test_sentiment.py -v
 
 # Tests d'intégration
-pytest tests/integration/
+pytest tests/integration/ -v
 
 # Tests de performance
 pytest tests/performance/ -v
