@@ -184,25 +184,35 @@ L'architecture AR_AS est modulaire et scalable, composée de 4 modules principau
 - 8 GB RAM minimum (16 GB recommandé)
 - 20 GB espace disque
 
-### Installation en 3 Commandes
+### Installation Standard
 
 ```bash
 # 1. Cloner le repository
 git clone https://github.com/TF-Jordan/AR_AS.git
 cd AR_AS
 
-# 2. Configurer l'environnement
-cp .env.production .env
-# Éditer .env et changer les mots de passe (POSTGRES_PASSWORD, SECRET_KEY, etc.)
+# 2. Démarrer tous les services
+docker compose up -d
 
-# 3. Démarrer tous les services (build, up, migrate, init-vectors)
-make quickstart
-
-# OU sans Makefile:
-docker-compose up -d
+# 3. Vérifier que tout fonctionne
+docker compose ps
+curl http://localhost:8000/health
 ```
 
-> **Note**: `make quickstart` construit les images, démarre les services, attend leur initialisation, exécute les migrations de base de données et initialise les vecteurs. C'est la méthode la plus simple pour démarrer.
+### Installation avec Dépendances Locales (Rapide, sans téléchargement)
+
+Si vous avez déjà les packages Python installés localement :
+
+```bash
+# 1. Préparer les wheels depuis votre environnement local
+./scripts/prepare-wheels.sh
+
+# 2. Build avec les wheels locaux (pas de téléchargement)
+docker compose build
+
+# 3. Démarrer
+docker compose up -d
+```
 
 ### Accès aux Services
 
@@ -210,9 +220,11 @@ docker-compose up -d
 |---------|-----|-------------|
 | **API Documentation** | http://localhost:8000/docs | - |
 | **API Principale** | http://localhost:8000/api/v1 | - |
-| **Kibana (Logs)** | http://localhost:5601 | - |
+| **Health Check** | http://localhost:8000/health | - |
 | **Flower (Celery)** | http://localhost:5555 | admin / admin |
-| **Elasticsearch** | http://localhost:9200 | - |
+| **PostgreSQL** | localhost:5432 | postgres / postgres |
+| **Redis** | localhost:6379 | - |
+| **Qdrant** | localhost:6333 | - |
 
 ---
 
@@ -221,21 +233,37 @@ docker-compose up -d
 ### Option 1: Docker (Recommandé)
 
 ```bash
-# Build les images
-make build
-
-# Démarrer les services
-make up
+# Démarrer tous les services (API, Celery, PostgreSQL, Redis, Qdrant)
+docker compose up -d
 
 # Voir les logs
-make logs
+docker compose logs -f
+
+# Logs d'un service spécifique
+docker compose logs -f api
+docker compose logs -f celery-worker
 
 # Vérifier le statut
-make status
+docker compose ps
 
-# Health checks
-make health
+# Arrêter les services
+docker compose down
+
+# Arrêter et supprimer les volumes (reset complet)
+docker compose down -v
 ```
+
+#### Services Inclus
+
+| Service | Description | Port |
+|---------|-------------|------|
+| **api** | API FastAPI (4 workers) | 8000 |
+| **celery-worker** | Worker Celery (4 workers) | - |
+| **celery-beat** | Scheduler Celery | - |
+| **flower** | Monitoring Celery | 5555 |
+| **postgres** | Base de données | 5432 |
+| **redis** | Cache + Broker Celery | 6379 |
+| **qdrant** | Vector Database | 6333 |
 
 ### Option 2: Installation Manuelle
 
@@ -280,50 +308,38 @@ python main.py worker
 
 ## Configuration
 
-### Fichier .env
+### Variables d'Environnement
 
-Le fichier `.env` contient toute la configuration du système. Copier `.env.production` et modifier les valeurs:
+Créez un fichier `.env` à la racine du projet (optionnel, des valeurs par défaut sont utilisées) :
 
 ```bash
-# Application
-APP_NAME=AR_AS Recommendation System
-DEBUG=false
-ENVIRONMENT=production
-
-# Base de données
-POSTGRES_HOST=postgres
+# Ports (optionnel - valeurs par défaut)
+API_PORT=8000
+FLOWER_PORT=5555
 POSTGRES_PORT=5432
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=CHANGEZ_MOI
-POSTGRES_DB=recommendation_db
-
-# Redis
-REDIS_HOST=redis
 REDIS_PORT=6379
-REDIS_PASSWORD=
-
-# Qdrant
-QDRANT_HOST=qdrant
 QDRANT_PORT=6333
 
-# Modèles ML
-SENTIMENT_MODEL_PATH=./models/distil-camembert-sentiment
-EMBEDDING_MODEL_PATH=./models/paraphrase-multilingual-mpnet-base-v2
+# Base de données
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=ar_as_db
 
-# Sécurité
-SECRET_KEY=CHANGEZ_MOI_32_CARACTERES_MIN
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_WINDOW_SECONDS=60
+# Flower (Monitoring Celery)
+FLOWER_USER=admin
+FLOWER_PASSWORD=admin
 
-# Monitoring
-APM_ENABLED=true
-APM_SERVER_URL=http://apm-server:8200
+# Application
+ENVIRONMENT=production
 LOG_LEVEL=INFO
+
+# APM Monitoring (optionnel)
+APM_ENABLED=false
 ```
 
 ### Configuration Avancée
 
-Voir `.env.production` pour la liste complète des 150+ paramètres configurables.
+Pour une configuration complète, voir `src/config/settings.py` qui charge automatiquement les variables depuis `.env`.
 
 ---
 
@@ -622,47 +638,45 @@ AR_AS/
 │   │   ├── module2_recommendation/ # Recommandation
 │   │   ├── module3_orchestration/  # Orchestration Celery
 │   │   └── module4_livreur_ranking/# Ranking livreurs
+│   ├── config/                # Configuration (settings.py)
 │   ├── database/              # Configuration DB
 │   ├── logging_config.py      # Configuration logs
 │   └── utils/                 # Utilitaires
-├── scripts/                   # Scripts utilitaires
-├── monitoring/                # Configuration ELK
+├── scripts/
+│   └── prepare-wheels.sh      # Prépare les dépendances locales
+├── wheels/                    # Dépendances Python locales (optionnel)
+├── monitoring/                # Configuration ELK (optionnel)
 │   ├── kibana/
 │   ├── logstash/
 │   ├── filebeat/
 │   └── metricbeat/
-├── docs/                      # Documentation
 ├── tests/                     # Tests unitaires et intégration
-├── docker-compose.yml         # Orchestration Docker
-├── Dockerfile                 # Multi-stage Dockerfile
-├── Makefile                   # Commandes pratiques
+├── Dockerfile                 # Image Docker unique
+├── docker-compose.yml         # Orchestration des services
 ├── requirements.txt           # Dépendances Python
-└── .env.production           # Configuration production
+└── .env                       # Configuration (optionnel)
 ```
 
 ### Commandes de Développement
 
 ```bash
-# Démarrer en mode développement (hot-reload)
-make dev
+# Démarrer les services en mode attaché (voir les logs)
+docker compose up
+
+# Rebuild après modification du code
+docker compose up --build
 
 # Lancer les tests
-make test
+docker compose exec api pytest tests/ -v
 
 # Tests avec coverage
-make test-cov
+docker compose exec api pytest tests/ -v --cov=src --cov-report=html
 
-# Linting
-make lint
+# Accéder au shell du container API
+docker compose exec api bash
 
-# Formatage code
-make format
-
-# Type checking
-make type-check
-
-# Toutes les vérifications qualité
-make quality
+# Vérifier les logs Celery
+docker compose logs -f celery-worker
 ```
 
 ### Ajouter un Nouveau Module
@@ -784,75 +798,68 @@ tests/
 ### Production avec Docker
 
 ```bash
-# 1. Build production images
-docker-compose build --no-cache
+# 1. (Optionnel) Préparer les wheels locaux pour un build rapide
+./scripts/prepare-wheels.sh
 
-# 2. Configuration
-cp .env.production .env
-# Éditer .env avec valeurs production
+# 2. Build des images
+docker compose build
 
-# 3. Démarrer
-docker-compose up -d
+# 3. Configurer les variables d'environnement
+cat > .env << EOF
+POSTGRES_PASSWORD=mot_de_passe_securise
+FLOWER_PASSWORD=mot_de_passe_flower
+ENVIRONMENT=production
+LOG_LEVEL=INFO
+EOF
 
-# 4. Vérifier
-make health
+# 4. Démarrer tous les services
+docker compose up -d
 
-# 5. Logs
-make logs
+# 5. Vérifier le statut
+docker compose ps
+curl http://localhost:8000/health
 ```
 
-### Checklist Pré-Déploiement
+### Commandes Utiles
 
-- [ ] Tous les tests passent
-- [ ] Variables d'environnement configurées
-- [ ] Mots de passe forts configurés
-- [ ] SSL/TLS activé
-- [ ] CORS configuré correctement
-- [ ] Rate limiting activé
-- [ ] Backups configurés
-- [ ] Monitoring actif
-- [ ] Health checks fonctionnels
-- [ ] Documentation à jour
+```bash
+# Voir les logs en temps réel
+docker compose logs -f
+
+# Logs d'un service spécifique
+docker compose logs -f api
+docker compose logs -f celery-worker
+
+# Redémarrer un service
+docker compose restart api
+
+# Arrêter tous les services
+docker compose down
+
+# Reset complet (supprime les données)
+docker compose down -v
+```
 
 ### Configuration Production
 
 **Ressources recommandées**:
-- CPU: 8 cores minimum
-- RAM: 16 GB minimum
-- Disk: 50 GB SSD
-- Network: 1 Gbps
-
-**Scaling Horizontal**:
-
-```bash
-# Scaler les API workers
-docker-compose up -d --scale api=4
-
-# Scaler les Celery workers
-docker-compose up -d --scale celery-worker=4
-```
+- CPU: 4 cores minimum
+- RAM: 8 GB minimum (16 GB recommandé)
+- Disk: 30 GB SSD
+- Network: 100 Mbps
 
 ### Backup & Restauration
 
 ```bash
 # Backup PostgreSQL
-make backup-db
-
-# Backup Qdrant
-make backup-qdrant
+docker compose exec postgres pg_dump -U postgres ar_as_db > backup.sql
 
 # Restauration PostgreSQL
-make restore-db FILE=backups/db_20240118_120000.sql.gz
+docker compose exec -T postgres psql -U postgres ar_as_db < backup.sql
+
+# Backup volumes Docker
+docker run --rm -v ar-as_postgres-data:/data -v $(pwd):/backup alpine tar czf /backup/postgres-backup.tar.gz /data
 ```
-
-### CI/CD
-
-Le projet inclut des workflows GitHub Actions pour:
-- Tests automatiques sur PR
-- Build et push Docker images
-- Déploiement automatique (staging/production)
-
-Voir `.github/workflows/` pour configuration.
 
 ---
 
@@ -925,6 +932,6 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 
 ---
 
-**Version**: 1.0.0
-**Dernière mise à jour**: 2024-01-18
+**Version**: 2.0.0
+**Dernière mise à jour**: 2025-01-20
 **Status**: Production Ready
