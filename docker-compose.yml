@@ -1,15 +1,10 @@
 # ==============================================================================
 # Docker Compose - AR_AS Système Complet
 # ==============================================================================
-# Lancement:
-#   docker compose up -d          # Production
-#   docker compose up             # Voir les logs
-#   docker compose down           # Arrêter
-#   docker compose down -v        # Arrêter + supprimer volumes
-#
-# Avec wheels locaux (rapide):
-#   ./scripts/prepare-wheels.sh   # Une seule fois
+# Build avec réseau hôte (utilise cache apt local):
 #   docker compose build
+#
+# Lancement:
 #   docker compose up -d
 # ==============================================================================
 
@@ -21,6 +16,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      network: host
     image: ar-as-api:latest
     container_name: ar-as-api
     ports:
@@ -30,21 +26,17 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - API_PREFIX=/api/v1
-      # Database
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-ar_as_db}
-      # Redis
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      # Qdrant
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      # APM (désactivé par défaut)
       - APM_ENABLED=${APM_ENABLED:-false}
     depends_on:
       postgres:
@@ -69,9 +61,6 @@ services:
   # Celery Worker
   # ============================================================================
   celery-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: ar-as-api:latest
     container_name: ar-as-worker
     command: >
@@ -93,6 +82,8 @@ services:
       - QDRANT_PORT=6333
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
+      api:
+        condition: service_healthy
       redis:
         condition: service_healthy
       postgres:
@@ -107,9 +98,6 @@ services:
   # Celery Beat (Scheduler)
   # ============================================================================
   celery-beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: ar-as-api:latest
     container_name: ar-as-beat
     command: >
@@ -121,6 +109,8 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
+      api:
+        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
@@ -133,9 +123,6 @@ services:
   # Flower (Monitoring Celery)
   # ============================================================================
   flower:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: ar-as-api:latest
     container_name: ar-as-flower
     command: >
@@ -148,6 +135,8 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - FLOWER_BASIC_AUTH=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-admin}
     depends_on:
+      api:
+        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
@@ -211,17 +200,11 @@ services:
       - ar-as-network
     restart: unless-stopped
 
-# ==============================================================================
-# Networks
-# ==============================================================================
 networks:
   ar-as-network:
     driver: bridge
     name: ar-as-network
 
-# ==============================================================================
-# Volumes
-# ==============================================================================
 volumes:
   api-logs:
   worker-logs:
