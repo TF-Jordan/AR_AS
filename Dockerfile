@@ -1,180 +1,190 @@
 # ==============================================================================
-# Multi-stage Dockerfile for AR_AS Recommendation System
-# Optimized for production with proper caching, security, and health checks
+# Dockerfile Modulaire pour AR_AS
+# ==============================================================================
+# USAGE:
+#   Module 4 uniquement (léger ~200MB):
+#     docker build --target api-module4 -t ar-as-module4 .
+#
+#   Système complet (lourd ~4GB):
+#     docker build --target api-full -t ar-as-full .
+#
+#   Développement:
+#     docker build --target development -t ar-as-dev .
 # ==============================================================================
 
 # ==============================================================================
-# Stage 1: Base Image with System Dependencies
+# BASE COMMUNE
 # ==============================================================================
 FROM python:3.11-slim AS base
 
-# Prevent Python from writing .pyc files and buffering stdout/stderr
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_DEFAULT_TIMEOUT=300 \
-    # Set locale
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8
 
 WORKDIR /app
 
-# Install system dependencies in a single layer
+# Dépendances système minimales
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Build dependencies
-    build-essential \
-    gcc \
-    g++ \
-    # PostgreSQL client library
-    libpq-dev \
-    # Networking tools for healthchecks
     curl \
-    wget \
-    netcat-traditional \
-    # SSL/TLS
-    ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# ==============================================================================
-# Stage 2: Python Dependencies
-# ==============================================================================
-FROM base AS dependencies
+# Créer utilisateur non-root
+RUN groupadd -r appgroup && \
+    useradd -r -g appgroup -u 1000 -d /app -s /bin/bash appuser
 
-# Copy only requirements first for better caching
+# ==============================================================================
+# STAGE: Dependencies Module 4 (LÉGER - ~50MB de packages)
+# ==============================================================================
+FROM base AS deps-module4
+
+COPY requirements-module4.txt .
+
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements-module4.txt
+
+# ==============================================================================
+# STAGE: Dependencies Full (LOURD - ~3GB avec torch)
+# ==============================================================================
+FROM base AS deps-full
+
+# Installer les dépendances de build pour psycopg2
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 
-# Install Python dependencies with optimized settings
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir --timeout=300 --retries=5 -r requirements.txt && \
-    # Clean up pip cache
-    rm -rf ~/.cache/pip
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # ==============================================================================
-# Stage 3: Application Base (shared by all services)
+# STAGE: Application Module 4
 # ==============================================================================
-FROM dependencies AS app-base
+FROM deps-module4 AS app-module4
 
-# Copy application source code
+# Copier uniquement le code nécessaire pour Module 4
+COPY src/api/ /app/src/api/
+COPY src/modules/module4_livreur_ranking/ /app/src/modules/module4_livreur_ranking/
+COPY src/core/ /app/src/core/
+COPY src/__init__.py /app/src/
+
+# Créer les dossiers nécessaires
+RUN mkdir -p /app/logs && \
+    chown -R appuser:appgroup /app
+
+# ==============================================================================
+# STAGE: Application Full
+# ==============================================================================
+FROM deps-full AS app-full
+
+# Copier tout le code source
 COPY src/ /app/src/
 
-# Copy essential configuration files
-COPY .env.example /app/.env
-
-# Create directories for models and data
+# Créer les dossiers pour les modèles
 RUN mkdir -p \
     /app/src/modules/module1_sentiment/models \
     /app/src/modules/module2_recommendation/models \
     /app/logs \
-    /app/data
-
-# Create non-root user for security
-RUN groupadd -r appgroup && \
-    useradd -r -g appgroup -u 1000 -d /app -s /bin/bash appuser && \
+    /app/data && \
     chown -R appuser:appgroup /app
 
 # ==============================================================================
-# Stage 4: API Server
+# TARGET: API Module 4 (Production - Léger)
 # ==============================================================================
-FROM app-base AS api
+FROM app-module4 AS api-module4
 
-# Copy healthcheck script
-COPY scripts/healthcheck_api.sh /app/healthcheck.sh
-RUN chmod +x /app/healthcheck.sh && \
-    chown appuser:appgroup /app/healthcheck.sh
-
-# Switch to non-root user
 USER appuser
-
-# Expose API port
 EXPOSE 8000
 
-# Enhanced health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD /app/healthcheck.sh || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/api/v1/livreur-ranking/health || exit 1
 
-# Start API server with production settings
 CMD ["uvicorn", "src.api.app:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
      "--workers", "4", \
-     "--log-level", "info", \
-     "--access-log", \
-     "--use-colors"]
+     "--log-level", "info"]
 
 # ==============================================================================
-# Stage 5: Celery Worker
+# TARGET: API Full (Production - Complet)
 # ==============================================================================
-FROM app-base AS worker
+FROM app-full AS api-full
 
-# Copy worker healthcheck
-COPY scripts/healthcheck_worker.sh /app/healthcheck.sh
-RUN chmod +x /app/healthcheck.sh && \
-    chown appuser:appgroup /app/healthcheck.sh
+USER appuser
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "src.api.app:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "4", \
+     "--log-level", "info"]
+
+# ==============================================================================
+# TARGET: Celery Worker (Système complet uniquement)
+# ==============================================================================
+FROM app-full AS worker
 
 USER appuser
 
-# Health check for worker (checks if it can connect to broker)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD /app/healthcheck.sh || exit 1
+    CMD celery -A src.modules.module3_orchestration.celery_app inspect ping || exit 1
 
-# Start Celery worker with optimized settings
 CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "worker", \
      "--loglevel=info", \
      "--concurrency=4", \
-     "--max-tasks-per-child=1000", \
-     "--time-limit=3600", \
-     "--soft-time-limit=3000"]
+     "--max-tasks-per-child=1000"]
 
 # ==============================================================================
-# Stage 6: Celery Beat (Scheduler)
+# TARGET: Celery Beat (Scheduler)
 # ==============================================================================
-FROM app-base AS beat
+FROM app-full AS beat
 
 USER appuser
 
-# Start Celery beat scheduler
 CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "beat", \
      "--loglevel=info", \
      "--pidfile=/tmp/celerybeat.pid"]
 
 # ==============================================================================
-# Stage 7: Flower (Celery Monitoring UI)
+# TARGET: Flower (Monitoring Celery)
 # ==============================================================================
-FROM app-base AS flower
+FROM app-full AS flower
 
 USER appuser
-
 EXPOSE 5555
 
-# Start Flower with basic auth
 CMD ["celery", "-A", "src.modules.module3_orchestration.celery_app", "flower", \
      "--port=5555", \
-     "--broker_api=redis://redis:6379/0", \
-     "--persistent=True", \
-     "--max_tasks=10000"]
+     "--persistent=True"]
 
 # ==============================================================================
-# Stage 8: Development (with hot-reload)
+# TARGET: Development (avec hot-reload)
 # ==============================================================================
-FROM app-base AS development
+FROM app-module4 AS development
 
-# Install development dependencies
+# Installer outils de dev
 RUN pip install --no-cache-dir \
     watchdog \
     ipython \
-    ipdb \
     black \
     flake8 \
-    mypy \
-    isort
+    pytest \
+    pytest-asyncio
 
-# Switch to root for development (for installing packages)
-USER root
+USER appuser
+EXPOSE 8000
 
-# Development server with hot-reload
 CMD ["uvicorn", "src.api.app:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
@@ -182,9 +192,32 @@ CMD ["uvicorn", "src.api.app:app", \
      "--log-level", "debug"]
 
 # ==============================================================================
-# Build Labels (for image metadata)
+# TARGET: Development Full (avec hot-reload + tous modules)
+# ==============================================================================
+FROM app-full AS development-full
+
+# Installer outils de dev
+RUN pip install --no-cache-dir \
+    watchdog \
+    ipython \
+    black \
+    flake8 \
+    pytest \
+    pytest-asyncio \
+    pytest-cov
+
+USER appuser
+EXPOSE 8000
+
+CMD ["uvicorn", "src.api.app:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--reload", \
+     "--log-level", "debug"]
+
+# ==============================================================================
+# LABELS
 # ==============================================================================
 LABEL maintainer="AR_AS Team" \
-      version="1.0.0" \
-      description="Sentiment-based Vehicle Recommendation System" \
-      org.opencontainers.image.source="https://github.com/TF-Jordan/AR_AS"
+      version="2.0.0" \
+      description="AR_AS - Modular Docker Build (Module4/Full)"
