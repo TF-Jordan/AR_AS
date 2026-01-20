@@ -1,46 +1,47 @@
 # ==============================================================================
-# Requirements - Système Complet AR_AS
+# Requirements - AR_AS (versions alignées avec l'environnement local)
 # ==============================================================================
 
 # Core API
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
+fastapi==0.116.1
+uvicorn==0.35.0
+pydantic==2.11.7
+pydantic-settings==2.10.1
+starlette==0.47.3
 
 # Database PostgreSQL
-sqlalchemy==2.0.25
-asyncpg==0.29.0
-psycopg2-binary==2.9.9
-alembic==1.13.1
+sqlalchemy==2.0.43
+asyncpg==0.31.0
+psycopg2-binary==2.9.11
+alembic==1.18.1
 
 # Redis & Celery
-redis==5.0.1
-aioredis==2.0.1
-celery[redis]==5.3.6
+redis==7.1.0
+celery==5.6.2
 flower==2.0.1
 
 # Vector Database
-qdrant-client==1.7.0
+qdrant-client==1.16.2
 
 # ML & NLP (Modules 1 & 2)
-sentence-transformers==2.2.2
-torch>=2.0.0
-transformers>=4.41.0
-numpy>=1.26.0
+sentence-transformers==5.2.0
+torch==2.9.1
+transformers==4.55.4
+numpy==2.2.6
 
 # Monitoring
 elastic-apm==6.20.0
-python-json-logger==2.0.7
-structlog==24.1.0
+python-json-logger==3.3.0
+structlog==25.5.0
 
 # Security
-python-jose[cryptography]==3.3.0
+python-jose==3.5.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 slowapi==0.1.9
+bcrypt==5.0.0
 
 # Utilities
-python-dotenv==1.0.0
-tenacity==8.2.3
-httpx==0.26.0
+python-dotenv==1.1.1
+tenacity==9.1.2
+httpx==0.28.1
