@@ -109,8 +109,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
 
-    # Monitoring - Elastic APM
-    apm_enabled: bool = True
+    # Monitoring - Elastic APM (désactivé par défaut)
+    apm_enabled: bool = False
     apm_server_url: str = "http://localhost:8200"
 
 

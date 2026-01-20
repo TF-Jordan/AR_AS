@@ -16,12 +16,11 @@ from typing import Optional, Dict, Any
 
 import torch
 import torch.nn.functional as F
-from transformers import (
-    CamembertForSequenceClassification,
-    CamembertTokenizer,
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-)
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+# Alias pour compatibilité
+CamembertForSequenceClassification = AutoModelForSequenceClassification
+CamembertTokenizer = AutoTokenizer
 
 from src.utils.context import get_correlation_id
 from .schemas import SentimentInput, SentimentResult
