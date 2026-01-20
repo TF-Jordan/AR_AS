@@ -1,72 +1,28 @@
 # ==============================================================================
-# Docker Compose - AR_AS avec Profils Modulaires
+# Docker Compose - AR_AS Système Complet
 # ==============================================================================
-# USAGE:
+# Lancement:
+#   docker compose up -d          # Production
+#   docker compose up             # Voir les logs
+#   docker compose down           # Arrêter
+#   docker compose down -v        # Arrêter + supprimer volumes
 #
-#   MODULE 4 UNIQUEMENT (léger, rapide):
-#     docker compose --profile module4 up -d
-#
-#   SYSTEME COMPLET (tous les modules):
-#     docker compose --profile full up -d
-#
-#   AVEC MONITORING (ELK Stack):
-#     docker compose --profile full --profile monitoring up -d
-#
-#   DEVELOPPEMENT Module 4:
-#     docker compose --profile dev up -d
-#
-#   DEVELOPPEMENT Complet:
-#     docker compose --profile dev-full up -d
+# Avec wheels locaux (rapide):
+#   ./scripts/prepare-wheels.sh   # Une seule fois
+#   docker compose build
+#   docker compose up -d
 # ==============================================================================
 
 services:
   # ============================================================================
-  # API MODULE 4 - Livreur Ranking (LÉGER)
-  # ============================================================================
-  api-module4:
-    build:
-      context: .
-      target: api-module4
-    image: ar-as-module4:latest
-    container_name: ar-as-api-module4
-    profiles: ["module4"]
-    ports:
-      - "${API_PORT:-8000}:8000"
-    environment:
-      - APP_NAME=AR_AS Module 4 - Livreur Ranking
-      - ENVIRONMENT=${ENVIRONMENT:-production}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - API_PREFIX=/api/v1
-    volumes:
-      - module4-logs:/app/logs
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/livreur-ranking/health"]
-      interval: 30s
-      timeout: 10s
-      start_period: 10s
-      retries: 3
-
-  # ============================================================================
-  # API SYSTEME COMPLET
+  # API FastAPI
   # ============================================================================
   api:
     build:
       context: .
-      target: api-full
+      dockerfile: Dockerfile
     image: ar-as-api:latest
     container_name: ar-as-api
-    profiles: ["full"]
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
@@ -79,7 +35,7 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-recommendation_db}
+      - POSTGRES_DB=${POSTGRES_DB:-ar_as_db}
       # Redis
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -88,47 +44,53 @@ services:
       # Qdrant
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      # APM (optionnel)
+      # APM (désactivé par défaut)
       - APM_ENABLED=${APM_ENABLED:-false}
-      - APM_SERVER_URL=http://apm-server:8200
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      qdrant:
+        condition: service_started
     volumes:
       - api-logs:/app/logs
     networks:
       - ar-as-network
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
 
   # ============================================================================
-  # CELERY WORKER (Système complet)
+  # Celery Worker
   # ============================================================================
   celery-worker:
     build:
       context: .
-      target: worker
-    image: ar-as-worker:latest
+      dockerfile: Dockerfile
+    image: ar-as-api:latest
     container_name: ar-as-worker
-    profiles: ["full"]
+    command: >
+      celery -A src.modules.module3_orchestration.celery_app worker
+      --loglevel=info
+      --concurrency=4
+      --max-tasks-per-child=1000
     environment:
       - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-recommendation_db}
+      - POSTGRES_DB=${POSTGRES_DB:-ar_as_db}
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       redis:
@@ -140,23 +102,20 @@ services:
     networks:
       - ar-as-network
     restart: unless-stopped
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
 
   # ============================================================================
-  # CELERY BEAT (Scheduler)
+  # Celery Beat (Scheduler)
   # ============================================================================
   celery-beat:
     build:
       context: .
-      target: beat
-    image: ar-as-beat:latest
+      dockerfile: Dockerfile
+    image: ar-as-api:latest
     container_name: ar-as-beat
-    profiles: ["full"]
+    command: >
+      celery -A src.modules.module3_orchestration.celery_app beat
+      --loglevel=info
+      --pidfile=/tmp/celerybeat.pid
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -165,26 +124,24 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - beat-schedule:/tmp
+      - beat-data:/tmp
     networks:
       - ar-as-network
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
 
   # ============================================================================
-  # FLOWER (Monitoring Celery)
+  # Flower (Monitoring Celery)
   # ============================================================================
   flower:
     build:
       context: .
-      target: flower
-    image: ar-as-flower:latest
+      dockerfile: Dockerfile
+    image: ar-as-api:latest
     container_name: ar-as-flower
-    profiles: ["full"]
+    command: >
+      celery -A src.modules.module3_orchestration.celery_app flower
+      --port=5555
+      --persistent=True
     ports:
       - "${FLOWER_PORT:-5555}:5555"
     environment:
@@ -198,16 +155,15 @@ services:
     restart: unless-stopped
 
   # ============================================================================
-  # BASES DE DONNÉES (Système complet)
+  # PostgreSQL
   # ============================================================================
   postgres:
     image: postgres:15-alpine
     container_name: ar-as-postgres
-    profiles: ["full", "dev-full"]
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-recommendation_db}
+      - POSTGRES_DB=${POSTGRES_DB:-ar_as_db}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -221,10 +177,12 @@ services:
       timeout: 5s
       retries: 5
 
+  # ============================================================================
+  # Redis
+  # ============================================================================
   redis:
     image: redis:7-alpine
     container_name: ar-as-redis
-    profiles: ["full", "dev-full"]
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
@@ -239,10 +197,12 @@ services:
       timeout: 5s
       retries: 5
 
+  # ============================================================================
+  # Qdrant (Vector Database)
+  # ============================================================================
   qdrant:
     image: qdrant/qdrant:v1.7.4
     container_name: ar-as-qdrant
-    profiles: ["full", "dev-full"]
     ports:
       - "${QDRANT_PORT:-6333}:6333"
     volumes:
@@ -251,121 +211,8 @@ services:
       - ar-as-network
     restart: unless-stopped
 
-  # ============================================================================
-  # DÉVELOPPEMENT - Module 4
-  # ============================================================================
-  api-dev:
-    build:
-      context: .
-      target: development
-    image: ar-as-dev:latest
-    container_name: ar-as-api-dev
-    profiles: ["dev"]
-    ports:
-      - "${API_PORT:-8000}:8000"
-    environment:
-      - APP_NAME=AR_AS Dev - Module 4
-      - ENVIRONMENT=development
-      - LOG_LEVEL=DEBUG
-    volumes:
-      - ./src:/app/src:rw
-    networks:
-      - ar-as-network
-
-  # ============================================================================
-  # DÉVELOPPEMENT - Système complet
-  # ============================================================================
-  api-dev-full:
-    build:
-      context: .
-      target: development-full
-    image: ar-as-dev-full:latest
-    container_name: ar-as-api-dev-full
-    profiles: ["dev-full"]
-    ports:
-      - "${API_PORT:-8000}:8000"
-    environment:
-      - APP_NAME=AR_AS Dev - Full
-      - ENVIRONMENT=development
-      - LOG_LEVEL=DEBUG
-      - POSTGRES_HOST=postgres
-      - REDIS_HOST=redis
-      - QDRANT_HOST=qdrant
-      - CELERY_BROKER_URL=redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./src:/app/src:rw
-    networks:
-      - ar-as-network
-
-  # ============================================================================
-  # MONITORING - ELK Stack (Optionnel)
-  # ============================================================================
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: ar-as-elasticsearch
-    profiles: ["monitoring"]
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "${ELASTICSEARCH_PORT:-9200}:9200"
-    volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health"]
-      interval: 30s
-      timeout: 10s
-      start_period: 60s
-      retries: 5
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.11.0
-    container_name: ar-as-kibana
-    profiles: ["monitoring"]
-    ports:
-      - "${KIBANA_PORT:-5601}:5601"
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-
-  apm-server:
-    image: docker.elastic.co/apm/apm-server:8.11.0
-    container_name: ar-as-apm-server
-    profiles: ["monitoring"]
-    ports:
-      - "${APM_PORT:-8200}:8200"
-    environment:
-      - output.elasticsearch.hosts=["http://elasticsearch:9200"]
-      - apm-server.host=0.0.0.0:8200
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8200/"]
-      interval: 30s
-      timeout: 10s
-      start_period: 40s
-      retries: 5
-
 # ==============================================================================
-# NETWORKS
+# Networks
 # ==============================================================================
 networks:
   ar-as-network:
@@ -373,17 +220,12 @@ networks:
     name: ar-as-network
 
 # ==============================================================================
-# VOLUMES
+# Volumes
 # ==============================================================================
 volumes:
-  # Application
-  module4-logs:
   api-logs:
   worker-logs:
-  beat-schedule:
-  # Data stores
+  beat-data:
   postgres-data:
   redis-data:
   qdrant-data:
-  # Monitoring
-  elasticsearch-data:

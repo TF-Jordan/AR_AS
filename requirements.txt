@@ -1,74 +1,46 @@
 # ==============================================================================
-# Requirements COMPLET - Tous les modules (1, 2, 3, 4)
-# ==============================================================================
-# Ce fichier contient TOUTES les dépendances pour le système complet
-# Inclut: Sentiment Analysis (Module 1), Recommendations (Module 2),
-#         Orchestration (Module 3), Livreur Ranking (Module 4)
-#
-# ATTENTION: torch + transformers = ~3 GB de téléchargement
-# Pour Module 4 uniquement, utiliser: requirements-module4.txt
+# Requirements - Système Complet AR_AS
 # ==============================================================================
 
-# ==============================================================================
-# CORE - Nécessaire pour tous les modules
-# ==============================================================================
+# Core API
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
-python-dotenv==1.0.0
-httpx==0.26.0
 
-# ==============================================================================
-# MODULE 4 - Livreur Ranking (AHP/TOPSIS)
-# ==============================================================================
-numpy==1.26.3
-
-# ==============================================================================
-# MODULES 1 & 2 - IA / Machine Learning
-# ==============================================================================
-# Ces packages sont LOURDS (~3 GB) - Non nécessaires pour Module 4 seul
-torch==2.2.0
-transformers>=4.41.0
-sentence-transformers==2.2.2
-
-# ==============================================================================
-# MODULE 2 - Recommandations (Vector Database)
-# ==============================================================================
-qdrant-client==1.7.0
-
-# ==============================================================================
-# MODULE 3 - Orchestration (Celery + Redis)
-# ==============================================================================
-celery[redis]==5.3.6
-flower==2.0.1
-redis==5.0.1
-aioredis==2.0.1
-
-# ==============================================================================
-# DATABASE - PostgreSQL
-# ==============================================================================
+# Database PostgreSQL
 sqlalchemy==2.0.25
 asyncpg==0.29.0
 psycopg2-binary==2.9.9
 alembic==1.13.1
 
-# ==============================================================================
-# LOGGING & MONITORING
-# ==============================================================================
+# Redis & Celery
+redis==5.0.1
+aioredis==2.0.1
+celery[redis]==5.3.6
+flower==2.0.1
+
+# Vector Database
+qdrant-client==1.7.0
+
+# ML & NLP (Modules 1 & 2)
+sentence-transformers==2.2.2
+torch==2.2.0
+transformers>=4.41.0
+numpy==1.26.3
+
+# Monitoring
+elastic-apm==6.20.0
 python-json-logger==2.0.7
 structlog==24.1.0
-elastic-apm==6.20.0
 
-# ==============================================================================
-# SECURITY
-# ==============================================================================
+# Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 slowapi==0.1.9
 
-# ==============================================================================
-# UTILITIES
-# ==============================================================================
+# Utilities
+python-dotenv==1.0.0
 tenacity==8.2.3
+httpx==0.26.0
