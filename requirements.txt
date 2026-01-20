@@ -25,9 +25,9 @@ qdrant-client==1.7.0
 
 # ML & NLP (Modules 1 & 2)
 sentence-transformers==2.2.2
-torch==2.2.0
+torch>=2.0.0
 transformers>=4.41.0
-numpy==1.26.3
+numpy>=1.26.0
 
 # Monitoring
 elastic-apm==6.20.0
