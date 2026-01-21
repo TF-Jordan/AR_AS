@@ -170,8 +170,13 @@ def create_app() -> FastAPI:
             "name": settings.app_name,
             "version": settings.app_version,
             "docs": "/docs",
-            "health": f"{settings.api_prefix}/health",
+            "health": "/health",
         }
+
+    # Health endpoint (root level for Docker healthcheck)
+    @app.get("/health", tags=["Health"])
+    async def health():
+        return {"status": "healthy"}
 
     return app
 
