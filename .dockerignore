@@ -1,3 +1,7 @@
+# IMPORTANT: Inclure explicitement le dossier wheels
+!wheels/
+!wheels/*.whl
+
 # Python
 __pycache__/
 *.py[cod]
