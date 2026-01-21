@@ -1,5 +1,10 @@
 # ==============================================================================
-# Dockerfile - AR_AS Système Complet
+# Dockerfile - AR_AS (Optimisé avec wheels pré-compilés)
+# ==============================================================================
+# PREREQUIS: Créer le dossier wheels avec vos packages locaux
+#   pip wheel -w wheels/ -r requirements.txt
+#
+# Build: docker compose build
 # ==============================================================================
 
 FROM python:3.11-slim
@@ -8,17 +13,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_DEFAULT_TIMEOUT=300
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
-# Dépendances système
+# Dépendances système minimales (runtime uniquement, pas de compilation)
+# - curl: pour healthchecks
+# - libpq5: runtime pour psycopg2 (pas libpq-dev)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    build-essential \
-    gcc \
-    libpq-dev \
+    libpq5 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -26,27 +30,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -r appgroup && \
     useradd -r -g appgroup -u 1000 -d /app -s /bin/bash appuser
 
-# Copier requirements
+# Copier requirements et wheels
 COPY requirements.txt .
+COPY wheels/ /wheels/
 
-# Copier wheels si présents
-COPY wheel[s]/ /wheels/
-
-# Installer les dépendances
+# Installer depuis les wheels locaux (pas de téléchargement)
 RUN pip install --upgrade pip && \
-    if [ -d "/wheels" ] && [ "$(ls -A /wheels 2>/dev/null)" ]; then \
-        echo "=== Installation depuis wheels locaux ===" && \
-        pip install --find-links=/wheels -r requirements.txt && \
-        rm -rf /wheels; \
-    else \
-        echo "=== Installation depuis PyPI ===" && \
-        pip install -r requirements.txt; \
-    fi
+    pip install --no-index --find-links=/wheels -r requirements.txt && \
+    rm -rf /wheels
 
 # Copier le code source
 COPY src/ /app/src/
 
-# Créer les dossiers nécessaires
+# Permissions
 RUN mkdir -p /app/logs /app/data && \
     chown -R appuser:appgroup /app
 
