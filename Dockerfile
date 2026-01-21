@@ -1,9 +1,6 @@
 # ==============================================================================
 # Dockerfile - AR_AS Système Complet
 # ==============================================================================
-# Avec wheels locaux (rapide): mkdir -p wheels && pip wheel -w wheels/ -r requirements.txt
-# Sans wheels (télécharge):    docker compose build
-# ==============================================================================
 
 FROM python:3.11-slim
 
@@ -32,7 +29,7 @@ RUN groupadd -r appgroup && \
 # Copier requirements
 COPY requirements.txt .
 
-# Copier wheels si présents (utiliser * pour éviter erreur si absent)
+# Copier wheels si présents
 COPY wheel[s]/ /wheels/
 
 # Installer les dépendances
@@ -59,8 +56,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "src.api.app:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "4", \
-     "--log-level", "info"]
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--log-level", "info"]
