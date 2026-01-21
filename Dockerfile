@@ -34,9 +34,9 @@ RUN groupadd -r appgroup && \
 COPY requirements.txt .
 COPY wheels/ /wheels/
 
-# Installer depuis les wheels locaux (pas de téléchargement)
+# Installer depuis les wheels locaux (télécharge uniquement les manquants)
 RUN pip install --upgrade pip && \
-    pip install --no-index --find-links=/wheels -r requirements.txt && \
+    pip install --find-links=/wheels --prefer-binary -r requirements.txt && \
     rm -rf /wheels
 
 # Copier le code source
