@@ -7,7 +7,7 @@
 # Build: docker compose build
 # ==============================================================================
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -35,8 +35,8 @@ COPY requirements.txt .
 COPY wheels/ /wheels/
 
 # Installer depuis les wheels locaux (télécharge uniquement les manquants)
-RUN pip install --upgrade pip && \
-    pip install --find-links=/wheels --prefer-binary -r requirements.txt && \
+# On installe les paquets en utilisant UNIQUEMENT le dossier local
+RUN pip install --no-index --find-links=/wheels -r requirements.txt && \
     rm -rf /wheels
 
 # Copier le code source
@@ -47,6 +47,7 @@ RUN mkdir -p /app/logs /app/data && \
     chown -R appuser:appgroup /app
 
 USER appuser
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
