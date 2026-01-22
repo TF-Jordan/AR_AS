@@ -1,11 +1,15 @@
 # ==============================================================================
 # Docker Compose - AR_AS Système Complet
 # ==============================================================================
-# Build avec réseau hôte (utilise cache apt local):
+# Build:
 #   docker compose build
 #
-# Lancement:
+# Lancement (sans monitoring):
 #   docker compose up -d
+#
+# Lancement (avec monitoring ELK + APM):
+#   docker compose --profile monitoring up -d
+#
 # ==============================================================================
 
 services:
@@ -38,6 +42,7 @@ services:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - APM_ENABLED=${APM_ENABLED:-false}
+      - APM_SERVER_URL=http://apm-server:8200
     depends_on:
       postgres:
         condition: service_healthy
@@ -200,6 +205,98 @@ services:
       - ar-as-network
     restart: unless-stopped
 
+  # ============================================================================
+  # MONITORING STACK (Profil: monitoring)
+  # Lancer avec: docker compose --profile monitoring up -d
+  # ============================================================================
+
+  # Elasticsearch - Stockage des logs et métriques
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: ar-as-elasticsearch
+    profiles:
+      - monitoring
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - cluster.name=ar-as-cluster
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - ar-as-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Kibana - Interface de visualisation
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: ar-as-kibana
+    profiles:
+      - monitoring
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - xpack.security.enabled=false
+      - SERVER_NAME=ar-as-kibana
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - ar-as-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # APM Server - Collecte des traces applicatives
+  apm-server:
+    image: docker.elastic.co/apm/apm-server:8.11.0
+    container_name: ar-as-apm
+    profiles:
+      - monitoring
+    command: >
+      apm-server -e
+        -E apm-server.host=0.0.0.0:8200
+        -E output.elasticsearch.hosts=["http://elasticsearch:9200"]
+        -E apm-server.kibana.enabled=true
+        -E apm-server.kibana.host=http://kibana:5601
+        -E setup.kibana.host=http://kibana:5601
+        -E apm-server.rum.enabled=true
+    ports:
+      - "${APM_PORT:-8200}:8200"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      kibana:
+        condition: service_healthy
+    networks:
+      - ar-as-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8200/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
 networks:
   ar-as-network:
     driver: bridge
@@ -212,3 +309,4 @@ volumes:
   postgres-data:
   redis-data:
   qdrant-data:
+  elasticsearch-data:
