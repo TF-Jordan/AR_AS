@@ -212,7 +212,7 @@ class SentimentAnalyzer:
                     "predicted_class": prediction["predicted_class"],
                     "duration_ms": round(duration_ms, 2),
                     "product_id": input_data.product_id,
-                    "product_type": input_data.product_type.value,
+                    "product_type": input_data.product_type,
                     "correlation_id": get_correlation_id(),
                 }
             )
