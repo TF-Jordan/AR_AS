@@ -287,6 +287,8 @@ services:
         condition: service_healthy
       kibana:
         condition: service_healthy
+      apm-setup:
+        condition: service_completed_successfully
     networks:
       - ar-as-network
     restart: unless-stopped
@@ -296,6 +298,32 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+
+  # APM Setup - Installation automatique de l'intégration APM
+  apm-setup:
+    image: curlimages/curl:8.5.0
+    container_name: ar-as-apm-setup
+    profiles:
+      - monitoring
+    depends_on:
+      kibana:
+        condition: service_healthy
+    networks:
+      - ar-as-network
+    restart: "no"
+    command: >
+      sh -c '
+        echo "Waiting for Kibana Fleet API...";
+        sleep 10;
+        echo "Installing APM integration...";
+        curl -s -X POST "http://kibana:5601/api/fleet/epm/packages/apm" \
+          -H "kbn-xsrf: true" \
+          -H "Content-Type: application/json" \
+          -d "{\"force\": true}" \
+          && echo " APM integration installed successfully!" \
+          || echo " APM integration installation failed (may already exist)";
+        echo "Setup complete.";
+      '
 
 networks:
   ar-as-network:
