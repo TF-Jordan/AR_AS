@@ -97,7 +97,6 @@ class SpatialFilter:
             else:
                 rejected.append({
                     "livreur_id": livreur.livreur_id,
-                    "nom_commercial": livreur.nom_commercial,
                     "raison": "hors_zone_ellipse",
                     "distance_totale_km": round(total_dist, 2),
                     "distance_max_km": round(dmax, 2),

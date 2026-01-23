@@ -29,11 +29,8 @@ class AnnonceSchema(BaseModel):
 class LivreurCandidatSchema(BaseModel):
     """Livreur candidat pour une livraison."""
     livreur_id: str = Field(..., description="Identifiant unique du livreur")
-    nom_commercial: str = Field(..., description="Nom commercial du livreur")
     position_actuelle: PointSchema = Field(..., description="Position actuelle du livreur")
     reputation: float = Field(..., ge=0, le=10, description="Réputation du livreur sur 10")
-    nombre_livraisons: int = Field(..., ge=0, description="Nombre total de livraisons effectuées")
-    taux_reussite: float = Field(..., ge=0, le=1, description="Taux de réussite (0-1)")
     type_vehicule: TypeVehicule = Field(..., description="Type de véhicule")
     capacite_volume_m3: float = Field(..., gt=0, description="Capacité du véhicule en mètres cubes")
     rayon_action_km: Optional[float] = Field(None, gt=0, description="Rayon d'action en km")
