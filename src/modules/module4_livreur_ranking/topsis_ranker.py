@@ -30,21 +30,28 @@ class TOPSISRanker:
     """
 
     def __init__(self):
-        """Initialize TOPSIS ranker."""
+        """Initialize TOPSIS ranker.
+
+        Ordre des critères (par importance):
+        1. Proximité géographique (le plus important)
+        2. Capacité de transport
+        3. Type de véhicule
+        4. Réputation
+        """
         self.criteria_names = [
             "proximite_geographique",
-            "reputation",
             "capacite",
-            "type_vehicule"
+            "type_vehicule",
+            "reputation"
         ]
 
         # Define criterion optimization direction
         # True = maximize (benefit), False = minimize (cost)
         self.is_benefit = {
-            "proximite_geographique": False,  # Lower distance is better
-            "reputation": True,               # Higher reputation is better
-            "capacite": True,                 # Higher capacity is better
-            "type_vehicule": True,            # Better vehicle type is better
+            "proximite_geographique": False,  # Lower distance is better (cost)
+            "capacite": True,                 # Higher capacity is better (benefit)
+            "type_vehicule": True,            # Better vehicle type is better (benefit)
+            "reputation": True,               # Higher reputation is better (benefit)
         }
 
     def build_decision_matrix(
@@ -77,17 +84,18 @@ class TOPSISRanker:
         for i, livreur in enumerate(livreurs):
             livreur_ids.append(livreur.livreur_id)
 
-            # Column 0: Proximité géographique (total distance in km)
+            # Ordre: [proximité, capacité, type_véhicule, réputation]
+            # Column 0: Proximité géographique (total distance in km) - COST criterion
             matrix[i, 0] = distances[livreur.livreur_id]
 
-            # Column 1: Réputation (0-10)
-            matrix[i, 1] = livreur.reputation
+            # Column 1: Capacité (volume en m³) - BENEFIT criterion
+            matrix[i, 1] = livreur.capacite_volume_m3
 
-            # Column 2: Capacité (volume en m³)
-            matrix[i, 2] = livreur.capacite_volume_m3
+            # Column 2: Type véhicule (score 0-1) - BENEFIT criterion
+            matrix[i, 2] = VEHICLE_TYPE_SCORES[livreur.type_vehicule]
 
-            # Column 3: Type véhicule (score 0-1)
-            matrix[i, 3] = VEHICLE_TYPE_SCORES[livreur.type_vehicule]
+            # Column 3: Réputation (0-10) - BENEFIT criterion
+            matrix[i, 3] = livreur.reputation
 
         logger.debug(f"Decision matrix shape: {matrix.shape}")
         logger.debug(f"Decision matrix:\n{matrix}")
@@ -136,12 +144,12 @@ class TOPSISRanker:
         Returns:
             Weighted normalized matrix (m x n)
         """
-        # Create weight vector in correct order
+        # Create weight vector in correct order: [proximité, capacité, type_véhicule, réputation]
         weight_vector = np.array([
             weights["proximite_geographique"],
-            weights["reputation"],
             weights["capacite"],
-            weights["type_vehicule"]
+            weights["type_vehicule"],
+            weights["reputation"]
         ])
 
         # Multiply each column by its weight
@@ -312,23 +320,24 @@ class TOPSISRanker:
                 "score_final": float(scores[i]),
                 "distance_A_positive": float(distances_positive[i]),
                 "distance_A_negative": float(distances_negative[i]),
+                # Ordre: [proximité, capacité, type_véhicule, réputation]
                 "criteres_valeurs": {
                     "proximite_geographique": float(decision_matrix[i, 0]),
-                    "reputation": float(decision_matrix[i, 1]),
-                    "capacite": float(decision_matrix[i, 2]),
-                    "type_vehicule": float(decision_matrix[i, 3]),
+                    "capacite": float(decision_matrix[i, 1]),
+                    "type_vehicule": float(decision_matrix[i, 2]),
+                    "reputation": float(decision_matrix[i, 3]),
                 },
                 "criteres_normalises": {
                     "proximite_geographique": float(normalized_matrix[i, 0]),
-                    "reputation": float(normalized_matrix[i, 1]),
-                    "capacite": float(normalized_matrix[i, 2]),
-                    "type_vehicule": float(normalized_matrix[i, 3]),
+                    "capacite": float(normalized_matrix[i, 1]),
+                    "type_vehicule": float(normalized_matrix[i, 2]),
+                    "reputation": float(normalized_matrix[i, 3]),
                 },
                 "criteres_ponderes": {
                     "proximite_geographique": float(weighted_matrix[i, 0]),
-                    "reputation": float(weighted_matrix[i, 1]),
-                    "capacite": float(weighted_matrix[i, 2]),
-                    "type_vehicule": float(weighted_matrix[i, 3]),
+                    "capacite": float(weighted_matrix[i, 1]),
+                    "type_vehicule": float(weighted_matrix[i, 2]),
+                    "reputation": float(weighted_matrix[i, 3]),
                 },
             }
             results.append(result)

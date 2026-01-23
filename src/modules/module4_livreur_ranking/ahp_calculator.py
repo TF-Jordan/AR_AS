@@ -2,6 +2,12 @@
 AHP Calculator - Phase 2 of Module 4
 
 Implements Analytic Hierarchy Process (AHP) for calculating criteria weights.
+
+Ordre des critères:
+1. Proximité géographique (le plus important)
+2. Capacité de transport
+3. Type de véhicule
+4. Réputation
 """
 
 import logging
@@ -27,6 +33,8 @@ class AHPCalculator:
     1. Build pairwise comparison matrix
     2. Calculate weights (eigenvector method or column averaging)
     3. Check consistency (CR < 0.1)
+
+    Ordre des critères: [proximité, capacité, type_véhicule, réputation]
     """
 
     def __init__(self):
@@ -40,8 +48,6 @@ class AHPCalculator:
         """
         Build the pairwise comparison matrix for the given delivery type.
 
-        The matrix is constructed from predefined comparisons in AHP_MATRICES.
-
         Args:
             type_livraison: Type of delivery (standard/express/sameday)
 
@@ -49,12 +55,12 @@ class AHPCalculator:
             4x4 comparison matrix A where A[i,j] represents the importance
             of criterion i relative to criterion j
 
-        Matrix structure:
-                    Prox    Rep     Cap     Type
+        Matrix structure (ordre: proximité, capacité, type_véhicule, réputation):
+                    Prox    Cap     Type    Rep
             Prox    1       a12     a13     a14
-            Rep     1/a12   1       a23     a24
-            Cap     1/a13   1/a23   1       a34
-            Type    1/a14   1/a24   1/a34   1
+            Cap     1/a12   1       a23     a24
+            Type    1/a13   1/a23   1       a34
+            Rep     1/a14   1/a24   1/a34   1
         """
         # Get predefined comparisons for this delivery type
         comparisons = AHP_MATRICES[type_livraison]
@@ -63,17 +69,17 @@ class AHPCalculator:
         matrix = np.ones((4, 4))
 
         # Fill upper triangle
-        # Proximité vs others
-        matrix[0, 1] = comparisons["proximite_vs_reputation"]
-        matrix[0, 2] = comparisons["proximite_vs_capacite"]
-        matrix[0, 3] = comparisons["proximite_vs_type_vehicule"]
+        # Row 0: Proximité vs autres
+        matrix[0, 1] = comparisons["proximite_vs_capacite"]
+        matrix[0, 2] = comparisons["proximite_vs_type_vehicule"]
+        matrix[0, 3] = comparisons["proximite_vs_reputation"]
 
-        # Réputation vs others
-        matrix[1, 2] = comparisons["reputation_vs_capacite"]
-        matrix[1, 3] = comparisons["reputation_vs_type_vehicule"]
+        # Row 1: Capacité vs autres
+        matrix[1, 2] = comparisons["capacite_vs_type_vehicule"]
+        matrix[1, 3] = comparisons["capacite_vs_reputation"]
 
-        # Capacité vs Type
-        matrix[2, 3] = comparisons["capacite_vs_type_vehicule"]
+        # Row 2: Type véhicule vs réputation
+        matrix[2, 3] = comparisons["type_vehicule_vs_reputation"]
 
         # Fill lower triangle (reciprocal values)
         for i in range(4):
@@ -144,7 +150,6 @@ class AHPCalculator:
         n = len(weights)
 
         # Calculate λmax
-        # Method: weighted sum / weights
         weighted_sum = matrix @ weights
         lambda_values = weighted_sum / weights
         lambda_max = lambda_values.mean()
@@ -194,12 +199,12 @@ class AHPCalculator:
         # Check consistency
         cr, is_consistent = self.check_consistency(matrix, weights_array)
 
-        # Map to criterion names
+        # Map to criterion names (ordre: proximité, capacité, type_véhicule, réputation)
         weights_dict = {
             "proximite_geographique": float(weights_array[0]),
-            "reputation": float(weights_array[1]),
-            "capacite": float(weights_array[2]),
-            "type_vehicule": float(weights_array[3]),
+            "capacite": float(weights_array[1]),
+            "type_vehicule": float(weights_array[2]),
+            "reputation": float(weights_array[3]),
         }
 
         # Consistency info

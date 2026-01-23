@@ -1,5 +1,11 @@
 """
 Constants for Module 4 - Livreur Ranking System
+
+Ordre d'importance des critères:
+1. Proximité géographique (le plus important)
+2. Capacité de transport
+3. Type de véhicule
+4. Réputation
 """
 
 from enum import Enum
@@ -24,6 +30,7 @@ class TypeVehicule(str, Enum):
     CAMION = "camion"
 
 # Vehicle type scores (for TOPSIS normalization)
+# Camion = meilleure capacité/polyvalence
 VEHICLE_TYPE_SCORES: Dict[str, float] = {
     TypeVehicule.VELO: 0.1,
     TypeVehicule.MOTO: 0.3,
@@ -45,7 +52,6 @@ SAATY_SCALE = {
 }
 
 # Random Index (RI) for AHP consistency check
-# n: number of criteria
 RANDOM_INDEX = {
     1: 0.00,
     2: 0.00,
@@ -62,41 +68,46 @@ RANDOM_INDEX = {
 # AHP Consistency Ratio threshold
 AHP_CONSISTENCY_THRESHOLD = 0.1  # CR < 0.1 is acceptable
 
-# Predefined AHP comparison matrices for each delivery type
-# Format: [proximite_vs_others, reputation_vs_others, capacite_vs_others]
-# Each value represents importance on Saaty scale (1-9)
+# =============================================================================
+# AHP COMPARISON MATRICES
+# =============================================================================
+# Ordre des critères: [proximité, capacité, type_véhicule, réputation]
+# Ordre d'importance: Proximité > Capacité > Type véhicule > Réputation
+#
+# Chaque valeur représente l'importance relative sur l'échelle de Saaty (1-9)
+# Exemple: proximite_vs_capacite = 3 signifie proximité 3x plus important que capacité
 
-# STANDARD delivery: balanced approach
+# STANDARD delivery: approche équilibrée mais proximité reste prioritaire
 AHP_MATRIX_STANDARD = {
-    # Proximité comparisons
-    "proximite_vs_reputation": 2,      # proximité légèrement plus important
-    "proximite_vs_capacite": 3,        # proximité moyennement plus important
-    "proximite_vs_type_vehicule": 5,   # proximité fortement plus important
-    # Réputation comparisons
-    "reputation_vs_capacite": 2,
-    "reputation_vs_type_vehicule": 3,
-    # Capacité comparisons
-    "capacite_vs_type_vehicule": 2,
+    # Proximité vs autres (le plus important)
+    "proximite_vs_capacite": 2,           # proximité légèrement plus important
+    "proximite_vs_type_vehicule": 3,      # proximité modérément plus important
+    "proximite_vs_reputation": 4,         # proximité fortement plus important
+    # Capacité vs autres (2ème plus important)
+    "capacite_vs_type_vehicule": 2,       # capacité légèrement plus important
+    "capacite_vs_reputation": 3,          # capacité modérément plus important
+    # Type véhicule vs réputation (3ème)
+    "type_vehicule_vs_reputation": 2,     # type légèrement plus important
 }
 
-# EXPRESS delivery: emphasis on proximity
+# EXPRESS delivery: emphase forte sur proximité
 AHP_MATRIX_EXPRESS = {
-    "proximite_vs_reputation": 4,      # proximité fortement plus important
-    "proximite_vs_capacite": 5,
-    "proximite_vs_type_vehicule": 6,
-    "reputation_vs_capacite": 2,
-    "reputation_vs_type_vehicule": 3,
+    "proximite_vs_capacite": 3,
+    "proximite_vs_type_vehicule": 4,
+    "proximite_vs_reputation": 5,
     "capacite_vs_type_vehicule": 2,
+    "capacite_vs_reputation": 3,
+    "type_vehicule_vs_reputation": 2,
 }
 
-# SAMEDAY delivery: maximum emphasis on proximity
+# SAMEDAY delivery: emphase maximale sur proximité
 AHP_MATRIX_SAMEDAY = {
-    "proximite_vs_reputation": 6,      # proximité très fortement plus important
-    "proximite_vs_capacite": 7,
-    "proximite_vs_type_vehicule": 7,
-    "reputation_vs_capacite": 2,
-    "reputation_vs_type_vehicule": 2,
-    "capacite_vs_type_vehicule": 1,    # également important
+    "proximite_vs_capacite": 4,
+    "proximite_vs_type_vehicule": 5,
+    "proximite_vs_reputation": 6,
+    "capacite_vs_type_vehicule": 2,
+    "capacite_vs_reputation": 3,
+    "type_vehicule_vs_reputation": 2,
 }
 
 # Mapping delivery type to AHP matrix
@@ -107,27 +118,31 @@ AHP_MATRICES = {
 }
 
 # Default spatial tolerance (km) by delivery type
+# Zone d'éligibilité autour de l'ellipse ramassage-livraison
 SPATIAL_TOLERANCE_KM = {
-    TypeLivraison.STANDARD: 2.5,  # Large zone
-    TypeLivraison.EXPRESS: 1.5,   # Medium zone
-    TypeLivraison.SAMEDAY: 1.0,   # Restricted zone
+    TypeLivraison.STANDARD: 2.5,  # Zone large
+    TypeLivraison.EXPRESS: 1.5,   # Zone moyenne
+    TypeLivraison.SAMEDAY: 1.0,   # Zone restreinte
 }
 
 # Default top_k results
 DEFAULT_TOP_K = 5
 
-# Criteria names (for TOPSIS)
+# =============================================================================
+# CRITERIA DEFINITIONS
+# =============================================================================
+# Ordre: [proximité, capacité, type_véhicule, réputation]
 CRITERIA_NAMES = [
-    "proximite",      # Distance (cost criterion - to minimize)
-    "reputation",     # Reputation (benefit criterion - to maximize)
-    "capacite",       # Capacity (benefit criterion - to maximize)
-    "type_vehicule",  # Vehicle type (benefit criterion - to maximize)
+    "proximite_geographique",  # Distance (cost criterion - to minimize)
+    "capacite",                # Capacity (benefit criterion - to maximize)
+    "type_vehicule",           # Vehicle type (benefit criterion - to maximize)
+    "reputation",              # Reputation (benefit criterion - to maximize)
 ]
 
-# Criteria types (True = benefit, False = cost)
+# Criteria types (True = benefit/maximize, False = cost/minimize)
 CRITERIA_TYPES = {
-    "proximite": False,       # Cost - minimize distance
-    "reputation": True,       # Benefit - maximize reputation
-    "capacite": True,         # Benefit - maximize capacity
-    "type_vehicule": True,    # Benefit - maximize vehicle capability
+    "proximite_geographique": False,  # Cost - minimize distance
+    "capacite": True,                 # Benefit - maximize capacity
+    "type_vehicule": True,            # Benefit - maximize vehicle capability
+    "reputation": True,               # Benefit - maximize reputation
 }

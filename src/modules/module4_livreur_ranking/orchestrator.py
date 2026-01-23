@@ -2,10 +2,15 @@
 Orchestrator - Main coordinator for Module 4
 
 Coordinates the livreur ranking process:
-1. Phase 1: AHP criteria weight calculation
-2. Phase 2: TOPSIS multi-criteria ranking
+1. Phase 1: Spatial filtering (ellipse method)
+2. Phase 2: AHP criteria weight calculation
+3. Phase 3: TOPSIS multi-criteria ranking
 
-Note: No spatial filtering - ALL livreurs are ranked and returned.
+Criteria order (by importance):
+1. Proximité géographique (most important)
+2. Capacité de transport
+3. Type de véhicule
+4. Réputation
 """
 
 import logging
@@ -19,6 +24,7 @@ from .schemas import (
 from .spatial_filter import SpatialFilter
 from .ahp_calculator import AHPCalculator
 from .topsis_ranker import TOPSISRanker
+from .constants import SPATIAL_TOLERANCE_KM
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +34,16 @@ class Orchestrator:
     Orchestrates the complete livreur ranking workflow.
 
     Workflow:
-    1. Calculate distances for all livreurs
-    2. Calculate criteria weights using AHP (based on delivery type)
-    3. Rank ALL candidates using TOPSIS
+    1. Phase 1: Spatial filtering using ellipse method
+    2. Phase 2: Calculate criteria weights using AHP (based on delivery type)
+    3. Phase 3: Rank eligible candidates using TOPSIS
     4. Return list of livreur IDs in ranked order
+
+    Criteria order (by importance):
+    - Proximité géographique (most important)
+    - Capacité de transport
+    - Type de véhicule
+    - Réputation (least important)
     """
 
     def __init__(self):
@@ -60,41 +72,67 @@ class Orchestrator:
         )
 
         # ============================================================
-        # PHASE 1: CALCULATE DISTANCES (for all livreurs)
+        # PHASE 1: SPATIAL FILTERING (Ellipse method)
         # ============================================================
-        logger.info("Phase 1: Calculating distances")
+        logger.info("Phase 1: Spatial filtering")
+
+        # Get tolerance based on delivery type
+        tolerance_km = SPATIAL_TOLERANCE_KM[annonce.type_livraison]
+
+        # Filter livreurs within ellipse zone
+        eligible_livreurs, rejected_livreurs = self.spatial_filter.filter_by_ellipse(
+            livreurs=livreurs,
+            point_ramassage=annonce.point_ramassage,
+            point_livraison=annonce.point_livraison,
+            tolerance_km=tolerance_km
+        )
+
+        logger.info(
+            f"Phase 1 complete: {len(eligible_livreurs)} eligible, "
+            f"{len(rejected_livreurs)} rejected (tolerance={tolerance_km}km)"
+        )
+
+        # If no eligible livreurs, return empty list
+        if not eligible_livreurs:
+            logger.warning(f"No eligible livreurs found for annonce {annonce.annonce_id}")
+            return RankingResponseSchema(livreurs_ids=[])
+
+        # ============================================================
+        # PHASE 2: CALCULATE DISTANCES (for eligible livreurs only)
+        # ============================================================
+        logger.info("Phase 2: Calculating distances for eligible livreurs")
 
         distances = self.spatial_filter.calculate_distances_for_livreurs(
-            livreurs=livreurs,
+            livreurs=eligible_livreurs,
             point_ramassage=annonce.point_ramassage,
             point_livraison=annonce.point_livraison
         )
 
-        logger.info(f"Phase 1 complete: distances calculated for {len(livreurs)} livreurs")
+        logger.info(f"Phase 2 complete: distances calculated for {len(eligible_livreurs)} livreurs")
 
         # ============================================================
-        # PHASE 2: AHP WEIGHT CALCULATION
+        # PHASE 3: AHP WEIGHT CALCULATION
         # ============================================================
-        logger.info("Phase 2: AHP weight calculation")
+        logger.info("Phase 3: AHP weight calculation")
 
         weights_dict, consistency_info = self.ahp_calculator.calculate_criteria_weights(
             type_livraison=annonce.type_livraison
         )
 
-        logger.info(f"Phase 2 complete: weights = {weights_dict}")
+        logger.info(f"Phase 3 complete: weights = {weights_dict}")
 
         # ============================================================
-        # PHASE 3: TOPSIS RANKING
+        # PHASE 4: TOPSIS RANKING
         # ============================================================
-        logger.info("Phase 3: TOPSIS ranking")
+        logger.info("Phase 4: TOPSIS ranking")
 
         topsis_results = self.topsis_ranker.rank(
-            livreurs=livreurs,
+            livreurs=eligible_livreurs,
             distances=distances,
             weights=weights_dict
         )
 
-        logger.info(f"Phase 3 complete: {len(topsis_results)} livreurs ranked")
+        logger.info(f"Phase 4 complete: {len(topsis_results)} livreurs ranked")
 
         # ============================================================
         # FORMAT RESPONSE - Just the list of IDs in ranked order
