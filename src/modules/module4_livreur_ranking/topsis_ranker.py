@@ -83,8 +83,8 @@ class TOPSISRanker:
             # Column 1: Réputation (0-10)
             matrix[i, 1] = livreur.reputation
 
-            # Column 2: Capacité (kg)
-            matrix[i, 2] = livreur.capacite_max_kg
+            # Column 2: Capacité (volume en m³)
+            matrix[i, 2] = livreur.capacite_volume_m3
 
             # Column 3: Type véhicule (score 0-1)
             matrix[i, 3] = VEHICLE_TYPE_SCORES[livreur.type_vehicule]

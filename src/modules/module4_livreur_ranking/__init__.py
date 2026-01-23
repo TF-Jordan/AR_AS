@@ -5,9 +5,9 @@ Multi-criteria decision making system for ranking delivery persons
 using AHP (Analytic Hierarchy Process) and TOPSIS methods.
 
 This module provides:
-- Spatial filtering using spherical ellipse (Haversine distance)
 - Criteria weight calculation using AHP
 - Multi-criteria ranking using TOPSIS
+- Returns ALL livreurs ranked (no filtering)
 """
 
 from .orchestrator import Orchestrator, get_orchestrator
@@ -16,7 +16,6 @@ from .schemas import (
     LivreurCandidatSchema,
     RankingRequestSchema,
     RankingResponseSchema,
-    LivreurClasseSchema,
 )
 
 __all__ = [
@@ -26,5 +25,4 @@ __all__ = [
     "LivreurCandidatSchema",
     "RankingRequestSchema",
     "RankingResponseSchema",
-    "LivreurClasseSchema",
 ]

@@ -22,6 +22,7 @@ class AnnonceSchema(BaseModel):
     point_ramassage: PointSchema = Field(..., description="Point de collecte du colis")
     point_livraison: PointSchema = Field(..., description="Point de livraison du colis")
     type_livraison: TypeLivraison = Field(..., description="Type de livraison (standard/express/sameday)")
+    volume_colis_m3: float = Field(..., gt=0, description="Volume du colis en mètres cubes")
     description: Optional[str] = Field(None, description="Description de la livraison")
 
 
@@ -34,7 +35,7 @@ class LivreurCandidatSchema(BaseModel):
     nombre_livraisons: int = Field(..., ge=0, description="Nombre total de livraisons effectuées")
     taux_reussite: float = Field(..., ge=0, le=1, description="Taux de réussite (0-1)")
     type_vehicule: TypeVehicule = Field(..., description="Type de véhicule")
-    capacite_max_kg: float = Field(..., gt=0, description="Capacité maximale en kilogrammes")
+    capacite_volume_m3: float = Field(..., gt=0, description="Capacité du véhicule en mètres cubes")
     rayon_action_km: Optional[float] = Field(None, gt=0, description="Rayon d'action en km")
 
 
@@ -156,13 +157,8 @@ class MetadataSchema(BaseModel):
 
 
 class RankingResponseSchema(BaseModel):
-    """Réponse du classement de livreurs."""
-    status: str = Field(default="success", description="Statut de la requête")
-    annonce_id: str = Field(..., description="ID de l'annonce")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp de la réponse")
-    livreurs_classes: List[LivreurClasseSchema] = Field(..., description="Liste des livreurs classés")
-    metadata: MetadataSchema = Field(..., description="Métadonnées du classement")
-    warnings: Optional[List[str]] = Field(None, description="Avertissements éventuels")
+    """Réponse du classement de livreurs - Liste des IDs classés par ordre de pertinence."""
+    livreurs_ids: List[str] = Field(..., description="Liste des IDs des livreurs classés par ordre décroissant de score")
 
 
 class ErrorResponseSchema(BaseModel):

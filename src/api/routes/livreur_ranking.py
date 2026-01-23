@@ -6,7 +6,7 @@ based on multi-criteria decision making (AHP + TOPSIS).
 """
 
 import logging
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status
 
 from src.modules.module4_livreur_ranking import (
     RankingRequestSchema,
@@ -33,44 +33,37 @@ router = APIRouter()
     multi-criteria decision making.
 
     **Process:**
-    1. **Spatial Filtering (Phase 1)**: Filters candidates based on geographic
-       proximity using spherical ellipse method
-    2. **AHP Weight Calculation (Phase 2)**: Calculates criteria weights based
+    1. **AHP Weight Calculation**: Calculates criteria weights based
        on delivery type (standard/express/sameday)
-    3. **TOPSIS Ranking (Phase 3)**: Ranks eligible candidates using TOPSIS
+    2. **TOPSIS Ranking**: Ranks ALL candidates using TOPSIS
        multi-criteria decision algorithm
 
     **Criteria:**
     - Geographic proximity (distance to pickup and delivery)
     - Reputation (rating 0-10)
-    - Capacity (max weight in kg)
+    - Capacity (volume in m³)
     - Vehicle type (velo/moto/voiture/camion)
 
-    **Response:**
-    Returns ALL delivery persons ranked by score (0-1), with detailed
-    statistics about spatial filtering and AHP weights used.
+    **Input:**
+    - Annonce with pickup/delivery points, delivery type, and package volume (m³)
+    - List of candidate livreurs with their attributes
 
-    **Query Parameters:**
-    - `include_details` (default: false): Include detailed TOPSIS calculations
-      (normalized scores, weighted scores, distances to ideal solutions)
+    **Response:**
+    Returns a simple list of livreur IDs sorted by score (best first).
+    ALL livreurs are ranked and returned - no filtering.
+
+    Example response: `{"livreurs_ids": ["livreur_3", "livreur_1", "livreur_2"]}`
     """,
 )
-async def rank_livreurs(
-    request: RankingRequestSchema,
-    include_details: bool = Query(
-        default=False,
-        description="Include detailed TOPSIS scores in response"
-    )
-) -> RankingResponseSchema:
+async def rank_livreurs(request: RankingRequestSchema) -> RankingResponseSchema:
     """
     Rank delivery persons for a delivery announcement.
 
     Args:
         request: Ranking request with announcement and candidates
-        include_details: Whether to include detailed TOPSIS calculations
 
     Returns:
-        RankingResponseSchema with ranked delivery persons
+        RankingResponseSchema with list of livreur IDs in ranked order
     """
     logger.info(
         f"Ranking request for annonce {request.annonce.annonce_id} "
@@ -78,18 +71,12 @@ async def rank_livreurs(
     )
 
     try:
-        # Get orchestrator instance
         orchestrator = get_orchestrator()
-
-        # Perform ranking
-        response = orchestrator.rank_livreurs(
-            request=request,
-            include_details=include_details
-        )
+        response = orchestrator.rank_livreurs(request=request)
 
         logger.info(
             f"Ranking complete for {request.annonce.annonce_id}: "
-            f"{len(response.livreurs_classes)} livreurs ranked"
+            f"{len(response.livreurs_ids)} livreurs ranked"
         )
 
         return response
@@ -121,10 +108,8 @@ async def health_check():
         Dict with module status and component availability
     """
     try:
-        # Verify orchestrator can be instantiated
         orchestrator = get_orchestrator()
 
-        # Verify all components are available
         components = {
             "spatial_filter": orchestrator.spatial_filter is not None,
             "ahp_calculator": orchestrator.ahp_calculator is not None,
