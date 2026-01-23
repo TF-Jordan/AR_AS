@@ -11,9 +11,8 @@ from .constants import TypeLivraison, TypeVehicule
 
 class PointSchema(BaseModel):
     """Geographic point with coordinates."""
-    latitude: float = Field(..., ge=-90, le=90, description="Latitude en degrés décimaux")
-    longitude: float = Field(..., ge=-180, le=180, description="Longitude en degrés décimaux")
-    adresse: Optional[str] = Field(None, description="Adresse textuelle (optionnel)")
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
 
 
 class AnnonceSchema(BaseModel):
