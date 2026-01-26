@@ -210,7 +210,7 @@ services:
   # Lancer avec: docker compose --profile monitoring up -d
   # ============================================================================
 
-  # Elasticsearch - Stockage des logs et métriques (avec sécurité)
+  # Elasticsearch - Stockage des logs et métriques
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: ar-as-elasticsearch
@@ -218,9 +218,8 @@ services:
       - monitoring
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=true
-      - xpack.security.authc.api_key.enabled=true
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!}
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
       - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
       - cluster.name=ar-as-cluster
       - bootstrap.memory_lock=true
@@ -236,13 +235,13 @@ services:
       - ar-as-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f -u elastic:${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!} http://localhost:9200/_cluster/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
 
-  # Kibana - Interface de visualisation (avec authentification)
+  # Kibana - Interface de visualisation
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.0
     container_name: ar-as-kibana
@@ -250,19 +249,16 @@ services:
       - monitoring
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - ELASTICSEARCH_USERNAME=kibana_system
-      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD:-Ar@s_Kibana_2024!}
-      - xpack.security.enabled=true
-      - xpack.fleet.enabled=true
-      - xpack.fleet.agents.enabled=true
+      - xpack.security.enabled=false
+      - xpack.fleet.enabled=false
+      - xpack.fleet.agents.enabled=false
+      - xpack.observability_ai_assistant.enabled=false
       - SERVER_NAME=ar-as-kibana
     ports:
       - "${KIBANA_PORT:-5601}:5601"
     depends_on:
       elasticsearch:
         condition: service_healthy
-      es-setup:
-        condition: service_completed_successfully
     networks:
       - ar-as-network
     restart: unless-stopped
@@ -271,57 +267,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 90s
+      start_period: 60s
 
-  # Setup container - Configure les utilisateurs Elasticsearch
-  es-setup:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: ar-as-es-setup
-    profiles:
-      - monitoring
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    environment:
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!}
-      - KIBANA_PASSWORD=${KIBANA_PASSWORD:-Ar@s_Kibana_2024!}
-      - APM_PASSWORD=${APM_PASSWORD:-Ar@s_Apm_2024!}
-    command: >
-      bash -c '
-        echo "Waiting for Elasticsearch to be ready..."
-        until curl -s -u elastic:$${ELASTIC_PASSWORD} http://elasticsearch:9200 | grep -q "cluster_name"; do
-          sleep 5
-        done
-        echo "Setting up kibana_system user..."
-        curl -s -X POST -u elastic:$${ELASTIC_PASSWORD} \
-          -H "Content-Type: application/json" \
-          http://elasticsearch:9200/_security/user/kibana_system/_password \
-          -d "{\"password\":\"$${KIBANA_PASSWORD}\"}"
-        echo ""
-        echo "Setting up apm_system user..."
-        curl -s -X POST -u elastic:$${ELASTIC_PASSWORD} \
-          -H "Content-Type: application/json" \
-          http://elasticsearch:9200/_security/user/apm_system/_password \
-          -d "{\"password\":\"$${APM_PASSWORD}\"}"
-        echo ""
-        echo "Creating apm_writer role..."
-        curl -s -X PUT -u elastic:$${ELASTIC_PASSWORD} \
-          -H "Content-Type: application/json" \
-          http://elasticsearch:9200/_security/role/apm_writer \
-          -d "{\"cluster\":[\"monitor\",\"manage_index_templates\",\"manage_ilm\"],\"indices\":[{\"names\":[\"apm-*\",\"logs-apm*\",\"metrics-apm*\",\"traces-apm*\"],\"privileges\":[\"create_index\",\"create\",\"write\",\"view_index_metadata\"]}]}"
-        echo ""
-        echo "Creating apm_user..."
-        curl -s -X PUT -u elastic:$${ELASTIC_PASSWORD} \
-          -H "Content-Type: application/json" \
-          http://elasticsearch:9200/_security/user/apm_user \
-          -d "{\"password\":\"$${APM_PASSWORD}\",\"roles\":[\"apm_system\",\"apm_writer\"],\"full_name\":\"APM Server User\"}"
-        echo ""
-        echo "Setup complete!"
-      '
-    networks:
-      - ar-as-network
-
-  # APM Server - Collecte des traces applicatives (avec authentification)
+  # APM Server - Collecte des traces applicatives (mode standalone)
   apm-server:
     image: docker.elastic.co/apm/apm-server:8.11.0
     container_name: ar-as-apm
@@ -331,22 +279,16 @@ services:
       apm-server -e
         -E apm-server.host=0.0.0.0:8200
         -E output.elasticsearch.hosts=["http://elasticsearch:9200"]
-        -E output.elasticsearch.username=apm_user
-        -E output.elasticsearch.password=${APM_PASSWORD:-Ar@s_Apm_2024!}
         -E apm-server.rum.enabled=true
         -E setup.template.enabled=true
         -E setup.template.settings.index.number_of_replicas=0
-        -E apm-server.kibana.enabled=true
-        -E apm-server.kibana.host=http://kibana:5601
-        -E apm-server.kibana.username=elastic
-        -E apm-server.kibana.password=${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!}
+        -E apm-server.kibana.enabled=false
+        -E monitoring.enabled=false
     ports:
       - "${APM_PORT:-8200}:8200"
     depends_on:
       elasticsearch:
         condition: service_healthy
-      es-setup:
-        condition: service_completed_successfully
     networks:
       - ar-as-network
     restart: unless-stopped
@@ -355,7 +297,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 30s
 
 networks:
   ar-as-network:
