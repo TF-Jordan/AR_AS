@@ -1,0 +1,1514 @@
+%!TEX encoding = UTF-8 Unicode
+%!TEX program = xelatex
+% ============================================================================
+%                    RAPPORT DE PROJET AR_AS - VERSION PREMIUM
+%              Analyse de Reviews & Annonces de Services
+%                     Design Professionnel Tech-Inspired
+% ============================================================================
+\documentclass[11pt,a4paper]{report}
+% ============================================================================
+%                              PACKAGES ESSENTIELS
+% ============================================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+% Graphiques et médias
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption}
+% Mathématiques
+\usepackage{amsmath}
+\usepackage{amssymb}
+% Tableaux avancés
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{colortbl}
+\usepackage{multirow}
+% Listes
+\usepackage{enumitem}
+% TikZ pour graphiques vectoriels
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shadows, shapes.geometric, arrows.meta, fit, backgrounds}
+% Stylisation avancée
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{fancyhdr}
+\usepackage{caption}
+% Boîtes colorées
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+% Polices et icônes
+\usepackage{fontawesome5}
+% Code source
+\usepackage{listings}
+\usepackage{xcolor}
+% Hyperliens
+\usepackage{hyperref}
+\usepackage{xurl}
+\Urlmuskip=0mu plus 1mu
+% ============================================================================
+%                         PALETTE DE COULEURS PREMIUM
+% ============================================================================
+% Couleurs principales
+\definecolor{arasPrimary}{RGB}{37, 99, 235}
+\definecolor{arasDark}{RGB}{30, 64, 175}
+\definecolor{arasLight}{RGB}{219, 234, 254}
+\definecolor{arasAccent}{RGB}{16, 185, 129}
+\definecolor{arasWarm}{RGB}{245, 158, 11}
+% Couleurs neutres
+\definecolor{arasGray900}{RGB}{17, 24, 39}
+\definecolor{arasGray700}{RGB}{55, 65, 81}
+\definecolor{arasGray500}{RGB}{107, 114, 128}
+\definecolor{arasGray300}{RGB}{209, 213, 219}
+\definecolor{arasGray100}{RGB}{243, 244, 246}
+\definecolor{arasWhite}{RGB}{255, 255, 255}
+% Couleurs sémantiques
+\definecolor{arasSuccess}{RGB}{34, 197, 94}
+\definecolor{arasWarning}{RGB}{234, 179, 8}
+\definecolor{arasError}{RGB}{239, 68, 68}
+% ============================================================================
+%                         CONFIGURATION DES HYPERLIENS
+% ============================================================================
+\hypersetup{
+    colorlinks=true,
+    linkcolor=arasDark,
+    urlcolor=arasPrimary,
+    citecolor=arasDark,
+    bookmarksnumbered=true
+}
+% ============================================================================
+%                         CONFIGURATION DU CODE SOURCE
+% ============================================================================
+\lstdefinestyle{codestyle}{
+    backgroundcolor=\color{arasGray100},
+    commentstyle=\color{arasGray500}\itshape,
+    keywordstyle=\color{arasPrimary}\bfseries,
+    stringstyle=\color{arasAccent},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    rulecolor=\color{arasGray300},
+    numbers=left,
+    numberstyle=\tiny\color{arasGray500},
+    captionpos=b,
+    tabsize=2
+}
+\lstset{style=codestyle}
+% ============================================================================
+%                         BOÎTES PERSONNALISÉES PREMIUM
+% ============================================================================
+% Boîte d'information élégante
+\newtcolorbox{infobox}[1][]{
+    enhanced, breakable,
+    colback=arasLight,
+    colframe=arasPrimary,
+    boxrule=0pt, leftrule=4pt,
+    arc=0pt, outer arc=0pt,
+    left=12pt, right=12pt, top=10pt, bottom=10pt,
+    #1
+}
+% Boîte de définition avec titre
+\newtcolorbox{definitionbox}[1][]{
+    enhanced, breakable,
+    colback=arasGray100,
+    colframe=arasGray300,
+    fonttitle=\bfseries\sffamily,
+    title=#1,
+    boxrule=1pt, arc=6pt,
+    left=12pt, right=12pt, top=8pt, bottom=8pt,
+    attach boxed title to top left={yshift=-3mm, xshift=10pt},
+    boxed title style={colback=arasPrimary, arc=3pt}
+}
+% Boîte pour les processus
+\newtcolorbox{processbox}[1][]{
+    enhanced, breakable,
+    colback=arasWhite,
+    colframe=arasGray300,
+    boxrule=1pt, arc=8pt,
+    left=15pt, right=15pt, top=12pt, bottom=12pt,
+    shadow={2pt}{-2pt}{0pt}{arasGray300},
+    #1
+}
+% Boîte d'alerte
+\newtcolorbox{alertbox}[1][]{
+    enhanced, breakable,
+    colback=arasWarm!10,
+    colframe=arasWarm,
+    boxrule=0pt, leftrule=4pt,
+    arc=0pt, left=12pt, right=12pt, top=10pt, bottom=10pt,
+    #1
+}
+% Boîte de succès
+\newtcolorbox{successbox}[1][]{
+    enhanced, breakable,
+    colback=arasSuccess!10,
+    colframe=arasSuccess,
+    boxrule=0pt, leftrule=4pt,
+    arc=0pt, left=12pt, right=12pt, top=10pt, bottom=10pt,
+    #1
+}
+% ============================================================================
+%                         STYLE DES CHAPITRES - PREMIUM
+% ============================================================================
+\titleformat{\chapter}[display]
+    {\normalfont\huge\bfseries\sffamily}
+    {\begin{tikzpicture}[remember picture, overlay]
+        \fill[arasPrimary] (current page.north west) rectangle ([yshift=-3cm]current page.north east);
+        \fill[arasAccent] ([yshift=-3cm]current page.north west) rectangle ([yshift=-3.15cm]current page.north east);
+        \node[anchor=east, text=arasWhite, font=\fontsize{72}{80}\selectfont\bfseries\sffamily]
+            at ([xshift=-2cm, yshift=-1.5cm]current page.north east) {\thechapter};
+    \end{tikzpicture}}
+    {0pt}
+    {\vspace{2cm}\textcolor{arasDark}}
+    [\vspace{0.5cm}{\color{arasGray300}\titlerule[2pt]}]
+\titleformat{name=\chapter,numberless}[display]
+    {\normalfont\huge\bfseries\sffamily}
+    {\begin{tikzpicture}[remember picture, overlay]
+        \fill[arasPrimary] (current page.north west) rectangle ([yshift=-2cm]current page.north east);
+        \fill[arasAccent] ([yshift=-2cm]current page.north west) rectangle ([yshift=-2.1cm]current page.north east);
+    \end{tikzpicture}}
+    {0pt}
+    {\vspace{1cm}\textcolor{arasDark}}
+    [\vspace{0.5cm}{\color{arasGray300}\titlerule[2pt]}]
+\titlespacing*{\chapter}{0pt}{0pt}{40pt}
+% ============================================================================
+%                         STYLE DES SECTIONS
+% ============================================================================
+\titleformat{\section}
+    {\normalfont\Large\bfseries\sffamily\color{arasPrimary}}
+    {\colorbox{arasPrimary}{\textcolor{arasWhite}{\hspace{8pt}\thesection\hspace{8pt}}}\hspace{12pt}}
+    {0pt}{}
+    [{\color{arasGray300}\titlerule[1pt]}]
+\titlespacing*{\section}{0pt}{30pt}{15pt}
+\titleformat{\subsection}
+    {\normalfont\large\bfseries\sffamily\color{arasDark}}
+    {\textcolor{arasPrimary}{\thesubsection}\hspace{10pt}}
+    {0pt}{}
+\titlespacing*{\subsection}{0pt}{20pt}{10pt}
+\titleformat{\subsubsection}
+    {\normalfont\normalsize\bfseries\sffamily\color{arasGray700}}
+    {\textcolor{arasAccent}{\thesubsubsection}\hspace{8pt}}
+    {0pt}{}
+% ============================================================================
+%                         STYLE TABLE DES MATIÈRES
+% ============================================================================
+\renewcommand{\cfttoctitlefont}{\Huge\bfseries\sffamily\color{arasDark}}
+\renewcommand{\cftchapfont}{\bfseries\sffamily\color{arasPrimary}}
+\renewcommand{\cftchappagefont}{\bfseries\color{arasPrimary}}
+\renewcommand{\cftsecfont}{\sffamily\color{arasGray900}}
+\renewcommand{\cftsubsecfont}{\sffamily\color{arasGray500}}
+\setlength{\cftbeforechapskip}{12pt}
+\setlength{\cftbeforesecskip}{6pt}
+\renewcommand{\cftloftitlefont}{\Huge\bfseries\sffamily\color{arasDark}}
+\renewcommand{\cftfigfont}{\sffamily Figure }
+\renewcommand{\cftlottitlefont}{\Huge\bfseries\sffamily\color{arasDark}}
+\renewcommand{\cfttabfont}{\sffamily Tableau }
+% ============================================================================
+%                         STYLE DES LÉGENDES
+% ============================================================================
+\captionsetup{
+    labelfont={bf, sf, color=arasPrimary},
+    textfont={sf, color=arasGray700},
+    labelsep=period,
+    justification=centering,
+    font=small, skip=10pt
+}
+% ============================================================================
+%                         EN-TÊTES ET PIEDS DE PAGE
+% ============================================================================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\sffamily\small\textcolor{arasGray500}{\leftmark}}
+\fancyhead[R]{\sffamily\small\textcolor{arasPrimary}{\textbf{AR\_AS}}}
+\fancyfoot[C]{\begin{tikzpicture}[baseline]
+    \node[fill=arasPrimary, text=arasWhite, rounded corners=3pt, inner sep=5pt, font=\sffamily\small\bfseries] {\thepage};
+\end{tikzpicture}}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\headrule}{\vspace{2pt}{\color{arasGray300}\hrule height 1pt}\vspace{1pt}{\color{arasAccent}\hrule height 2pt width 0.3\textwidth}}
+\fancypagestyle{plain}{
+    \fancyhf{}
+    \fancyfoot[C]{\begin{tikzpicture}[baseline]
+        \node[fill=arasPrimary, text=arasWhite, rounded corners=3pt, inner sep=5pt, font=\sffamily\small\bfseries] {\thepage};
+    \end{tikzpicture}}
+    \renewcommand{\headrulewidth}{0pt}
+}
+% ============================================================================
+%                         LISTES PERSONNALISÉES
+% ============================================================================
+\setlist[itemize,1]{label=\textcolor{arasPrimary}{\faChevronRight}, leftmargin=*, itemsep=6pt}
+\setlist[itemize,2]{label=\textcolor{arasAccent}{$\circ$}, leftmargin=*, itemsep=4pt}
+\setlist[enumerate,1]{label=\protect\circlednum{\arabic*}, leftmargin=*, itemsep=8pt}
+\newcommand*\circlednum[1]{\tikz[baseline=(char.base)]{\node[shape=circle, fill=arasPrimary, text=arasWhite, inner sep=2pt, font=\sffamily\small\bfseries] (char) {#1};}}
+% ============================================================================
+%                         COMMANDES UTILITAIRES
+% ============================================================================
+\newcommand{\concept}[1]{\textcolor{arasPrimary}{\textbf{#1}}}
+\newcommand{\tech}[1]{\texttt{\textcolor{arasDark}{#1}}}
+\newcommand{\flowto}{\textcolor{arasAccent}{\faArrowRight}}
+\newcommand{\statusok}{\textcolor{arasSuccess}{\faCheckCircle}}
+\newcommand{\statuswarn}{\textcolor{arasWarning}{\faExclamationTriangle}}
+\newcommand{\statusno}{\textcolor{arasError}{\faTimesCircle}}
+\newcommand{\elegantsep}{\begin{center}\vspace{10pt}\textcolor{arasGray300}{\rule{0.2\textwidth}{0.5pt}\hspace{10pt}\textcolor{arasAccent}{\faStar}\hspace{10pt}\rule{0.2\textwidth}{0.5pt}}\vspace{10pt}\end{center}}
+% ============================================================================
+%                              DOCUMENT
+% ============================================================================
+\begin{document}
+% ============================================================================
+%                         PAGE DE TITRE PREMIUM
+% ============================================================================
+\begin{titlepage}
+    \begin{tikzpicture}[remember picture, overlay]
+        \fill[arasGray900] (current page.south west) rectangle (current page.north east);
+        \fill[arasPrimary, opacity=0.8] (current page.north west) -- ++(0,-8) -- ++(21,0) -- ++(0,8) -- cycle;
+        \fill[arasDark, opacity=0.9] (current page.north west) -- ++(0,-6) -- ++(15,0) -- ++(6,-2) -- ++(0,8) -- cycle;
+        \foreach \x/\y/\r/\o in {15/-5/3/0.1, 18/-8/2/0.15, 3/-12/4/0.08, 17/-18/2.5/0.12} {
+            \fill[arasAccent, opacity=\o] (\x,-\y) circle (\r);
+        }
+        \draw[arasAccent, line width=2pt, opacity=0.5] (0,-10) -- (21,-10);
+        \node[anchor=center] at (10.5,-4) {
+            \begin{tikzpicture}
+                \node[circle, fill=arasWhite, minimum size=3cm, opacity=0.1] {};
+                \node[circle, fill=arasAccent, minimum size=2cm, opacity=0.2] {};
+                \node[text=arasWhite, font=\fontsize{48}{50}\selectfont] {\faServer};
+            \end{tikzpicture}
+        };
+        \node[anchor=center, text=arasWhite] at (10.5,-9) {
+            \begin{minipage}{16cm}
+                \centering
+                {\fontsize{14}{16}\selectfont\sffamily\textcolor{arasAccent}{RAPPORT DE PROJET}}\\[0.8cm]
+                {\fontsize{56}{60}\selectfont\bfseries\sffamily Système de Recommandation \& Ranking Multi-Critères}\\[0.5cm]
+                {\color{arasGray300}\rule{8cm}{1pt}}\\[1cm]
+                {\fontsize{18}{22}\selectfont\sffamily Administration Réseau}
+            \end{minipage}
+        };
+        \node[anchor=south, text=arasWhite] at (10.5,-26) {
+            \begin{minipage}{16cm}
+                \centering
+                \begin{tikzpicture}
+                    \node[fill=arasGray700, rounded corners=8pt, inner sep=15pt] {
+                        \begin{tabular}{c@{\hspace{3cm}}c@{\hspace{3cm}}c}
+                            \textcolor{arasAccent}{\faUsers} & \textcolor{arasAccent}{\faCalendarAlt} & \textcolor{arasAccent}{\faMicrochip} \\[5pt]
+                            \textcolor{arasWhite}{\sffamily\small Administration} &
+                            \textcolor{arasWhite}{\sffamily\small Janvier 2026} &
+                            \textcolor{arasWhite}{\sffamily\small FastAPI \& Docker}\\
+                            \textcolor{arasWhite}{\sffamily\small Réseaux \& Systèmes} & &
+                        \end{tabular}
+                    };
+                \end{tikzpicture}
+            \end{minipage}
+        };
+    \end{tikzpicture}
+\end{titlepage}
+% ============================================================================
+%                              RÉSUMÉ
+% ============================================================================
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+\begin{infobox}
+Le projet \concept{AR\_AS} (Analyse de Reviews \& Annonces de Services) est une plateforme d'intelligence artificielle développée dans le cadre du cours d'Administration Réseaux et Systèmes. Elle combine des techniques avancées d'analyse de sentiments, de recommandation par recherche vectorielle sémantique, et de ranking multicritères pour offrir deux services principaux : la recommandation intelligente de véhicules et le classement objectif de livreurs.
+\end{infobox}
+\vspace{0.5cm}
+Ce système exploite une architecture microservices conteneurisée, déployée via \concept{Docker} et \concept{Docker Compose}. Le cœur applicatif repose sur une API \tech{FastAPI} performante, couplée à des modèles de Machine Learning (\tech{distil-camembert} pour l'analyse NLP en français, \tech{mpnet-base-v2} pour la génération d'embeddings) et à des algorithmes d'aide à la décision multicritères (\tech{AHP} et \tech{TOPSIS}).
+\elegantsep
+L'infrastructure de données comprend \concept{PostgreSQL} pour le stockage relationnel, \concept{Redis} pour la mise en cache et le message brokering, et \concept{Qdrant} comme base de données vectorielle pour la recherche de similarité ultra-rapide. L'orchestration des tâches asynchrones est assurée par \concept{Celery}, tandis que la stack \concept{ELK} (Elasticsearch, Logstash, Kibana) avec \concept{APM} fournit une observabilité complète.
+Les performances mesurées montrent des temps de réponse de \textbf{185ms} en moyenne (2ms avec cache), un taux de succès du cache de \textbf{75\%}, et une capacité à traiter plus de \textbf{1000 requêtes par minute}.
+\begin{processbox}
+\textbf{\textcolor{arasPrimary}{\faTags\ Mots-clés :}} recommandation IA, analyse de sentiments, ranking multicritères, AHP, TOPSIS, FastAPI, Docker, microservices, NLP
+\end{processbox}
+% ============================================================================
+%                              ABSTRACT
+% ============================================================================
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\begin{infobox}
+The \concept{AR\_AS} (Reviews Analysis \& Service Announcements) project is an artificial intelligence platform developed as part of the Network and Systems Administration course. It combines advanced sentiment analysis techniques, semantic vector search-based recommendation, and multi-criteria ranking to provide two main services: intelligent vehicle recommendation and objective delivery driver ranking.
+\end{infobox}
+\vspace{0.5cm}
+This system leverages a containerized microservices architecture, deployed via \concept{Docker} and \concept{Docker Compose}. The application core relies on a high-performance \tech{FastAPI} API, coupled with Machine Learning models (\tech{distil-camembert} for French NLP analysis, \tech{mpnet-base-v2} for embedding generation) and multi-criteria decision-making algorithms (\tech{AHP} and \tech{TOPSIS}).
+\elegantsep
+The data infrastructure includes \concept{PostgreSQL} for relational storage, \concept{Redis} for caching and message brokering, and \concept{Qdrant} as a vector database for ultra-fast similarity search. Asynchronous task orchestration is handled by \concept{Celery}, while the \concept{ELK} stack (Elasticsearch, Logstash, Kibana) with \concept{APM} provides complete observability.
+Measured performance shows average response times of \textbf{185ms} (2ms with cache), a cache hit rate of \textbf{75\%}, and capacity to handle over \textbf{1000 requests per minute}.
+\begin{processbox}
+\textbf{\textcolor{arasPrimary}{\faTags\ Keywords:}} AI recommendation, sentiment analysis, multi-criteria ranking, AHP, TOPSIS, FastAPI, Docker, microservices, NLP
+\end{processbox}
+\newpage
+\tableofcontents
+\newpage
+\listoffigures
+\newpage
+\listoftables
+% ============================================================================
+%                              INTRODUCTION
+% ============================================================================
+\chapter*{Introduction}
+\addcontentsline{toc}{chapter}{Introduction}
+\section*{Contexte du projet}
+Dans le cadre du cours d'\concept{Administration Réseaux et Systèmes}, ce projet vise à concevoir et déployer une infrastructure complète intégrant des services modernes, une architecture distribuée, et des bonnes pratiques DevOps. L'objectif pédagogique est de mettre en pratique les concepts de conteneurisation, d'orchestration de services, de monitoring avancé, et de développement d'APIs performantes.
+Le domaine applicatif choisi est celui de la \concept{recommandation intelligente} et du \concept{ranking multicritères}, deux problématiques réelles rencontrées dans les plateformes de e-commerce et de logistique.
+\section*{Objectifs du projet}
+\begin{enumerate}
+    \item \textbf{Recommandation IA de véhicules} : Analyser les sentiments des commentaires clients et recommander les véhicules les plus adaptés via recherche vectorielle sémantique.
+    \item \textbf{Ranking de livreurs} : Classer objectivement les livreurs candidats pour une livraison selon des critères multiples (proximité, réputation, capacité, type de véhicule) en utilisant les méthodes AHP et TOPSIS.
+    \item \textbf{Monitoring avancé} : Déployer une stack de monitoring complète (ELK + APM) pour l'observabilité du système.
+\end{enumerate}
+\section*{Portée du document}
+Ce rapport présente l'analyse des besoins, la conception architecturale, les choix d'implémentation, les stratégies de déploiement, et les résultats de tests du système AR\_AS.
+% ============================================================================
+%                    CHAPITRE 1 : ANALYSE ET SPÉCIFICATIONS
+% ============================================================================
+\chapter{PHASE D'ANALYSE}
+
+\section{Présentation générale du projet}
+
+Ce projet vise a concevoir implementer et deployer  une plateforme intelligente qui exploite les techniques d'intelligence artificielle et d'aide a la décision multicritère pour résoudre deux problématiques majeures du domaine de la mobilité et de la logistique :
+
+\begin{itemize}
+    \item \textbf{La recommandation de véhicules} : Permettre aux utilisateurs d'avoir des recommandations sur des véhicules adaptés à leurs besoins en analysant automatiquement les avis clients et en effectuant une recherche sémantique basée sur des embeddings vectoriels.
+    \item \textbf{Le classement de livreurs} : Proposer un ranking objectif et multicritères des livreurs disponibles pour une livraison, en s'appuyant sur des méthodes d'aide à la décision reconnues (AHP et TOPSIS).
+\end{itemize}
+
+\begin{processbox}
+    \textbf{\textcolor{arasPrimary}{\faLightbulb\ Vision du projet :}} Créer un système de recommandation et de classement \textit{end-to-end}, de la collecte de données à la visualisation des résultats, en passant par l'analyse NLP, le calcul vectoriel et l'orchestration des tâches, le tout déployé dans une infrastructure conteneurisée et monitorée.
+\end{processbox}
+
+\section{Description du contexte}
+
+Dans un environnement numérique en constante expansion, où les plateformes de services se multiplient et où les utilisateurs sont confrontés à une abondance de choix, la capacité à prendre des décisions éclairées devient un enjeu majeur. Qu'il s'agisse de choisir un véhicule de location adapté à ses besoins ou de sélectionner le livreur le plus fiable pour une commande, les utilisateurs recherchent des outils capables de les guider efficacement dans leurs décisions, en s'appuyant sur des données objectives et des critères pertinents.\\
+
+Ce projet s'inscrit dans cette dynamique en proposant une plateforme intelligente d'aide à la décision, destinée principalement aux \concept{gestionnaires de plateformes de mobilité et de logistique} qu'il s'agisse de services de location de véhicules, de livraison à domicile, de e-commerce ou de transport de marchandises.\\
+
+Ces gestionnaires font face à des défis auquels s'adresse directement le projet :\\
+
+\begin{enumerate}
+    \item \textbf{La recommandation intelligente de véhicules:} Lorsqu'un client recherche un véhicule, le système ne doit pas se contenter de lui proposer une liste exhaustive : il doit analyser automatiquement les avis clients associés à chaque véhicule et recommander les options les plus pertinentes en fonction de la qualité perçue et de la similarité sémantique avec le besoin exprimé. Ainsi, le client reçoit une sélection ciblée, basée sur des données objectives plutôt que sur une navigation fastidieuse.
+
+\item \textbf{Le classement objectif des livreurs: } Lorsqu'une livraison doit être effectuée, le choix du livreur ne peut être laissé au hasard. Il doit tenir compte de plusieurs critères souvent contradictoires : la proximité géographique, la réputation basée sur les évaluations passées, la capacité de transport disponible, et le type de véhicule utilisé.\\
+\end{enumerate}
+
+Ainsi, la conception d'une plateforme telle plateforme offre de nombreux avantages :
+
+\begin{itemize}
+
+    \item \textbf{Une prise de décision automatisée et objective :} Grâce à l'analyse automatique des sentiments et aux algorithmes de décision multicritères (AHP et TOPSIS), la plateforme élimine la subjectivité humaine et produit des recommandations basées sur des données quantifiables et des méthodes scientifiquement reconnues.
+
+    \item \textbf{Un gain de temps considérable :} Plutôt que de parcourir manuellement des dizaines d'avis clients ou de comparer laborieusement les profils de livreurs, l'utilisateur obtient en quelques millisecondes une liste triée et pertinente, lui permettant de se concentrer sur l'essentiel.
+
+\item \textbf{Une exploitation intelligente des données textuelles :} Les avis clients représentent une mine d'informations souvent sous-exploitée. En appliquant des modèles de traitement du langage naturel (NLP), la plateforme transforme ces données brutes en indicateurs de qualité exploitables, valorisant ainsi le retour d'expérience des utilisateurs.
+\end{itemize}
+
+\section{Problématique}
+
+La problématique centrale de ce projet peut être formulée comme suit :
+
+\begin{infobox}
+    \textbf{Comment concevoir et déployer un système intelligent capable de :}
+    \begin{enumerate}
+        \item Extraire automatiquement le sentiment (positif, négatif, neutre) des avis clients rédigés en français ?
+        \item Recommander des véhicules similaires à une requête utilisateur en exploitant la similarité sémantique ?
+        \item Classer objectivement des livreurs selon plusieurs critères pondérés (distance, réputation, capacité, véhicule) ?
+        \item Assurer une haute disponibilité, une traçabilité complète et une performance optimale ?
+    \end{enumerate}
+\end{infobox}
+
+Cette problématique se décline en plusieurs sous-problèmes techniques :
+
+\begin{table}[H]
+\centering
+\caption{Décomposition de la problématique en sous-problèmes techniques}
+\label{tab:subproblems}
+\begin{tabular}{>{\raggedright}p{3.5cm} >{\raggedright\arraybackslash}p{9cm}}
+\toprule
+\textbf{Sous-problème} & \textbf{Description} \\
+\midrule
+\rowcolor{arasLight}
+Analyse de sentiments & Comment appliquer un modèle NLP pré-entraîné (distil-camembert) pour classifier automatiquement les avis en français ? \\
+Recherche sémantique & Comment représenter textes et requêtes sous forme de vecteurs et calculer leur similarité via une base de données vectorielle (Qdrant) ? \\
+\rowcolor{arasLight}
+Ranking multicritères & Comment appliquer les méthodes AHP (pondération des critères) et TOPSIS (classement des alternatives) pour produire un ranking objectif ? \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Définition des besoins}
+
+\subsection{Besoins fonctionnels}
+
+Les besoins fonctionnels décrivent les fonctionnalités que le système doit offrir à ses utilisateurs. Ils sont regroupés par module :
+
+\subsubsection*{Analyse de sentiments}
+
+\begin{itemize}
+    \item \statusok\ Le système doit pouvoir analyser un texte en français et retourner un score de sentiment (positif, négatif, neutre) avec un indice de confiance.
+    \item \statusok\ Le système doit supporter l'analyse par lots (\textit{batch processing}) pour traiter plusieurs avis simultanément.
+    \item \statusok\ Les résultats d'analyse doivent être persistés en base de données pour consultation ultérieure.
+\end{itemize}
+
+\subsubsection*{Recommandation de véhicules}
+
+\begin{itemize}
+    \item \statusok\ Le système doit permettre la recherche de véhicules par similarité sémantique à partir d'une requête textuelle.
+    \item \statusok\ Le système doit retourner les $k$ véhicules les plus similaires avec leurs scores de similarité.
+    \item \statusok\ Le système doit pouvoir filtrer les résultats par score de sentiment (ex: uniquement les véhicules bien notés).
+    \item \statusok\ Le système doit mettre en cache les résultats de recherche fréquents pour améliorer les performances.
+\end{itemize}
+
+\subsubsection*{Ranking de livreurs}
+
+\begin{itemize}
+    \item \statusok\ Le système doit permettre de soumettre une liste de livreurs candidats avec leurs attributs (distance, réputation, capacité, véhicule).
+    \item \statusok\ Le système doit appliquer la méthode AHP pour calculer les poids des critères à partir d'une matrice de comparaison.
+    \item \statusok\ Le système doit appliquer la méthode TOPSIS pour produire un classement final des livreurs.
+    \item \statusok\ Le système doit retourner le classement avec les scores détaillés par critère.
+\end{itemize}
+
+\subsubsection*{API et interfaces}
+
+\begin{itemize}
+    \item \statusok\ Le système doit exposer une API REST documentée (OpenAPI/Swagger).
+    \item \statusok\ Le système doit supporter la pagination et le filtrage sur les endpoints de consultation.
+\end{itemize}
+
+\subsection{Besoins non fonctionnels}
+
+Les besoins non fonctionnels définissent les qualités attendues du système :
+
+\begin{table}[H]
+\centering
+\caption{Besoins non fonctionnels et métriques cibles}
+\label{tab:nfr}
+\begin{tabular}{>{\raggedright}p{3cm} >{\raggedright}p{6cm} >{\raggedright\arraybackslash}p{4cm}}
+\toprule
+\textbf{Catégorie} & \textbf{Exigence} & \textbf{Métrique cible} \\
+\midrule
+\rowcolor{arasLight}
+\textbf{Performance} & Temps de réponse API & $< 200$ms (P95) \\
+ & Temps de réponse avec cache & $< 5$ms \\
+\rowcolor{arasLight}
+\textbf{Disponibilité} & Uptime du service & $\geq 99.5\%$ \\
+\textbf{Scalabilité} & Capacité de traitement & $> 1000$ req/min \\
+\rowcolor{arasLight}
+ & Documentation API & 100\% des endpoints \\
+\rowcolor{arasLight}
+\textbf{Observabilité} & Centralisation des logs & Oui (ELK) \\
+ & Traçabilité distribuée & Oui (APM) \\
+\rowcolor{arasLight}
+ & Authentification API & JWT \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Objectifs général}
+
+L'objectif général du projet est de concevoir et déployer un \concept{système de recommandation et de ranking intelligent} capable de répondre aux besoins suivants :
+
+\begin{enumerate}
+    \item \textbf{Automatiser l'analyse des avis clients} : Extraire automatiquement le sentiment (positif, négatif, neutre) des commentaires ou avis donnés sur des véhicules, afin de qualifier objectivement la réputation des véhicules et des services.
+
+    \item \textbf{Proposer des recommandations personnalisées} : Offrir un moteur de recherche sémantique permettant aux utilisateurs de trouver les véhicules les plus pertinents en suivant le type de véhicule qu'ils ont aimé par le passé.
+
+    \item \textbf{Optimiser le ranking des livreurs} : Fournir un classement objectif et multicritères des livreurs disponibles pour une livraison, en tenant compte de la distance, de la réputation, de la capacité de transport et du type de véhicule.
+
+    \item \textbf{Garantir la performance et la fiabilité} : Assurer des temps de réponse inférieurs à 200ms, un taux de disponibilité élevé, et une capacité à gérer un volume de requêtes conséquent.
+
+    \item \textbf{Assurer l'observabilité du système} : Centraliser les logs, collecter les métriques et tracer les requêtes pour faciliter le diagnostic, le debugging et l'amélioration continue.
+\end{enumerate}
+
+\begin{successbox}
+    \textbf{\faCheckCircle\ Finalité :} Livrer une plateforme fonctionnelle, performante et monitorée, prête à être utilisée dans un contexte réel de recommandation de véhicules et de ranking de livreurs.
+\end{successbox}
+
+\section{Résultats attendus}
+
+À l'issue de ce projet, les résultats attendus sont les suivants :
+
+\subsection*{Niveau fonctionnel}
+
+\begin{itemize}
+    \item Une \textbf{API REST opérationnelle} exposant les endpoints de recommandation et de ranking.
+    \item Un \textbf{module d'analyse de sentiments} capable de classifier les avis avec une précision $\geq 85\%$.
+    \item Un \textbf{moteur de recommandation} exploitant Qdrant pour des recherches de similarité vectorielle en temps réel sur des véhicules.
+    \item Un \textbf{module de ranking AHP/TOPSIS} produisant des classements objectifs et justifiés.
+\end{itemize}
+
+\subsection*{Niveau infrastructure}
+
+\begin{itemize}
+    \item Une \textbf{architecture conteneurisée} composée de services Docker inter-connectés.
+    \item Une \textbf{stack de monitoring complète} (Elasticsearch, Kibana, APM) pour l'observabilité.
+    \item Un \textbf{système de cache Redis} améliorant significativement les performances.
+    \item Une \textbf{gestion des tâches asynchrones} via Celery pour les traitements lourds.
+\end{itemize}
+
+\subsection*{Niveau performance}
+
+\begin{table}[H]
+\centering
+\caption{Indicateurs de performance attendus}
+\label{tab:kpi}
+\begin{tabular}{>{\raggedright}p{5cm} >{\centering\arraybackslash}p{4cm}}
+\toprule
+\textbf{Indicateur} & \textbf{Valeur cible} \\
+\midrule
+\rowcolor{arasLight}
+Temps de réponse moyen (sans cache) & $\leq 200$ms \\
+Temps de réponse moyen (avec cache) & $\leq 5$ms \\
+\rowcolor{arasLight}
+Capacité de traitement & $\geq 1000$ req/min \\
+\rowcolor{arasLight}
+Précision analyse de sentiments & $\geq 90\%$ \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{processbox}
+    \textbf{\textcolor{arasPrimary}{\faChartLine\ Critère de succès :}} Le projet sera considéré comme réussi si l'ensemble des endpoints de l'API sont fonctionnels, si la stack de monitoring est opérationnelle, et si les métriques de performance sont dans les seuils définis.
+\end{processbox}
+
+\chapter{PHASE DE CONCEPTION}
+
+\section{Description du Systeme}
+\label{sec:description_systeme}
+
+Le système AR\_AS est construit selon une \textbf{architecture modulaire et scalable} composée de quatre modules principaux interconnectés, supervisés par une couche de monitoring complète. Cette architecture permet une séparation claire des responsabilités, facilitant la maintenance, les tests et l'évolution indépendante de chaque composant.
+
+La figure \textbf{2.1} présente une vue d'ensemble de l'architecture du système.
+
+% Espace réservé pour l'image de l'architecture globale
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{architecture_globale.png}
+    \caption{Architechure Globale du Système}
+    \label{fig:placeholder}
+\end{figure}
+
+L'architecture repose sur les technologies suivantes :
+\begin{itemize}
+    \item \textbf{API Gateway} : FastAPI avec Uvicorn (4 workers asynchrones)
+    \item \textbf{Machine Learning} : Transformers (distil-camembert, mpnet)
+    \item \textbf{Base Vectorielle} : Qdrant pour la recherche de similarité rapide
+    \item \textbf{Cache} : Redis pour une performance optimale
+    \item \textbf{Base de Données} : PostgreSQL pour les données relationnelles
+    \item \textbf{File de Tâches} : Celery pour le traitement asynchrone
+    \item \textbf{Monitoring} : Stack ELK (Elasticsearch, Logstash, Kibana) + APM
+\end{itemize}
+
+Le tableau~\ref{tab:composants_tech} résume les composants technologiques et leurs rôles.
+
+\begin{table}[H]
+    \centering
+    \caption{Composants technologiques du système AR\_AS}
+    \label{tab:composants_tech}
+    \begin{tabular}{|l|l|l|}
+        \hline
+        \textbf{Composant} & \textbf{Technologie} & \textbf{Rôle} \\
+        \hline
+        API Server & FastAPI + Uvicorn & Point d'entrée HTTP \\
+        Sentiment Analysis & distil-camembert & Analyse NLP \\
+        Embedding & mpnet-base-v2 & Vectorisation texte \\
+        Vector Search & Qdrant & Recherche similarité \\
+        Cache & Redis & Performance \\
+        Database & PostgreSQL & Stockage relationnel \\
+        Task Queue & Celery & Traitement asynchrone \\
+        Spatial Filter & Haversine & Filtrage géographique \\
+        AHP Calculator & NumPy & Calcul poids critères \\
+        TOPSIS Ranker & NumPy & Classement multi-critères \\
+        Monitoring & ELK Stack + APM & Observabilité \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Module 1: Analyse de sentiment}
+\label{subsec:module1_sentiment}
+
+\subsubsection{Objectif}
+Le \textbf{Module 1} constitue le premier maillon de la chaîne de traitement du système de recommandation. Son rôle est d'analyser le sentiment exprimé dans les commentaires des clients concernant les véhicules, afin de comprendre leur niveau de satisfaction et d'orienter les recommandations futures.
+
+\subsubsection{Modèle de Machine Learning Utilisé}
+Le module utilise un modèle \textbf{distil-camembert} fine-tuné spécifiquement pour l'analyse de sentiment en français. Ce modèle appartient à la famille des Transformers et présente les caractéristiques suivantes :
+
+\begin{table}[H]
+    \centering
+    \caption{Caractéristiques du modèle d'analyse de sentiment}
+    \label{tab:modele_sentiment}
+    \begin{tabular}{|l|l|}
+        \hline
+        \textbf{Paramètre} & \textbf{Valeur} \\
+        \hline
+        Modèle de base & distil-camembert \\
+        Langue & Français \\
+        Plage de scores & -1 (très négatif) à +1 (très positif) \\
+        Temps d'inférence moyen & $\sim$45 ms \\
+        Longueur maximale du texte & 512 tokens \\
+        Modèle de fallback & nlptown/bert-base-multilingual-uncased-sentiment \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsubsection{Flux de Traitement}
+Le processus d'analyse de sentiment se déroule selon les étapes suivantes :
+
+\begin{enumerate}
+    \item \textbf{Réception des données d'entrée} : Le module reçoit un objet \code{SentimentInput} contenant :
+    \begin{itemize}
+        \item \code{product\_id} : Identifiant du produit (véhicule)
+        \item \code{client\_id} : Identifiant du client
+        \item \code{commentaire} : Texte du commentaire à analyser
+        \item \code{product\_type} : Type de produit (véhicule par défaut)
+    \end{itemize}
+
+    \item \textbf{Tokenisation} : Le commentaire est tokenisé à l'aide du tokenizer CamemBERT avec :
+    \begin{itemize}
+        \item Troncation automatique à 512 tokens maximum
+        \item Padding pour uniformiser les séquences
+        \item Conversion en tenseurs PyTorch
+    \end{itemize}
+
+    \item \textbf{Inférence du modèle} : Le texte tokenisé est passé au modèle qui produit :
+    \begin{itemize}
+        \item Les logits pour chaque classe (négatif, neutre, positif)
+        \item Les probabilités via Softmax
+        \item La classe prédite (argmax des probabilités)
+    \end{itemize}
+
+    \item \textbf{Calcul du score de sentiment} : Le score final est calculé selon la formule :
+    \begin{equation}
+        \text{sentiment\_score} = p_{\text{positif}} - p_{\text{négatif}}
+        \label{eq:sentiment_score}
+    \end{equation}
+    où $p_{\text{positif}}$ et $p_{\text{négatif}}$ sont les probabilités respectives.
+
+    \item \textbf{Attribution du label} : Le label est déterminé selon les seuils :
+    \begin{itemize}
+        \item Score $> 0.2$ : \code{positive}
+        \item Score $< -0.2$ : \code{negative}
+        \item Sinon : \code{neutral}
+    \end{itemize}
+\end{enumerate}
+
+% Espace réservé pour le diagramme de séquence du Module 1
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{seq.png}
+    \caption{Diagramme de séquence du Module d'Analyse de Sentiment. Le processus transforme un commentaire en un label de sentiment (POSITIF/NÉGATIF/NEUTRE) via tokenization et inference avec le modèle distil-camembert.}
+    \label{fig:placeholder}
+\end{figure}
+\subsubsection{Structure des Données}
+
+Le listing~\ref{lst:sentiment_result} présente la structure du résultat de l'analyse de sentiment.
+
+
+
+
+\begin{lstlisting}[language=Python, caption={Structure du résultat de l'analyse de sentiment}, label={lst:sentiment_result}]
+class SentimentResult:
+    client_id: str          # Identifiant du client
+    product_id: str         # Identifiant du produit
+    sentiment_score: float  # Score entre -1 et +1
+    sentiment_label: str    # "positive", "neutral" ou "negative"
+    confidence: float       # Confiance du modele (max des probabilites)
+    product_type: str       # Type de produit analyse
+\end{lstlisting}
+
+\subsubsection{Gestion des Erreurs}
+En cas d'erreur lors de l'analyse (modèle non disponible, texte invalide, etc.), le module retourne un résultat neutre par défaut (\code{sentiment\_score=0.0}, \code{sentiment\_label="neutral"}) avec une confiance de 0, permettant au système de continuer à fonctionner de manière dégradée.
+% \subsection{Module 2: Recherche de Similarité Vectorielle}
+% \subsubsection{Vue d'ensemble}
+
+% Le Module 2 constitue le moteur de recommandation du système, responsable de la recherche et du classement de produits similaires basés sur des embeddings vectoriels. Il s'agit d'un système de recherche sémantique qui exploite l'intelligence artificielle pour proposer des recommandations personnalisées aux clients.
+
+% \subsubsection{Architecture du Module}
+
+% \subsubsection{Composants principaux}
+
+% Le Module 2 est structuré en plusieurs composants interconnectés :
+
+% \begin{itemize}
+%     \item \textbf{RecommendationEngine} : Orchestrateur central qui coordonne l'ensemble du workflow
+%     \item \textbf{EmbeddingService} : Service de génération d'embeddings textuels
+%     \item \textbf{VectorStore} : Interface avec Qdrant pour la recherche vectorielle
+%     \item \textbf{RankingService} : Service de classement et scoring des résultats
+%     \item \textbf{CacheManager} : Gestionnaire de cache Redis pour optimiser les performances
+% \end{itemize}
+
+% \subsubsection{Technologies utilisées}
+
+% Le système s'appuie sur les technologies suivantes :
+
+% \begin{itemize}
+%     \item \textbf{Qdrant} : Base de données vectorielle pour le stockage et la recherche rapide
+%     \item \textbf{Sentence-Transformers} : Modèle \texttt{paraphrase-multilingual-mpnet-base-v2} pour les embeddings
+%     \item \textbf{Redis} : Cache distribué pour les résultats de recommandations
+%     \item \textbf{PostgreSQL} : Base de données relationnelle pour les détails produits
+%     \item \textbf{PyTorch} : Framework pour l'exécution des modèles d'embeddings
+% \end{itemize}
+
+% \subsection{Flux de traitement détaillé}
+
+% Le système suit un workflow en 10 étapes séquentielles illustré dans la figure \ref{fig:workflow_module2}.
+
+% \subsubsection{Étape 1 : Vérification du cache}
+
+% Le système vérifie d'abord si une recommandation similaire existe déjà en cache Redis. Cette vérification utilise trois stratégies :
+
+% \begin{enumerate}
+%     \item \textbf{Correspondance exacte} : même produit, client et score de sentiment
+%     \item \textbf{Correspondance floue} : tolérance de $\pm 0.1$ sur le score de sentiment
+%     \item \textbf{Correspondance produit} : recommandations précédentes pour le même produit
+% \end{enumerate}
+
+% \subsubsection{Étape 2 : Récupération des données produit}
+
+% Si aucun cache n'est trouvé, le système récupère les informations détaillées du produit de référence depuis PostgreSQL, incluant :
+
+% \begin{itemize}
+%     \item Identifiant unique (UUID)
+%     \item Type de produit (véhicule ou livreur)
+%     \item Caractéristiques (marque, modèle, année)
+%     \item Disponibilité et localisation
+%     \item Réputation (note moyenne)
+% \end{itemize}
+
+% \subsubsection{Étape 3 : Construction de la description textuelle}
+
+% Le système génère une description textuelle structurée du produit en combinant ses attributs. Par exemple : \textit{``Toyota Corolla 2020, disponible à Douala, note 4.5/5''}.
+
+% \subsubsection{Étape 4 : Génération de l'embedding}
+
+% L'\texttt{EmbeddingService} transforme la description textuelle en vecteur numérique de 768 dimensions. Le modèle multilingue utilisé garantit une compréhension optimale du français. Les embeddings sont normalisés pour permettre l'utilisation de la similarité cosinus.
+
+% \subsubsection{Étape 5 : Recherche vectorielle dans Qdrant}
+
+% Le vecteur généré est utilisé pour interroger Qdrant avec les paramètres suivants :
+
+% \begin{itemize}
+%     \item \textbf{Distance} : Cosinus (optimale pour vecteurs normalisés)
+%     \item \textbf{Algorithme} : HNSW (Hierarchical Navigable Small World)
+%     \item \textbf{Paramètres HNSW} : $m=16$, $ef\_construct=100$, $ef\_search=128$
+%     \item \textbf{Limite} : $2 \times top\_k$ pour permettre le filtrage ultérieur
+% \end{itemize}
+
+% \subsubsection{Étape 6 : Filtrage des résultats}
+
+% Le système élimine le produit de référence lui-même et sélectionne les $top\_k$ produits les plus similaires.
+
+% \subsubsection{Étape 7 : Construction du dictionnaire intermédiaire}
+
+% Pour chaque produit similaire trouvé, un dictionnaire intermédiaire est créé avec la structure suivante :
+
+% \begin{verbatim}
+% {
+%     "product_id": {
+%         "client_id": "...",
+%         "similarity_score": 0.92
+%     }
+% }
+% \end{verbatim}
+
+% \subsubsection{Étape 8 : Scoring et classement final}
+
+% Le \texttt{RankingService} applique un système de notation pondérée combinant trois critères :
+
+% \begin{itemize}
+%     \item \textbf{Similarité sémantique} (60\%) : score de similarité vectorielle
+%     \item \textbf{Disponibilité} (25\%) : produit disponible ou non
+%     \item \textbf{Réputation} (15\%) : note moyenne normalisée sur 5
+% \end{itemize}
+
+% La formule de calcul du score final est donnée par :
+
+% \begin{equation}
+%     score_{final} = 0.6 \times similarit\acute{e} + 0.25 \times disponibilit\acute{e} + 0.15 \times \frac{r\acute{e}putation}{5}
+% \end{equation}
+
+% \subsubsection{Étape 9 : Stockage en cache}
+
+% Le résultat final est stocké dans Redis avec les caractéristiques suivantes :
+
+% \begin{itemize}
+%     \item \textbf{TTL} : durée de vie configurable (par défaut 1 heure)
+%     \item \textbf{Clés multiples} : cache exact, cache produit
+%     \item \textbf{Métadonnées} : timestamp, score de sentiment
+% \end{itemize}
+
+% \subsubsection{Étape 10 : Retour des résultats}
+
+% Le système retourne un objet \texttt{RecommendationResult} contenant :
+
+% \begin{itemize}
+%     \item Liste ordonnée des produits recommandés
+%     \item Scores détaillés (similarité, disponibilité, réputation, final)
+%     \item Métadonnées (mise en cache, timestamp)
+% \end{itemize}
+
+
+
+\subsection{Module 2 : Recherche de Similarité Vectorielle}
+\label{subsec:module2_similarity}
+
+\subsubsection{Objectif}
+Le \textbf{Module 2} est responsable de la génération des recommandations de véhicules. Il utilise les embeddings sémantiques et la recherche vectorielle pour identifier les véhicules les plus similaires à celui consulté par le client, en prenant en compte le sentiment exprimé dans son commentaire.
+
+\subsubsection{Composants du Module}
+
+Le Module 2 est constitué de quatre sous-composants principaux :
+
+\paragraph{Service d'Embeddings}
+Ce service utilise le modèle \textbf{paraphrase-multilingual-mpnet-base-v2} de Sentence Transformers pour générer des représentations vectorielles des descriptions de véhicules.
+
+\begin{table}[H]
+    \centering
+    \caption{Caractéristiques du modèle d'embeddings}
+    \label{tab:modele_embeddings}
+    \begin{tabular}{|l|l|}
+        \hline
+        \textbf{Paramètre} & \textbf{Valeur} \\
+        \hline
+        Modèle & paraphrase-multilingual-mpnet-base-v2 \\
+        Dimension des vecteurs & 768 \\
+        Support multilingue & Oui (français inclus) \\
+        Normalisation & L2 (similitude cosinus = produit scalaire) \\
+        Temps de génération moyen & $\sim$80 ms \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\paragraph{Vector Store (Qdrant)}
+Le stockage et la recherche des vecteurs sont gérés par \textbf{Qdrant}, une base de données vectorielle optimisée pour la recherche de similarité.
+
+\begin{itemize}
+    \item \textbf{Algorithme de recherche} : HNSW (\anglais{Hierarchical Navigable Small World})
+    \item \textbf{Distance utilisée} : Similarité cosinus
+    \item \textbf{Paramètres HNSW} :
+    \begin{itemize}
+        \item $m = 16$ (nombre de connexions bidirectionnelles par nœud)
+        \item $ef_{construct} = 100$ (facteur de construction)
+        \item $ef_{search} = 128$ (facteur de recherche)
+    \end{itemize}
+    \item \textbf{Temps de recherche moyen} : $\sim$12 ms
+\end{itemize}
+
+% Espace réservé pour le diagramme de l'algorithme HNSW
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{HNSW2.png}
+    \caption{ Structure de navigation hiérarchique en 3 niveaux. Le chemin en rouge indique le parcours utilisateur depuis le point d'entrée jusqu'à la cible (SUV), tandis que les liens en gris représentent les options alternatives non sélectionnées.
+}
+    \label{fig:placeholder}
+\end{figure}
+
+\paragraph{Service de Ranking}
+Ce service applique un \textbf{scoring multi-critères} pour classer les résultats de la recherche vectorielle. Les poids utilisés sont :
+\begin{itemize}
+    \item Similarité sémantique : \textbf{60\%}
+    \item Disponibilité du véhicule : \textbf{25\%}
+    \item Réputation (note moyenne) : \textbf{15\%}
+\end{itemize}
+
+\paragraph{Gestionnaire de Cache (Redis)}
+Le cache Redis optimise les performances en stockant les résultats des recommandations fréquentes.
+\begin{itemize}
+    \item \textbf{Taux de cache hit} : 70-80\%
+    \item \textbf{TTL (\anglais{Time To Live})} : Configurable
+    \item \textbf{Temps de réponse avec cache} : $\sim$2 ms
+    \item \textbf{Temps de réponse sans cache} : $\sim$185 ms
+\end{itemize}
+
+\subsubsection{Flux de Traitement (Workflow)}
+
+Le moteur de recommandation suit un workflow en \textbf{10 étapes}, illustré dans la figure~\ref{fig:module2_workflow} :
+
+\begin{enumerate}
+    \item \textbf{Vérification du cache Redis} : Recherche d'un résultat précédemment calculé pour cette requête.
+
+    \item \textbf{Récupération des données produit} : Chargement des détails du véhicule depuis PostgreSQL.
+
+    \item \textbf{Construction de la description textuelle} : Génération d'une description complète du véhicule incluant marque, modèle et caractéristiques.
+
+    \item \textbf{Génération de l'embedding} : Transformation de la description en vecteur de 768 dimensions via mpnet.
+
+    \item \textbf{Recherche vectorielle} : Interrogation de Qdrant pour trouver les Top-100 véhicules les plus similaires.
+
+    \item \textbf{Récupération des Top-K résultats} : Sélection des K premiers candidats (ajustable, défaut K=10).
+
+    \item \textbf{Construction du dictionnaire intermédiaire} : Création d'une structure de mapping produit-client-score.
+
+    \item \textbf{Application du ranking multi-critères} : Calcul du score final pondéré.
+
+    \item \textbf{Stockage en cache} : Sauvegarde du résultat dans Redis pour les requêtes futures.
+
+    \item \textbf{Retour des résultats} : Envoi des Top-K véhicules recommandés.
+\end{enumerate}
+
+% Espace réservé pour le diagramme de flux du Module 2
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.60\linewidth]{workflow_recommandation.png}
+    \caption{Pipeline de recherche et ranking de véhicules. Le système optimise les performances via un cache Redis, combine recherche sémantique (embeddings MPNet) avec des critères métier pour un ranking personnalisé.
+}
+    \label{fig:placeholder}
+\end{figure}
+
+\subsubsection{Structure des Données}
+
+\begin{lstlisting}[language=Python, caption={Structure de la requête et du résultat de recommandation}, label={lst:recommendation_structures}]
+# Requete de recommandation
+class RecommendationRequest:
+    client_id: str
+    product_id: str
+    sentiment_score: float
+    product_type: ProductType
+    top_k: int = 10
+
+# Resultat de recommandation
+class RecommendationResult:
+    client_id: str
+    reference_product_id: str
+    sentiment_score: float
+    product_type: ProductType
+    recommendations: List[RankedProduct]
+    total_results: int
+    cached: bool
+    processed_at: datetime
+\end{lstlisting}
+
+\subsection{Module 3: Orchestration}
+\label{subsec:module3_orchestration}
+
+\subsubsection{Objectif}
+Le \textbf{Module 3} joue le rôle de \textit{chef d'orchestre} du système. Il coordonne le flux de données entre le Module 1 (Sentiment) et le Module 2 (Recommandation), gère les traitements asynchrones via Celery, et assure la traçabilité des requêtes grâce aux \code{correlation\_id}.
+
+\subsubsection{Architecture Celery}
+
+Le système utilise \textbf{Celery} comme gestionnaire de tâches distribuées avec la configuration présentée dans le tableau~\ref{tab:celery_config}.
+
+\begin{table}[H]
+    \centering
+    \caption{Configuration de Celery}
+    \label{tab:celery_config}
+    \begin{tabular}{|l|l|}
+        \hline
+        \textbf{Paramètre} & \textbf{Valeur} \\
+        \hline
+        Broker & Redis \\
+        Backend de résultats & Redis \\
+        Nombre de workers & 4 (par défaut) \\
+        Pool & prefork (multi-processing) \\
+        Scheduler & Celery Beat \\
+        Interface de monitoring & Flower (port 5555) \\
+        \hline
+    \end{tabular}
+\end{table}
+
+% Espace réservé pour le diagramme de l'architecture Celery
+% \begin{figure}[H]
+%     \centering
+%     % \includegraphics[width=0.8\textwidth]{images/celery_architecture.png}
+%     \fbox{\parbox{0.8\textwidth}{\centering\vspace{4cm}\textit{[Espace réservé pour le diagramme de l'architecture Celery avec workers, broker et queue]}\vspace{4cm}}}
+%     \caption{Architecture du système de tâches asynchrones avec Celery}
+%     \label{fig:celery_architecture}
+% \end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\linewidth]{cellery_architecture.png}
+    \caption{Architecture du système de tâches asynchrones avec Celery}
+    \label{fig:placeholder}
+\end{figure}
+\subsubsection{Fonctionnalités de l'Orchestrateur}
+
+L'orchestrateur expose les fonctionnalités suivantes :
+
+\paragraph{Traitement Synchrone}
+La méthode \code{process\_recommendation\_request} exécute le workflow complet de manière synchrone :
+\begin{enumerate}
+    \item Analyse du sentiment (Module 1)
+    \item Génération des recommandations (Module 2)
+    \item Retour du résultat combiné
+\end{enumerate}
+
+\paragraph{Traitement Asynchrone}
+La méthode \code{process\_async} délègue le traitement à Celery :
+\begin{enumerate}
+    \item Création d'une tâche Celery avec tous les paramètres
+    \item Propagation du \code{correlation\_id} pour la traçabilité
+    \item Retour immédiat du \code{task\_id}
+    \item Le client peut ensuite interroger le statut via \code{get\_task\_status}
+\end{enumerate}
+
+\paragraph{Traitements Spécialisés}
+\begin{itemize}
+    \item \code{process\_sentiment\_only} : Analyse de sentiment seule
+    \item \code{process\_recommendation\_only} : Recommandation avec score pré-calculé
+    \item \code{trigger\_vectorization} : Mise à jour des embeddings en base vectorielle
+    \item \code{invalidate\_product\_cache} : Invalidation du cache pour un produit modifié
+\end{itemize}
+
+\subsubsection{Tâches Celery Définies}
+
+\begin{lstlisting}[language=Python, caption={Exemples de tâches Celery}, label={lst:celery_tasks}]
+@celery_app.task(bind=True, max_retries=3)
+def process_sentiment_task(self, product_id, client_id,
+                           commentaire, product_type):
+    """Tache d'analyse de sentiment."""
+    ...
+
+@celery_app.task(bind=True, max_retries=3)
+def process_recommendation_task(self, client_id, product_id,
+                                sentiment_score, product_type, top_k):
+    """Tache de recommandation."""
+    ...
+
+@celery_app.task(bind=True, max_retries=3)
+def process_full_workflow_task(self, product_id, client_id,
+                               commentaire, product_type,
+                               top_k, correlation_id):
+    """Workflow complet (sentiment + recommandation)."""
+    ...
+\end{lstlisting}
+
+\subsubsection{Gestion du Correlation ID}
+
+Le \code{correlation\_id} est un identifiant unique (UUID) généré pour chaque requête entrante. Il est propagé à travers toutes les couches du système :
+
+\begin{itemize}
+    \item Requête HTTP $\rightarrow$ Logs API
+    \item Tâche Celery $\rightarrow$ Logs des workers
+    \item Requêtes base de données $\rightarrow$ Logs SQL
+    \item Opérations cache $\rightarrow$ Logs Redis
+    \item Recherche vectorielle $\rightarrow$ Logs Qdrant
+\end{itemize}
+
+Ceci permet de tracer le parcours complet d'une requête dans Kibana en filtrant sur \code{correlation\_id}.
+\subsection{Module 4: Ranking des livreurs}
+
+\label{subsec:module4_ranking}
+
+\subsubsection{Objectif}
+Le \textbf{Module 4} est dédié au classement intelligent des livreurs pour les plateformes de livraison. Il utilise des méthodes d'aide à la décision multicritères (\textbf{AHP} et \textbf{TOPSIS}) pour produire un ranking objectif basé sur plusieurs critères pertinents.
+
+\subsubsection{Critères d'Évaluation}
+
+Les livreurs sont évalués selon \textbf{quatre critères} ordonnés par importance décroissante :
+
+\begin{enumerate}
+    \item \textbf{Proximité géographique} (le plus important) : Distance totale à parcourir
+    \item \textbf{Capacité de transport} : Volume en m³ disponible
+    \item \textbf{Type de véhicule} : Score selon le type (moto, voiture, camionnette, camion)
+    \item \textbf{Réputation} : Note moyenne sur 10
+\end{enumerate}
+
+\begin{table}[H]
+    \centering
+    \caption{Scores attribués selon le type de véhicule}
+    \label{tab:vehicle_scores}
+    \begin{tabular}{|l|c|}
+        \hline
+        \textbf{Type de véhicule} & \textbf{Score} \\
+        \hline
+        Moto & 0.25 \\
+        Voiture & 0.50 \\
+        Camionnette & 0.75 \\
+        Camion & 1.00 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsubsection{Phase 1 : Filtrage Spatial (Méthode de l'Ellipse)}
+
+Le filtrage spatial utilise une \textbf{ellipse sphérique} dont les foyers sont les points de ramassage ($F_1$) et de livraison ($F_2$). Un livreur $P$ est éligible si et seulement si :
+
+\begin{equation}
+    d(P, F_1) + d(P, F_2) \leq D_{max}
+    \label{eq:ellipse_condition}
+\end{equation}
+
+avec :
+
+\begin{equation}
+    D_{max} = d(F_1, F_2) + 2 \times \text{tolérance}
+    \label{eq:dmax}
+\end{equation}
+
+Les tolérances spatiales varient selon le type de livraison :
+
+\begin{table}[H]
+    \centering
+    \caption{Tolérances spatiales par type de livraison}
+    \label{tab:tolerances}
+    \begin{tabular}{|l|c|}
+        \hline
+        \textbf{Type de livraison} & \textbf{Tolérance (km)} \\
+        \hline
+        Standard & 10 \\
+        Express & 5 \\
+        Same-day & 3 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+La distance entre deux points est calculée avec la formule de \textbf{Haversine} :
+
+\begin{equation}
+    d = 2R \cdot \arcsin\left(\sqrt{\sin^2\left(\frac{\Delta\phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta\lambda}{2}\right)}\right)
+    \label{eq:haversine}
+\end{equation}
+
+où $R = 6371$ km est le rayon terrestre, $\phi$ représente la latitude et $\lambda$ la longitude.
+
+% Espace réservé pour l'illustration de l'ellipse spatiale
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ellipse_filtering.png}
+    \caption{Filtrage spatial par ellipse : les livreurs sont sélectionnés si la somme de leurs distances aux points F1 et F2 est inférieure au seuil 2a.}
+    \label{fig:filtrage-ellipse}
+\end{figure}
+
+\subsubsection{Phase 2 : Calcul des Poids (AHP)}
+
+La méthode \textbf{AHP} (\anglais{Analytic Hierarchy Process}), développée par Thomas Saaty, est utilisée pour déterminer les poids relatifs des critères.
+
+\paragraph{Construction de la Matrice de Comparaison}
+Une matrice $A$ de taille $4 \times 4$ est construite, où $a_{ij}$ représente l'importance relative du critère $i$ par rapport au critère $j$.
+
+\begin{equation}
+    A = \begin{pmatrix}
+    1 & a_{12} & a_{13} & a_{14} \\
+    1/a_{12} & 1 & a_{23} & a_{24} \\
+    1/a_{13} & 1/a_{23} & 1 & a_{34} \\
+    1/a_{14} & 1/a_{24} & 1/a_{34} & 1
+    \end{pmatrix}
+    \label{eq:ahp_matrix}
+\end{equation}
+
+Les valeurs de comparaison sont prédéfinies pour chaque type de livraison, reflétant les priorités spécifiques (par exemple, pour une livraison express, la proximité est encore plus prioritaire).
+
+\paragraph{Calcul des Poids}
+Les poids sont calculés par la méthode de la moyenne des colonnes normalisées :
+
+\begin{enumerate}
+    \item Normaliser chaque colonne :
+    \begin{equation}
+        v_{ij} = \frac{a_{ij}}{\sum_{k=1}^{n} a_{kj}}
+        \label{eq:ahp_normalize}
+    \end{equation}
+
+    \item Calculer le poids de chaque critère :
+    \begin{equation}
+        w_i = \frac{1}{n}\sum_{j=1}^{n} v_{ij}
+        \label{eq:ahp_weights}
+    \end{equation}
+\end{enumerate}
+
+\paragraph{Vérification de la Cohérence}
+Le \textbf{Ratio de Cohérence} (CR) est calculé pour valider la cohérence des jugements :
+
+\begin{equation}
+    CR = \frac{CI}{RI} \quad \text{où} \quad CI = \frac{\lambda_{max} - n}{n - 1}
+    \label{eq:consistency_ratio}
+\end{equation}
+
+$RI$ est l'indice de cohérence aléatoire. Pour $n=4$ critères, $RI = 0.90$. Une matrice est considérée cohérente si $CR < 0.1$ (10\%).
+
+\begin{table}[H]
+    \centering
+    \caption{Indices de cohérence aléatoire (RI) selon la taille de la matrice}
+    \label{tab:random_index}
+    \begin{tabular}{|c|c|c|c|c|c|c|c|}
+        \hline
+        \textbf{n} & 2 & 3 & 4 & 5 & 6 & 7 & 8 \\
+        \hline
+        \textbf{RI} & 0.00 & 0.58 & 0.90 & 1.12 & 1.24 & 1.32 & 1.41 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+% Espace réservé pour un exemple de matrice AHP
+% Exemple numérique de matrice AHP
+\paragraph{Exemple Numérique : Matrice de Comparaison AHP}
+
+Considérons un exemple concret pour une livraison de type \textbf{Standard}. La matrice de comparaison par paires est construite selon l'échelle de Saaty présentée dans le tableau~\ref{tab:saaty_scale}.
+
+\begin{table}[H]
+    \centering
+    \caption{Échelle de Saaty pour les comparaisons par paires}
+    \label{tab:saaty_scale}
+    \begin{tabular}{|c|l|}
+        \hline
+        \textbf{Valeur} & \textbf{Signification} \\
+        \hline
+        1 & Importance égale \\
+        3 & Modérément plus important \\
+        5 & Fortement plus important \\
+        7 & Très fortement plus important \\
+        9 & Extrêmement plus important \\
+        2, 4, 6, 8 & Valeurs intermédiaires \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Exemple de matrice de comparaison AHP (livraison Standard)}
+    \label{tab:ahp_example}
+    \begin{tabular}{|l|c|c|c|c|}
+        \hline
+        & \textbf{Proximité} & \textbf{Capacité} & \textbf{Véhicule} & \textbf{Réputation} \\
+        \hline
+        \textbf{Proximité} & 1 & 3 & 5 & 7 \\
+        \textbf{Capacité} & 1/3 & 1 & 3 & 5 \\
+        \textbf{Véhicule} & 1/5 & 1/3 & 1 & 3 \\
+        \textbf{Réputation} & 1/7 & 1/5 & 1/3 & 1 \\
+        \hline
+        \textbf{Somme} & 1.676 & 4.533 & 9.333 & 16 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+Après normalisation de chaque colonne et calcul de la moyenne par ligne, on obtient les poids suivants :
+
+\begin{table}[H]
+    \centering
+    \caption{Poids normalisés des critères (AHP)}
+    \label{tab:ahp_weights}
+    \begin{tabular}{|l|c|c|}
+        \hline
+        \textbf{Critère} & \textbf{Poids ($w_i$)} & \textbf{Pourcentage} \\
+        \hline
+        Proximité géographique & 0.558 & 55.8\% \\
+        Capacité de transport & 0.263 & 26.3\% \\
+        Type de véhicule & 0.122 & 12.2\% \\
+        Réputation & 0.057 & 5.7\% \\
+        \hline
+        \textbf{Total} & \textbf{1.000} & \textbf{100\%} \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\paragraph{Vérification de la Cohérence}
+
+Le calcul du ratio de cohérence pour cet exemple donne :
+\begin{itemize}
+    \item $\lambda_{max} = 4.117$
+    \item $CI = \frac{4.117 - 4}{4 - 1} = 0.039$
+    \item $CR = \frac{0.039}{0.90} = 0.043 < 0.10$ \quad \checkmark
+\end{itemize}
+
+La matrice est donc \textbf{cohérente} ($CR < 10\%$), validant les jugements de comparaison.
+
+
+\subsubsection{Phase 3 : Classement (TOPSIS)}
+
+La méthode \textbf{TOPSIS} (\anglais{Technique for Order of Preference by Similarity to Ideal Solution}) classe les livreurs en calculant leur proximité relative à la solution idéale.
+
+\paragraph{Étapes de l'Algorithme TOPSIS}
+
+\begin{enumerate}
+    \item \textbf{Construction de la matrice de décision} : Matrice $X$ de dimensions $m \times n$ ($m$ livreurs, $n=4$ critères)
+
+    \item \textbf{Normalisation vectorielle} :
+    \begin{equation}
+        r_{ij} = \frac{x_{ij}}{\sqrt{\sum_{k=1}^{m} x_{kj}^2}}
+        \label{eq:topsis_normalize}
+    \end{equation}
+
+    \item \textbf{Pondération} : Application des poids AHP
+    \begin{equation}
+        v_{ij} = w_j \cdot r_{ij}
+        \label{eq:topsis_weighted}
+    \end{equation}
+
+    \item \textbf{Détermination des solutions idéales} :
+    \begin{itemize}
+        \item $A^+$ (idéal positif) : max pour les critères bénéfices, min pour les coûts
+        \item $A^-$ (idéal négatif) : min pour les critères bénéfices, max pour les coûts
+    \end{itemize}
+
+    \textit{Note} : La proximité géographique est un critère de \textit{coût} (à minimiser), les autres sont des \textit{bénéfices} (à maximiser).
+
+    \item \textbf{Calcul des distances euclidiennes} :
+    \begin{align}
+        d_i^+ &= \sqrt{\sum_{j=1}^{n} (v_{ij} - A_j^+)^2} \label{eq:distance_positive} \\
+        d_i^- &= \sqrt{\sum_{j=1}^{n} (v_{ij} - A_j^-)^2} \label{eq:distance_negative}
+    \end{align}
+
+    \item \textbf{Calcul du score de similarité} :
+    \begin{equation}
+        C_i = \frac{d_i^-}{d_i^+ + d_i^-} \quad (0 \leq C_i \leq 1)
+        \label{eq:topsis_score}
+    \end{equation}
+
+    \item \textbf{Classement} : Les livreurs sont ordonnés par $C_i$ décroissant (le meilleur a $C_i$ proche de 1)
+\end{enumerate}
+
+% Espace réservé pour le diagramme TOPSIS
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{topsis1.png}
+    \caption{Diagramme de flux illustrant le processus TOPSIS pour le classement de livreurs. Le système utilise 4 critères (proximité géographique à minimiser, capacité de transport à maximiser, type de véhicule à maximiser, réputation à maximiser). Après normalisation et pondération, les distances à la solution idéale A⁺ et anti-idéale A⁻ sont calculées pour déterminer le score final Cᵢ, permettant un classement objectif des livreurs.}
+    \label{fig:placeholder}
+\end{figure}
+
+
+\subsubsection{Workflow Complet du Module 4}
+
+Le workflow du Module 4 se déroule en 4 phases successives :
+
+\begin{enumerate}
+    \item \textbf{Phase 1 - Filtrage spatial} : Élimination des livreurs hors zone ellipse ($\sim$5 ms)
+    \item \textbf{Phase 2 - Calcul des distances} : Distances pour chaque livreur éligible
+    \item \textbf{Phase 3 - Calcul AHP} : Détermination des poids des critères ($\sim$5 ms)
+    \item \textbf{Phase 4 - Classement TOPSIS} : Ranking final des livreurs ($\sim$8 ms)
+\end{enumerate}
+
+% Espace réservé pour le diagramme de workflow du Module 4
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{module4_workflow.png}
+    \caption{ Workflow de classement des livreurs en 4 phases successives. Le processus transforme une requête de livraison et une liste de livreurs disponibles en un classement ordonné des K meilleurs livreurs, avec un temps total d'exécution d'environ 23 ms.}
+    \label{fig:placeholder}
+\end{figure}
+
+Le temps de traitement total est d'environ \textbf{23 ms}, ce qui permet de traiter un grand nombre de requêtes simultanées.
+
+
+\subsection{Monitoring}
+
+\section{Conception fonctionnelle}
+
+La conception fonctionnelle décrit le comportement attendu du système du point de vue de l'utilisateur et des interactions entre les différents composants. Cette section présente les modèles UML qui formalisent l'architecture fonctionnelle du systeme.
+
+\subsection{Modélisation détaillée \textit{UML}}
+
+L'\concept{Unified Modeling Language (\textbf{\textit{UML}})} est le standard de modélisation utilisé pour représenter les différentes facettes du système. Les diagrammes suivants offrent une vision progressive, du plus abstrait (contexte) au plus détaillé (classes).
+
+% ============================================================================
+%                         DIAGRAMME DE CONTEXTE
+% ============================================================================
+\subsubsection{Diagramme de contexte}
+
+Le diagramme de contexte présente une vue d'ensemble du système AR\_AS et de ses interactions avec les acteurs externes. Il permet d'identifier les frontières du système et les flux d'information entrants et sortants.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{diagrams/diagramme_contexte.png}
+    \caption{Diagramme de contexte du système AR\_AS}
+    \label{fig:context-diagram}
+\end{figure}
+
+Le système AR\_AS interagit avec trois acteurs principaux :
+
+\begin{itemize}
+    \item \textbf{L'utilisateur final} : Il soumet des requêtes de recommandation de véhicules ou consulte les classements de livreurs via l'API REST.
+    \item \textbf{Le gestionnaire de plateforme} : Il administre les données (véhicules, livreurs, avis) et consulte les tableaux de bord de monitoring.
+    \item \textbf{Les systèmes externes} : Ils incluent les sources de données (avis clients importés), les services de géolocalisation, et les outils de monitoring (Kibana, APM).
+\end{itemize}
+
+% ============================================================================
+%                         DIAGRAMME DE PACKAGES
+% ============================================================================
+\subsubsection{Diagramme de packages}
+
+Le diagramme de packages illustre l'organisation modulaire du code source. Chaque package regroupe des fonctionnalités cohérentes et définit des dépendances explicites avec les autres modules.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{diagrams/diagramme_packages.png}
+    \caption{Diagramme de packages du système AR\_AS}
+    \label{fig:package-diagram}
+\end{figure}
+
+L'architecture est organisée en cinq packages principaux :
+
+\begin{itemize}
+    \item \textbf{api} : Contient les routes FastAPI, les schémas Pydantic de validation, et les dépendances d'injection.
+    \item \textbf{modules} : Regroupe les quatre modules métier (sentiment, similarity, orchestration, ranking), chacun encapsulant sa logique propre.
+    \item \textbf{database} : Gère la connexion à PostgreSQL, les modèles SQLAlchemy, et les opérations CRUD.
+    \item \textbf{utils} : Fournit des utilitaires transversaux (logging, cache Redis, helpers).
+    \item \textbf{config} : Centralise la configuration de l'application via Pydantic Settings.
+\end{itemize}
+
+% ============================================================================
+%                         DIAGRAMME DE CLASSES
+% ============================================================================
+\subsubsection{Diagramme de classes}
+
+Le diagramme de classes détaille la structure des entités métier et leurs relations. Il constitue la base du modèle de données relationnelles et des schémas de validation.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{diagrams/diagramme_classes.png}
+    \caption{Diagramme de classes simplifié du système AR\_AS}
+    \label{fig:class-diagram}
+\end{figure}
+
+Les classes principales sont :
+
+\begin{itemize}
+    \item \textbf{Vehicle} : Représente un véhicule avec ses attributs (marque, modèle, type, description) et son score de sentiment agrégé.
+    \item \textbf{Review} : Contient un avis client avec son texte, son score de sentiment calculé, et sa relation avec un véhicule.
+    \item \textbf{Deliverer} : Modélise un livreur avec ses critères (localisation, réputation, capacité, véhicule).
+    \item \textbf{RankingResult} : Stocke le résultat d'un classement TOPSIS avec les scores détaillés.
+\end{itemize}
+
+% ============================================================================
+%                         DIAGRAMME DE CAS D'UTILISATION
+% ============================================================================
+\subsubsection{Diagramme des cas d'utilisation}
+
+Le diagramme des cas d'utilisation identifie les fonctionnalités offertes par le système du point de vue des acteurs. Il définit le périmètre fonctionnel du projet.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{diagrams/diagramme_use_cases.png}
+    \caption{Diagramme des cas d'utilisation du système AR\_AS}
+    \label{fig:usecase-diagram}
+\end{figure}
+
+Les cas d'utilisation principaux sont regroupés par acteur :
+
+\textbf{Utilisateur final :}
+\begin{itemize}
+    \item Rechercher un véhicule par similarité sémantique
+    \item Consulter les détails et avis d'un véhicule
+    \item Demander un classement de livreurs pour une livraison
+\end{itemize}
+
+\textbf{Gestionnaire de plateforme :}
+\begin{itemize}
+    \item Ajouter/modifier/supprimer des véhicules
+    \item Importer des avis clients en lot
+    \item Déclencher l'analyse de sentiments
+    \item Synchroniser les embeddings vectoriels
+    \item Consulter les dashboards de monitoring
+\end{itemize}
+
+\textbf{Système (automatisé) :}
+\begin{itemize}
+    \item Analyser automatiquement les nouveaux avis
+    \item Mettre à jour les scores de sentiment agrégés
+    \item Collecter les métriques et logs pour l'observabilité
+\end{itemize}
+
+\section{Conception technique}
+ \subsection{Choix des technologies et justifications}
+   \subsubsection{Language de programmation et framework}
+   \subsubsection{Base de données}
+   \subsubsection{Monitoring}
+
+
+\chapter{PHASE DE DEVELOPPEMENT}
+\section{Configuration de l'environement}
+\section{Developpement des modules}
+
+\chapter{PHASE DE DEPLOIEMENT}
+\section{Préparation du déploiement}
+\section{Déploiement}
+
+\chapter*{Conclusion}
+
+\end{document}
