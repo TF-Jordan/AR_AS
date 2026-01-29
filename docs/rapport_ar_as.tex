@@ -1380,119 +1380,16 @@ Le temps de traitement total est d'environ \textbf{23 ms}, ce qui permet de trai
 
 \section{Conception fonctionnelle}
 
-La conception fonctionnelle décrit le comportement attendu du système du point de vue de l'utilisateur et des interactions entre les différents composants. Cette section présente les modèles UML qui formalisent l'architecture fonctionnelle du systeme.
 
 \subsection{Modélisation détaillée \textit{UML}}
 
-L'\concept{Unified Modeling Language (\textbf{\textit{UML}})} est le standard de modélisation utilisé pour représenter les différentes facettes du système. Les diagrammes suivants offrent une vision progressive, du plus abstrait (contexte) au plus détaillé (classes).
-
-% ============================================================================
-%                         DIAGRAMME DE CONTEXTE
-% ============================================================================
 \subsubsection{Diagramme de contexte}
 
-Le diagramme de contexte présente une vue d'ensemble du système AR\_AS et de ses interactions avec les acteurs externes. Il permet d'identifier les frontières du système et les flux d'information entrants et sortants.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.9\textwidth]{diagrams/diagramme_contexte.png}
-    \caption{Diagramme de contexte du système AR\_AS}
-    \label{fig:context-diagram}
-\end{figure}
-
-Le système AR\_AS interagit avec trois acteurs principaux :
-
-\begin{itemize}
-    \item \textbf{L'utilisateur final} : Il soumet des requêtes de recommandation de véhicules ou consulte les classements de livreurs via l'API REST.
-    \item \textbf{Le gestionnaire de plateforme} : Il administre les données (véhicules, livreurs, avis) et consulte les tableaux de bord de monitoring.
-    \item \textbf{Les systèmes externes} : Ils incluent les sources de données (avis clients importés), les services de géolocalisation, et les outils de monitoring (Kibana, APM).
-\end{itemize}
-
-% ============================================================================
-%                         DIAGRAMME DE PACKAGES
-% ============================================================================
 \subsubsection{Diagramme de packages}
 
-Le diagramme de packages illustre l'organisation modulaire du code source. Chaque package regroupe des fonctionnalités cohérentes et définit des dépendances explicites avec les autres modules.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{diagrams/diagramme_packages.png}
-    \caption{Diagramme de packages du système AR\_AS}
-    \label{fig:package-diagram}
-\end{figure}
-
-L'architecture est organisée en cinq packages principaux :
-
-\begin{itemize}
-    \item \textbf{api} : Contient les routes FastAPI, les schémas Pydantic de validation, et les dépendances d'injection.
-    \item \textbf{modules} : Regroupe les quatre modules métier (sentiment, similarity, orchestration, ranking), chacun encapsulant sa logique propre.
-    \item \textbf{database} : Gère la connexion à PostgreSQL, les modèles SQLAlchemy, et les opérations CRUD.
-    \item \textbf{utils} : Fournit des utilitaires transversaux (logging, cache Redis, helpers).
-    \item \textbf{config} : Centralise la configuration de l'application via Pydantic Settings.
-\end{itemize}
-
-% ============================================================================
-%                         DIAGRAMME DE CLASSES
-% ============================================================================
 \subsubsection{Diagramme de classes}
 
-Le diagramme de classes détaille la structure des entités métier et leurs relations. Il constitue la base du modèle de données relationnelles et des schémas de validation.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\textwidth]{diagrams/diagramme_classes.png}
-    \caption{Diagramme de classes simplifié du système AR\_AS}
-    \label{fig:class-diagram}
-\end{figure}
-
-Les classes principales sont :
-
-\begin{itemize}
-    \item \textbf{Vehicle} : Représente un véhicule avec ses attributs (marque, modèle, type, description) et son score de sentiment agrégé.
-    \item \textbf{Review} : Contient un avis client avec son texte, son score de sentiment calculé, et sa relation avec un véhicule.
-    \item \textbf{Deliverer} : Modélise un livreur avec ses critères (localisation, réputation, capacité, véhicule).
-    \item \textbf{RankingResult} : Stocke le résultat d'un classement TOPSIS avec les scores détaillés.
-\end{itemize}
-
-% ============================================================================
-%                         DIAGRAMME DE CAS D'UTILISATION
-% ============================================================================
 \subsubsection{Diagramme des cas d'utilisation}
-
-Le diagramme des cas d'utilisation identifie les fonctionnalités offertes par le système du point de vue des acteurs. Il définit le périmètre fonctionnel du projet.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.85\textwidth]{diagrams/diagramme_use_cases.png}
-    \caption{Diagramme des cas d'utilisation du système AR\_AS}
-    \label{fig:usecase-diagram}
-\end{figure}
-
-Les cas d'utilisation principaux sont regroupés par acteur :
-
-\textbf{Utilisateur final :}
-\begin{itemize}
-    \item Rechercher un véhicule par similarité sémantique
-    \item Consulter les détails et avis d'un véhicule
-    \item Demander un classement de livreurs pour une livraison
-\end{itemize}
-
-\textbf{Gestionnaire de plateforme :}
-\begin{itemize}
-    \item Ajouter/modifier/supprimer des véhicules
-    \item Importer des avis clients en lot
-    \item Déclencher l'analyse de sentiments
-    \item Synchroniser les embeddings vectoriels
-    \item Consulter les dashboards de monitoring
-\end{itemize}
-
-\textbf{Système (automatisé) :}
-\begin{itemize}
-    \item Analyser automatiquement les nouveaux avis
-    \item Mettre à jour les scores de sentiment agrégés
-    \item Collecter les métriques et logs pour l'observabilité
-\end{itemize}
 
 \section{Conception technique}
  \subsection{Choix des technologies et justifications}
