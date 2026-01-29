@@ -1,0 +1,63 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563EB', 'primaryTextColor': '#fff', 'primaryBorderColor': '#1E40AF', 'lineColor': '#6B7280'}}}%%
+
+graph TB
+    subgraph API["📦 api"]
+        APP["app.py<br/>FastAPI Factory"]
+        ROUTES["routes/<br/>Endpoints REST"]
+        MIDDLE["middleware.py<br/>CORS, Logging, CorrelationID"]
+        DEPS["dependencies.py<br/>Injection"]
+        SCHEMAS_API["schemas.py<br/>Validation Pydantic"]
+    end
+
+    subgraph M1["📦 module1_sentiment"]
+        ANALYZER["analyzer.py<br/>SentimentAnalyzer"]
+        SCHEMAS_M1["schemas.py<br/>SentimentInput/Result"]
+    end
+
+    subgraph M2["📦 module2_recommendation"]
+        ENGINE["engine.py<br/>RecommendationEngine"]
+        EMBED["embeddings.py<br/>EmbeddingService"]
+        VSTORE["vector_store.py<br/>Qdrant Interface"]
+        CACHE["cache.py<br/>CacheManager"]
+        RANKING["ranking.py<br/>RankingService"]
+    end
+
+    subgraph M3["📦 module3_orchestration"]
+        CELERY["celery_app.py<br/>Configuration Celery"]
+        ORCH3["orchestrator.py<br/>Workflow M1+M2"]
+        TASKS["tasks.py<br/>Tâches asynchrones"]
+    end
+
+    subgraph M4["📦 module4_livreur_ranking"]
+        CONST["constants.py<br/>Matrices AHP"]
+        AHP["ahp_calculator.py<br/>Calcul des poids"]
+        TOPSIS["topsis_ranker.py<br/>Classement TOPSIS"]
+        SPATIAL["spatial_filter.py<br/>Filtrage ellipse"]
+        ORCH4["orchestrator.py<br/>Workflow M4"]
+    end
+
+    subgraph INFRA["📦 config / database / utils"]
+        SETTINGS["settings.py<br/>Pydantic Settings"]
+        DB["connection.py<br/>SQLAlchemy Async"]
+        MODELS["models.py<br/>ORM Models"]
+        CTX["context.py<br/>Correlation ID"]
+    end
+
+    API -->|"appelle"| M1
+    API -->|"appelle"| M2
+    API -->|"appelle"| M3
+    API -->|"appelle"| M4
+    M3 -->|"orchestre"| M1
+    M3 -->|"orchestre"| M2
+    M2 -->|"utilise"| M1
+    API -->|"dépend"| INFRA
+    M1 -->|"dépend"| INFRA
+    M2 -->|"dépend"| INFRA
+    M3 -->|"dépend"| INFRA
+
+    style API fill:#2563EB,color:#fff
+    style M1 fill:#10B981,color:#fff
+    style M2 fill:#10B981,color:#fff
+    style M3 fill:#10B981,color:#fff
+    style M4 fill:#F59E0B,color:#fff
+    style INFRA fill:#6B7280,color:#fff

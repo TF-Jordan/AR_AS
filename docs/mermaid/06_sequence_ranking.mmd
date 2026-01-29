@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant API as API FastAPI
+    participant ORCH as Orchestrator M4
+    participant SF as Spatial Filter
+    participant AHP as AHP Calculator
+    participant TOP as TOPSIS Ranker
+
+    C->>API: POST /api/v1/livreur-ranking/rank
+    Note over C,API: {annonce, livreurs_candidats[], options}
+
+    API->>ORCH: rank_livreurs(request)
+
+    rect rgb(219, 234, 254)
+        Note over ORCH,SF: PHASE 1 : Filtrage Spatial
+        ORCH->>SF: filter_by_ellipse(livreurs, annonce, tolérance)
+        Note over SF: F1 = point_ramassage<br/>F2 = point_livraison<br/>Dmax = d(F1,F2) + 2×tolérance<br/>Test: d(L,F1) + d(F1,F2) ≤ Dmax
+        SF-->>ORCH: livreurs_éligibles, rejetés
+    end
+
+    rect rgb(209, 250, 229)
+        Note over ORCH,SF: PHASE 2 : Calcul des distances
+        ORCH->>SF: calculate_distances(éligibles, annonce)
+        Note over SF: Haversine:<br/>d(Livreur→Ramassage) +<br/>d(Ramassage→Livraison)
+        SF-->>ORCH: distances{livreur_id: km}
+    end
+
+    rect rgb(254, 243, 199)
+        Note over ORCH,AHP: PHASE 3 : Pondération AHP
+        ORCH->>AHP: calculate_weights(type_livraison)
+        Note over AHP: Matrice 4×4 (Saaty 1-9)<br/>Normalisation colonnes<br/>Moyennage lignes<br/>Vérification CR < 0.1
+        AHP-->>ORCH: poids{proximité, capacité, véhicule, réputation}
+    end
+
+    rect rgb(237, 233, 254)
+        Note over ORCH,TOP: PHASE 4 : Classement TOPSIS
+        ORCH->>TOP: rank(éligibles, distances, poids)
+        Note over TOP: 1. Matrice de décision<br/>2. Normalisation vectorielle<br/>3. Pondération (×poids AHP)<br/>4. Solutions idéales A⁺, A⁻<br/>5. Distances euclidiennes<br/>6. Score Ci = d⁻/(d⁺+d⁻)
+        TOP-->>ORCH: classement[{livreur_id, score}]
+    end
+
+    ORCH-->>API: RankingResponse{livreurs_ids: [...]}
+    API-->>C: 200 OK {livreurs_ids: ["LIV-003", "LIV-001", ...]} ~23ms

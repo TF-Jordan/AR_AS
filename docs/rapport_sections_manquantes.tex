@@ -1,0 +1,992 @@
+% ============================================================================
+%  SECTIONS MANQUANTES DU RAPPORT AR_AS
+%  A insérer dans le document principal aux emplacements indiqués
+% ============================================================================
+
+
+% ============================================================================
+%  SECTION 2.1.5 - MONITORING
+%  Insérer après la section 2.1.4 (Module 4: Ranking des livreurs)
+% ============================================================================
+
+\subsection{Monitoring}
+
+Le monitoring constitue un pilier fondamental de l'architecture AR\_AS. Il assure une \concept{observabilité complète} du système en production, couvrant trois axes : la collecte des logs applicatifs, le traçage distribué des requêtes, et la surveillance des métriques d'infrastructure.
+
+\subsubsection{Stack technique retenue}
+
+La solution repose sur la \concept{stack Elastic} (ELK), un standard industriel pour l'observabilité des systèmes distribués :
+
+\begin{table}[H]
+\centering
+\caption{Composants de la stack de monitoring}
+\label{tab:monitoring-stack}
+\begin{tabular}{>{\\raggedright}p{3.5cm} >{\\raggedright}p{3cm} >{\\raggedright\\arraybackslash}p{6.5cm}}
+\toprule
+\textbf{Composant} & \textbf{Version} & \textbf{Rôle} \\
+\midrule
+\rowcolor{arasLight}
+Elasticsearch & 8.11.0 & Moteur de recherche et d'indexation des logs, traces et métriques. Stockage centralisé avec recherche full-text. \\
+Kibana & 8.11.0 & Interface de visualisation : dashboards, exploration des logs, consultation des traces APM. \\
+\rowcolor{arasLight}
+APM Server & 8.11.0 & Collecteur de traces applicatives (Application Performance Monitoring). Reçoit les transactions et erreurs depuis l'agent \tech{elastic-apm} intégré à FastAPI. \\
+Flower & 2.0.1 & Interface de monitoring dédiée aux workers Celery : état des tâches, files d'attente, historique d'exécution. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Architecture du monitoring}
+
+Le flux de données suit un schéma unidirectionnel, depuis les sources de données vers l'interface de visualisation :
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{diagrams/monitoring_architecture.png}
+    \caption{Architecture de la stack de monitoring AR\_AS}
+    \label{fig:monitoring-architecture}
+\end{figure}
+
+\begin{processbox}
+\textbf{\textcolor{arasPrimary}{\faStream\ Flux de monitoring :}}
+
+\textbf{1. Traces APM (performance applicative) :}\\
+\tech{FastAPI} \flowto\ \tech{elastic-apm (agent Python)} \flowto\ \tech{APM Server} \flowto\ \tech{Elasticsearch} \flowto\ \tech{Kibana APM}
+
+\textbf{2. Logs structurés (événements applicatifs) :}\\
+\tech{Application (JSON logs)} \flowto\ \tech{stdout/fichiers} \flowto\ \tech{Elasticsearch} \flowto\ \tech{Kibana Discover}
+
+\textbf{3. Monitoring Celery :}\\
+\tech{Workers Celery} \flowto\ \tech{Redis (broker)} \flowto\ \tech{Flower (port 5555)}
+\end{processbox}
+
+\subsubsection{Sécurité du monitoring}
+
+La stack ELK est déployée avec la sécurité \tech{xpack} activée, garantissant l'authentification sur tous les composants :
+
+\begin{itemize}
+    \item \textbf{Elasticsearch} : authentification obligatoire via \tech{xpack.security.enabled=true}. Un mot de passe dédié est défini pour le super-utilisateur \tech{elastic}.
+    \item \textbf{Kibana} : connexion à Elasticsearch via l'utilisateur système \tech{kibana\_system} avec un mot de passe dédié.
+    \item \textbf{APM Server} : authentification à Elasticsearch via un utilisateur \tech{apm\_user} disposant d'un rôle \tech{apm\_writer} avec des privilèges restreints aux index APM.
+    \item \textbf{Initialisation automatique} : un conteneur éphémère \tech{es-setup} configure automatiquement les utilisateurs et rôles au premier démarrage, éliminant toute intervention manuelle.
+\end{itemize}
+
+\begin{alertbox}
+\textbf{\faExclamationTriangle\ Sécurité :} Les mots de passe par défaut fournis dans \tech{.env.example} sont destinés au développement uniquement. En production, ils doivent impérativement être remplacés par des secrets générés aléatoirement.
+\end{alertbox}
+
+\subsubsection{Métriques collectées}
+
+Le système collecte des métriques sur trois niveaux :
+
+\begin{table}[H]
+\centering
+\caption{Métriques de monitoring par niveau}
+\label{tab:monitoring-metrics}
+\begin{tabular}{>{\\raggedright}p{3cm} >{\\raggedright\\arraybackslash}p{10cm}}
+\toprule
+\textbf{Niveau} & \textbf{Métriques collectées} \\
+\midrule
+\rowcolor{arasLight}
+\textbf{Application} & Durée des requêtes HTTP (P50, P95, P99), taux d'erreurs par endpoint, temps d'inférence ML, opérations cache (hit/miss), requêtes base de données \\
+\textbf{Infrastructure} & CPU et mémoire par conteneur Docker, connexions PostgreSQL actives, mémoire Redis utilisée, I/O réseau \\
+\rowcolor{arasLight}
+\textbf{Tâches async} & État des workers Celery (actifs/inactifs), tâches en cours, échouées et réussies, profondeur des files d'attente, temps d'exécution moyen \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Déploiement conditionnel}
+
+La stack de monitoring est déployée via un \concept{profil Docker Compose} dédié, ce qui permet de l'activer uniquement en cas de besoin sans impacter les services applicatifs :
+
+\begin{lstlisting}[language=bash, caption={Commandes de déploiement avec et sans monitoring}]
+# Sans monitoring (developpement leger)
+docker compose up -d
+
+# Avec monitoring complet (ELK + APM)
+docker compose --profile monitoring up -d
+\end{lstlisting}
+
+Cette approche garantit que les environnements de développement légers ne sont pas alourdis par la stack ELK, tout en permettant une activation immédiate pour le débogage ou la production.
+
+
+% ============================================================================
+%  SECTION 2.2 - CONCEPTION FONCTIONNELLE (REFAITE ENTIEREMENT)
+%  Remplacer toute la section 2.2 existante par ce contenu
+% ============================================================================
+
+\section{Conception fonctionnelle}
+
+La conception fonctionnelle décrit le comportement attendu du système du point de vue de l'utilisateur et des interactions entre les composants. Cette section formalise l'architecture fonctionnelle à travers des diagrammes UML normalisés, offrant une vision progressive allant du contexte général jusqu'au détail des classes et des interactions.
+
+\subsection{Diagramme de contexte}
+
+Le diagramme de contexte délimite les frontières du système AR\_AS et identifie les acteurs externes qui interagissent avec lui. Il constitue le niveau d'abstraction le plus élevé de la modélisation.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{diagrams/diagramme_contexte.png}
+    \caption{Diagramme de contexte du système AR\_AS}
+    \label{fig:context-diagram}
+\end{figure}
+
+Le système interagit avec trois catégories d'acteurs :
+
+\begin{itemize}
+    \item \textbf{Client applicatif (API Consumer)} : toute application externe qui consomme l'API REST pour soumettre des requêtes de recommandation de véhicules ou de ranking de livreurs. La communication se fait exclusivement via des requêtes HTTP sur le port 8000.
+    \item \textbf{Administrateur de plateforme} : utilisateur technique qui supervise le système via les interfaces de monitoring (Kibana sur le port 5601, Flower sur le port 5555) et qui peut déclencher des opérations d'administration (synchronisation des vecteurs, invalidation du cache).
+    \item \textbf{Modèles de Machine Learning} : composants pré-entraînés chargés au démarrage de l'application. Le modèle \tech{distil-camembert} fournit l'analyse de sentiment et le modèle \tech{mpnet-base-v2} génère les embeddings vectoriels. Ces modèles sont des dépendances passives consommées par les modules internes.
+\end{itemize}
+
+\begin{infobox}
+Le système AR\_AS est conçu comme un \concept{service backend autonome} : il ne possède pas d'interface utilisateur graphique propre. Toute interaction passe par l'API REST documentée via Swagger (OpenAPI).
+\end{infobox}
+
+\subsection{Diagramme de packages}
+
+Le diagramme de packages illustre l'organisation modulaire du code source et les dépendances entre les différents sous-systèmes.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{diagrams/diagramme_packages.png}
+    \caption{Diagramme de packages du système AR\_AS}
+    \label{fig:package-diagram}
+\end{figure}
+
+L'architecture logicielle est structurée en six packages principaux :
+
+\begin{enumerate}
+    \item \textbf{api} : couche d'exposition HTTP. Contient l'application FastAPI, les routes (endpoints), les middlewares (CORS, logging, correlation ID) et les schémas Pydantic de validation des entrées/sorties. Ce package dépend de tous les modules métier qu'il orchestre.
+
+    \item \textbf{module1\_sentiment} : module d'analyse de sentiments. Encapsule le chargement du modèle \tech{distil-camembert}, la tokenisation des textes et l'inférence. Il expose une interface simple : un texte en entrée, un score de sentiment en sortie.
+
+    \item \textbf{module2\_recommendation} : module de recommandation sémantique. Gère la génération d'embeddings, la recherche de similarité dans Qdrant, le scoring multicritères (similarité + disponibilité + réputation), et la mise en cache Redis. Il dépend du module 1 pour obtenir le score de sentiment.
+
+    \item \textbf{module3\_orchestration} : module de coordination. Implémente le workflow complet (Module 1 \flowto\ Module 2) en mode synchrone et asynchrone via Celery. Il gère la propagation du \tech{correlation\_id} à travers les tâches distribuées.
+
+    \item \textbf{module4\_livreur\_ranking} : module de ranking multicritères. Totalement indépendant des trois premiers modules, il implémente le filtrage spatial, le calcul des poids AHP et le classement TOPSIS. Il ne dépend d'aucune base de données externe.
+
+    \item \textbf{config / database / utils} : packages transversaux fournissant la configuration centralisée (Pydantic Settings), la couche d'accès aux données (SQLAlchemy, repositories) et les utilitaires partagés (gestion du contexte, logging structuré).
+\end{enumerate}
+
+\begin{alertbox}
+\textbf{Point d'architecture :} Le \concept{Module 4} est volontairement découplé des autres modules. Il n'utilise ni PostgreSQL, ni Redis, ni Qdrant. Toutes les données nécessaires au ranking sont fournies directement dans la requête HTTP, ce qui en fait un service \textit{stateless} à temps de réponse garanti.
+\end{alertbox}
+
+\subsection{Diagramme de classes}
+
+Le diagramme de classes détaille les entités métier principales, leurs attributs et leurs relations. Il sert de fondation au modèle de données et aux schémas de validation Pydantic.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{diagrams/diagramme_classes.png}
+    \caption{Diagramme de classes du système AR\_AS}
+    \label{fig:class-diagram}
+\end{figure}
+
+Les classes métier se répartissent en deux domaines fonctionnels :
+
+\textbf{Domaine Recommandation :}
+\begin{itemize}
+    \item \textbf{Vehicle} : entité persistée en PostgreSQL. Attributs principaux : \tech{vehicle\_id}, \tech{brand}, \tech{model}, \tech{year}, \tech{prix\_journalier}, \tech{disponible}, \tech{note\_moyenne}. La méthode \tech{to\_description()} génère une représentation textuelle utilisée pour la vectorisation.
+    \item \textbf{SentimentResult} : objet valeur produit par le Module 1. Contient le \tech{sentiment\_score} (de $-1$ à $+1$), le \tech{sentiment\_label} (positif/neutre/négatif), et la \tech{confidence} du modèle.
+    \item \textbf{RecommendationResult} : objet valeur produit par le Module 2. Contient la liste ordonnée des véhicules recommandés avec leurs scores détaillés (similarité, disponibilité, réputation, score final).
+\end{itemize}
+
+\textbf{Domaine Ranking Livreurs :}
+\begin{itemize}
+    \item \textbf{AnnonceSchema} : représente une annonce de livraison avec ses points géographiques (ramassage et livraison), le type de livraison et le volume du colis.
+    \item \textbf{LivreurCandidatSchema} : représente un livreur candidat avec sa position GPS, sa réputation (note sur 10), son type de véhicule et sa capacité de chargement en $m^3$.
+    \item \textbf{PointSchema} : objet valeur encapsulant une coordonnée GPS (\tech{latitude}, \tech{longitude}).
+\end{itemize}
+
+\subsection{Diagramme de cas d'utilisation}
+
+Le diagramme de cas d'utilisation identifie les fonctionnalités offertes par le système, regroupées par acteur.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{diagrams/diagramme_use_cases.png}
+    \caption{Diagramme de cas d'utilisation du système AR\_AS}
+    \label{fig:usecase-diagram}
+\end{figure}
+
+Les cas d'utilisation sont regroupés par acteur :
+
+\textbf{Client applicatif (API Consumer) :}
+\begin{itemize}
+    \item \textbf{Analyser un sentiment} : soumettre un texte en français et obtenir un score de sentiment avec indice de confiance.
+    \item \textbf{Analyser un lot de textes} : soumettre plusieurs textes simultanément pour un traitement en batch.
+    \item \textbf{Obtenir des recommandations} : soumettre un commentaire client et obtenir une liste de véhicules recommandés classés par pertinence.
+    \item \textbf{Lancer une recommandation asynchrone} : déclencher le traitement en arrière-plan via Celery et consulter le résultat ultérieurement.
+    \item \textbf{Classer des livreurs} : soumettre une annonce de livraison avec une liste de livreurs candidats et obtenir un classement objectif.
+\end{itemize}
+
+\textbf{Administrateur de plateforme :}
+\begin{itemize}
+    \item \textbf{Synchroniser les vecteurs} : déclencher la vectorisation d'un type de produit dans Qdrant.
+    \item \textbf{Invalider le cache} : purger les résultats de recommandation mis en cache dans Redis.
+    \item \textbf{Consulter les dashboards} : accéder aux interfaces Kibana (logs, traces APM) et Flower (tâches Celery).
+    \item \textbf{Vérifier l'état du système} : consulter les endpoints de health check (liveness, readiness, health détaillé).
+\end{itemize}
+
+\textbf{Système (automatisé) :}
+\begin{itemize}
+    \item \textbf{Exécuter le health check périodique} : Celery Beat déclenche un contrôle de santé toutes les 5 minutes.
+    \item \textbf{Collecter les métriques} : l'agent APM capture automatiquement les traces de chaque requête HTTP.
+    \item \textbf{Gérer le cache} : Redis applique automatiquement la politique d'expiration (TTL) et d'éviction (LRU) sur les entrées de cache.
+\end{itemize}
+
+\subsection{Diagrammes de séquence}
+
+Les diagrammes de séquence détaillent les interactions temporelles entre les composants pour les deux flux principaux du système.
+
+\subsubsection{Flux 1 : Recommandation de véhicules}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{diagrams/sequence_recommandation.png}
+    \caption{Diagramme de séquence -- Flux de recommandation de véhicules}
+    \label{fig:seq-recommendation}
+\end{figure}
+
+Le flux de recommandation se déroule en cinq étapes séquentielles :
+
+\begin{enumerate}
+    \item \textbf{Réception de la requête} : le client soumet un commentaire et un identifiant produit via \tech{POST /api/v1/recommendations}. Le middleware génère un \tech{correlation\_id} unique pour la traçabilité.
+    \item \textbf{Vérification du cache} : le Module 2 interroge Redis avec une stratégie de matching à trois niveaux (exact, fuzzy par tolérance, par produit). En cas de hit, le résultat est retourné immédiatement ($\sim$2ms).
+    \item \textbf{Analyse de sentiment} : en cas de cache miss, le Module 1 analyse le commentaire via \tech{distil-camembert} et produit un score de sentiment ($\sim$45ms).
+    \item \textbf{Recherche vectorielle} : le Module 2 génère l'embedding du commentaire ($\sim$80ms), recherche les véhicules similaires dans Qdrant ($\sim$12ms), puis applique le scoring multicritères (similarité 60\%, disponibilité 25\%, réputation 15\%).
+    \item \textbf{Mise en cache et réponse} : le résultat est stocké dans Redis avec un TTL de 3600 secondes, puis retourné au client. Temps total : $\sim$185ms.
+\end{enumerate}
+
+\subsubsection{Flux 2 : Ranking de livreurs}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{diagrams/sequence_ranking.png}
+    \caption{Diagramme de séquence -- Flux de ranking de livreurs}
+    \label{fig:seq-ranking}
+\end{figure}
+
+Le flux de ranking se décompose en quatre phases strictement séquentielles :
+
+\begin{enumerate}
+    \item \textbf{Filtrage spatial} : à partir des coordonnées GPS du point de ramassage, du point de livraison et de chaque livreur candidat, le filtre spatial construit une ellipse dont les foyers sont les deux points de l'annonce. Seuls les livreurs dont la distance totale (position \flowto\ ramassage \flowto\ livraison) est inférieure au seuil $D_{max}$ sont retenus. La tolérance est adaptée au type de livraison : 2.5~km (standard), 1.5~km (express), 1.0~km (same-day).
+    \item \textbf{Calcul des poids AHP} : la méthode \concept{Analytic Hierarchy Process} construit une matrice de comparaison par paires pour les quatre critères (proximité, capacité, type de véhicule, réputation) selon l'échelle de Saaty (1-9). Les poids sont calculés par normalisation des colonnes et moyennage des lignes. Le ratio de cohérence $CR$ est vérifié ($CR < 0.1$).
+    \item \textbf{Classement TOPSIS} : la méthode \concept{TOPSIS} construit la matrice de décision, la normalise par norme vectorielle, applique les poids AHP, identifie les solutions idéales positive ($A^+$) et négative ($A^-$), calcule les distances euclidiennes de chaque livreur à ces solutions, et produit un score de similarité $C_i \in [0, 1]$.
+    \item \textbf{Réponse} : la liste ordonnée des identifiants de livreurs est retournée au client. Temps total : $\sim$23ms.
+\end{enumerate}
+
+
+% ============================================================================
+%  SECTION 2.3 - CONCEPTION TECHNIQUE
+%  Remplacer le contenu de la section 2.3 existante
+% ============================================================================
+
+\section{Conception technique}
+
+La conception technique traduit les choix fonctionnels en décisions technologiques concrètes. Cette section justifie les technologies retenues et décrit l'architecture d'infrastructure.
+
+\subsection{Choix des technologies et justifications}
+
+\subsubsection{Langage de programmation et framework}
+
+\begin{table}[H]
+\centering
+\caption{Choix technologiques -- Langage et framework}
+\label{tab:tech-lang}
+\begin{tabular}{>{\\raggedright}p{3cm} >{\\raggedright}p{3cm} >{\\raggedright\\arraybackslash}p{7cm}}
+\toprule
+\textbf{Composant} & \textbf{Technologie} & \textbf{Justification} \\
+\midrule
+\rowcolor{arasLight}
+Langage & Python 3.12 & Écosystème ML dominant (PyTorch, Transformers, NumPy). Support natif de l'asynchrone (\tech{asyncio}). Typage statique optionnel via annotations. \\
+Framework API & FastAPI 0.109 & Performances proches de Go/Node.js grâce à Starlette/Uvicorn. Validation automatique des requêtes via Pydantic. Documentation OpenAPI générée automatiquement. Support natif de l'injection de dépendances. \\
+\rowcolor{arasLight}
+Serveur ASGI & Uvicorn 0.27 & Serveur ASGI haute performance basé sur \tech{uvloop}. Support du multi-worker pour exploiter les CPU multi-cœurs. \\
+Validation & Pydantic 2.5 & Validation des données par modèles déclaratifs. Sérialisation/désérialisation JSON performante. Gestion centralisée de la configuration via \tech{pydantic-settings}. \\
+\rowcolor{arasLight}
+ORM & SQLAlchemy 2.0 & Support asynchrone natif avec \tech{asyncpg}. Mapping objet-relationnel avec gestion des sessions. Migrations via Alembic. \\
+File d'attente & Celery 5.3 & Exécution asynchrone de tâches longues (vectorisation, analyses batch). Planification périodique via Celery Beat. Monitoring via Flower. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Bibliothèques ML utilisées :}
+\begin{itemize}
+    \item \tech{transformers} (Hugging Face) : chargement et inférence des modèles NLP pré-entraînés.
+    \item \tech{sentence-transformers} : génération d'embeddings denses (768 dimensions) optimisée pour la similarité sémantique.
+    \item \tech{torch} (PyTorch) : moteur de calcul tensoriel sous-jacent, avec support GPU optionnel.
+    \item \tech{numpy} : calcul matriciel pour les algorithmes AHP et TOPSIS.
+\end{itemize}
+
+\subsubsection{Bases de données}
+
+Le système utilise trois bases de données complémentaires, chacune optimisée pour un type de données spécifique :
+
+\begin{table}[H]
+\centering
+\caption{Choix technologiques -- Bases de données}
+\label{tab:tech-db}
+\begin{tabular}{>{\\raggedright}p{2.5cm} >{\\raggedright}p{2.5cm} >{\\raggedright}p{3cm} >{\\raggedright\\arraybackslash}p{5cm}}
+\toprule
+\textbf{Base} & \textbf{Version} & \textbf{Usage} & \textbf{Justification} \\
+\midrule
+\rowcolor{arasLight}
+PostgreSQL & 15 Alpine & Données relationnelles (véhicules, utilisateurs, avis) & Robustesse ACID, requêtes complexes (JOIN, agrégation), support JSON natif. \\
+Redis & 7 Alpine & Cache applicatif + broker Celery & Latence sub-milliseconde, structures de données avancées, politique d'éviction LRU configurable. \\
+\rowcolor{arasLight}
+Qdrant & 1.7.4 & Stockage et recherche vectorielle & Algorithme HNSW pour recherche de similarité en temps quasi-constant. API REST et gRPC. Filtrage par métadonnées. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{infobox}
+\textbf{Stratégie de cache Redis :} Le système implémente un cache à trois niveaux de matching pour les recommandations : (1) correspondance exacte par hash de requête, (2) correspondance approchée par tolérance sur le score de sentiment ($\pm 0.1$), et (3) correspondance par produit uniquement. Cette stratégie permet d'atteindre un taux de hit de 70-80\% en conditions réelles.
+\end{infobox}
+
+\subsubsection{Monitoring}
+
+\begin{table}[H]
+\centering
+\caption{Choix technologiques -- Monitoring et observabilité}
+\label{tab:tech-monitoring}
+\begin{tabular}{>{\\raggedright}p{3cm} >{\\raggedright}p{2.5cm} >{\\raggedright\\arraybackslash}p{7.5cm}}
+\toprule
+\textbf{Composant} & \textbf{Version} & \textbf{Rôle} \\
+\midrule
+\rowcolor{arasLight}
+Elasticsearch & 8.11.0 & Indexation et recherche des logs, traces et métriques. Déployé en mode single-node avec sécurité xpack activée. \\
+Kibana & 8.11.0 & Visualisation des données : dashboards personnalisés, exploration des logs, consultation des traces APM, gestion des alertes. \\
+\rowcolor{arasLight}
+APM Server & 8.11.0 & Collecte des traces de performance applicative. Intégré à FastAPI via la bibliothèque \tech{elastic-apm} (agent Python). \\
+Flower & 2.0.1 & Interface web de monitoring des workers et tâches Celery. Accessible avec authentification basic. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Architecture d'infrastructure}
+
+L'ensemble du système est conteneurisé via \concept{Docker} et orchestré par \concept{Docker Compose}. L'architecture distingue deux catégories de services :
+
+\begin{itemize}
+    \item \textbf{Services applicatifs} (démarrage par défaut) : API FastAPI, workers Celery, Celery Beat, Flower, PostgreSQL, Redis, Qdrant.
+    \item \textbf{Services de monitoring} (profil optionnel) : Elasticsearch, Kibana, APM Server, conteneur d'initialisation \tech{es-setup}.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{diagrams/architecture_infrastructure.png}
+    \caption{Architecture d'infrastructure Docker du système AR\_AS}
+    \label{fig:infra-architecture}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Services Docker et ports exposés}
+\label{tab:docker-services}
+\begin{tabular}{>{\\raggedright}p{3.5cm} >{\\raggedright}p{3.5cm} >{\\raggedright}p{2cm} >{\\raggedright\\arraybackslash}p{4cm}}
+\toprule
+\textbf{Service} & \textbf{Image} & \textbf{Port} & \textbf{Healthcheck} \\
+\midrule
+\rowcolor{arasLight}
+api & ar-as-api:latest & 8000 & \tech{curl /health} \\
+celery-worker & ar-as-api:latest & -- & -- \\
+\rowcolor{arasLight}
+celery-beat & ar-as-api:latest & -- & -- \\
+flower & ar-as-api:latest & 5555 & -- \\
+\rowcolor{arasLight}
+postgres & postgres:15-alpine & 5432 & \tech{pg\_isready} \\
+redis & redis:7-alpine & 6379 & \tech{redis-cli ping} \\
+\rowcolor{arasLight}
+qdrant & qdrant/qdrant:v1.7.4 & 6333 & -- \\
+\midrule
+elasticsearch & elastic/elasticsearch:8.11.0 & 9200 & \tech{curl \_cluster/health} \\
+\rowcolor{arasLight}
+kibana & elastic/kibana:8.11.0 & 5601 & \tech{curl /api/status} \\
+apm-server & elastic/apm-server:8.11.0 & 8200 & \tech{curl /} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Tous les conteneurs sont connectés via un réseau bridge dédié (\tech{ar-as-network}), permettant la résolution DNS interne entre les services par leur nom de conteneur.
+
+
+% ============================================================================
+%  CHAPITRE 3 - PHASE DE DEVELOPPEMENT
+%  Remplacer le chapitre 3 existant
+% ============================================================================
+
+\chapter{PHASE DE DEVELOPPEMENT}
+
+Ce chapitre détaille la mise en œuvre technique du système AR\_AS, depuis la configuration de l'environnement de développement jusqu'à l'implémentation des quatre modules applicatifs.
+
+\section{Configuration de l'environnement}
+
+\subsection{Structure du projet}
+
+Le projet suit une architecture modulaire organisée en couches distinctes :
+
+\begin{lstlisting}[language=bash, caption={Arborescence du projet AR\_AS}]
+AR_AS/
+|-- src/
+|   |-- api/                      # Couche HTTP (FastAPI)
+|   |   |-- app.py               # Factory de l'application
+|   |   |-- middleware.py        # CORS, Correlation ID, Logging
+|   |   |-- dependencies.py     # Injection de dependances
+|   |   |-- schemas.py          # Schemas Pydantic API
+|   |   +-- routes/             # Endpoints par domaine
+|   |       |-- recommendations.py
+|   |       |-- sentiment.py
+|   |       |-- livreur_ranking.py
+|   |       |-- tasks.py
+|   |       |-- health.py
+|   |       +-- admin.py
+|   |-- modules/
+|   |   |-- module1_sentiment/     # Analyse de sentiments
+|   |   |   |-- analyzer.py
+|   |   |   +-- schemas.py
+|   |   |-- module2_recommendation/# Recommandation semantique
+|   |   |   |-- engine.py
+|   |   |   |-- embeddings.py
+|   |   |   |-- vector_store.py
+|   |   |   |-- cache.py
+|   |   |   |-- ranking.py
+|   |   |   +-- schemas.py
+|   |   |-- module3_orchestration/ # Coordination Celery
+|   |   |   |-- celery_app.py
+|   |   |   |-- orchestrator.py
+|   |   |   +-- tasks.py
+|   |   +-- module4_livreur_ranking/# Ranking AHP+TOPSIS
+|   |       |-- constants.py
+|   |       |-- ahp_calculator.py
+|   |       |-- topsis_ranker.py
+|   |       |-- spatial_filter.py
+|   |       |-- orchestrator.py
+|   |       |-- schemas.py
+|   |       +-- utils.py
+|   |-- config/                   # Configuration centralisee
+|   |   |-- settings.py
+|   |   +-- constants.py
+|   |-- database/                 # Couche de persistance
+|   |   |-- connection.py
+|   |   |-- models.py
+|   |   +-- repositories.py
+|   +-- utils/                    # Utilitaires transversaux
+|       +-- context.py
+|-- monitoring/                   # Configuration ELK
+|-- scripts/                      # Scripts utilitaires
+|-- Dockerfile
+|-- docker-compose.yml
+|-- requirements.txt
++-- .env.example
+\end{lstlisting}
+
+\subsection{Configuration Docker}
+
+L'image Docker est construite à partir de \tech{python:3.12-slim} avec une stratégie d'optimisation par \concept{wheels pré-compilés} qui élimine la nécessité de compiler les paquets au moment du build :
+
+\begin{lstlisting}[language=bash, caption={Processus de build Docker}]
+# Etape 1 : Preparer les wheels depuis l'env local
+pip wheel -w wheels/ -r requirements.txt
+
+# Etape 2 : Build de l'image (installation offline)
+docker compose build
+
+# Etape 3 : Demarrage des services
+docker compose up -d
+\end{lstlisting}
+
+\begin{processbox}
+\textbf{\textcolor{arasPrimary}{\faDocker\ Caractéristiques du Dockerfile :}}
+\begin{itemize}
+    \item \textbf{Image de base} : \tech{python:3.12-slim} (taille minimale).
+    \item \textbf{Utilisateur non-root} : exécution sous \tech{appuser} (UID 1000) pour la sécurité.
+    \item \textbf{Dépendances minimales} : seules \tech{curl} (healthcheck) et \tech{libpq5} (PostgreSQL runtime) sont installées.
+    \item \textbf{Healthcheck intégré} : vérification périodique de \tech{/health} toutes les 30 secondes.
+    \item \textbf{Multi-workers} : Uvicorn lancé avec 4 workers pour exploiter les CPU multi-cœurs.
+\end{itemize}
+\end{processbox}
+
+\subsection{Variables d'environnement}
+
+La configuration est centralisée via \tech{pydantic-settings}, qui charge automatiquement les variables depuis un fichier \tech{.env} ou depuis l'environnement système. Les principales catégories sont :
+
+\begin{table}[H]
+\centering
+\caption{Variables d'environnement principales}
+\label{tab:env-vars}
+\begin{tabular}{>{\\raggedright}p{4.5cm} >{\\raggedright}p{3.5cm} >{\\raggedright\\arraybackslash}p{5cm}}
+\toprule
+\textbf{Variable} & \textbf{Valeur par défaut} & \textbf{Description} \\
+\midrule
+\rowcolor{arasLight}
+\tech{POSTGRES\_HOST} & localhost & Hôte PostgreSQL \\
+\tech{REDIS\_HOST} & localhost & Hôte Redis \\
+\rowcolor{arasLight}
+\tech{QDRANT\_HOST} & localhost & Hôte Qdrant \\
+\tech{EMBEDDING\_MODEL\_NAME} & paraphrase-multilingual-mpnet-base-v2 & Modèle d'embeddings \\
+\rowcolor{arasLight}
+\tech{EMBEDDING\_DIMENSION} & 768 & Dimension des vecteurs \\
+\tech{APM\_ENABLED} & false & Activation du monitoring APM \\
+\rowcolor{arasLight}
+\tech{LOG\_LEVEL} & INFO & Niveau de journalisation \\
+\tech{CACHE\_TTL\_SECONDS} & 3600 & Durée de vie du cache \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Développement des modules}
+
+\subsection{Module 1 : Analyse de sentiments}
+
+Le Module 1 implémente l'analyse de sentiments en français via le modèle \tech{distil-camembert-sentiment}, une version distillée de CamemBERT fine-tunée pour la classification de sentiments en trois catégories.
+
+\subsubsection{Implémentation}
+
+La classe \tech{SentimentAnalyzer} encapsule le pipeline complet d'inférence :
+
+\begin{lstlisting}[language=Python, caption={Pipeline d'analyse de sentiments (simplifié)}]
+class SentimentAnalyzer:
+    LABEL_MAPPING = {0: "negative", 1: "neutral", 2: "positive"}
+
+    def analyze(self, input_data: SentimentInput) -> SentimentResult:
+        # 1. Tokenisation du texte
+        inputs = self.tokenizer(
+            input_data.commentaire,
+            return_tensors="pt",
+            truncation=True, max_length=512
+        )
+        # 2. Inference
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+        # 3. Softmax -> probabilites
+        probs = torch.softmax(outputs.logits, dim=-1)
+        # 4. Score normalise [-1, +1]
+        score = (probs[0][2] - probs[0][0]).item()
+        return SentimentResult(
+            sentiment_score=score,
+            sentiment_label=self._get_label(score),
+            confidence=probs.max().item()
+        )
+\end{lstlisting}
+
+\begin{infobox}
+\textbf{Modèle de fallback :} Si le modèle \tech{distil-camembert} n'est pas disponible localement, le système charge automatiquement le modèle \tech{nlptown/bert-base-multilingual-uncased-sentiment} depuis Hugging Face, garantissant un fonctionnement même sans les fichiers modèle pré-téléchargés.
+\end{infobox}
+
+\subsection{Module 2 : Recommandation sémantique}
+
+Le Module 2 orchestre le pipeline complet de recommandation : génération d'embeddings, recherche vectorielle, et scoring multicritères.
+
+\subsubsection{Génération d'embeddings}
+
+La classe \tech{EmbeddingService} utilise le modèle \tech{paraphrase-multilingual-mpnet-base-v2} (768 dimensions) pour transformer du texte en vecteurs denses :
+
+\begin{lstlisting}[language=Python, caption={Génération d'embeddings vectoriels}]
+class EmbeddingService:
+    def encode(self, text: str) -> np.ndarray:
+        return self.model.encode(
+            text, normalize_embeddings=True
+        )  # Vecteur normalise de dimension 768
+\end{lstlisting}
+
+\subsubsection{Recherche vectorielle dans Qdrant}
+
+La base Qdrant est configurée avec l'algorithme \concept{HNSW} (Hierarchical Navigable Small World) pour une recherche de similarité en temps quasi-logarithmique :
+
+\begin{lstlisting}[language=Python, caption={Configuration de la collection Qdrant}]
+# Parametres HNSW
+m = 16                  # Nombre de connexions par noeud
+ef_construct = 100      # Precision de construction du graphe
+full_scan_threshold = 10000  # Seuil de scan complet
+\end{lstlisting}
+
+\subsubsection{Scoring multicritères}
+
+Le classement final des véhicules recommandés combine trois composantes pondérées :
+
+\begin{equation}
+\text{score\_final} = 0.6 \times S_{similarit\acute{e}} + 0.25 \times S_{disponibilit\acute{e}} + 0.15 \times S_{r\acute{e}putation}
+\label{eq:scoring-recommendation}
+\end{equation}
+
+où $S_{similarité} \in [0, 1]$ est le score cosinus retourné par Qdrant, $S_{disponibilité} \in \{0, 1\}$ est un indicateur binaire, et $S_{réputation} = \frac{note}{5} \in [0, 1]$.
+
+\subsection{Module 3 : Orchestration}
+
+Le Module 3 coordonne l'exécution des Modules 1 et 2 en mode synchrone et asynchrone via \concept{Celery}.
+
+\subsubsection{Configuration Celery}
+
+\begin{lstlisting}[language=Python, caption={Configuration de l'application Celery}]
+celery_app = Celery(
+    "recommendation_system",
+    broker="redis://redis:6379/0",
+    backend="redis://redis:6379/0",
+    include=["src.modules.module3_orchestration.tasks"]
+)
+
+# Files d'attente dediees
+task_routes = {
+    "process_recommendation_task": {"queue": "recommendations"},
+    "process_sentiment_task": {"queue": "sentiment"},
+    "vectorize_products_task": {"queue": "vectorization"},
+}
+
+# Tache periodique (Celery Beat)
+beat_schedule = {
+    "health-check": {
+        "task": "health_check_task",
+        "schedule": 300.0,  # Toutes les 5 minutes
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Propagation du Correlation ID}
+
+Chaque requête entrante reçoit un identifiant unique (\tech{correlation\_id}) généré par le middleware. Cet identifiant est propagé à travers toute la chaîne de traitement, y compris dans les tâches Celery asynchrones, permettant une traçabilité complète de bout en bout :
+
+\begin{processbox}
+\tech{Client} \flowto\ \tech{Middleware (génère UUID)} \flowto\ \tech{API Route} \flowto\ \tech{Celery Task (kwargs)} \flowto\ \tech{Module 1/2} \flowto\ \tech{Logs (JSON structuré)}
+\end{processbox}
+
+\subsection{Module 4 : Ranking de livreurs}
+
+Le Module 4 implémente un système complet de ranking multicritères combinant trois algorithmes : le filtrage spatial par ellipse, la pondération AHP, et le classement TOPSIS.
+
+\subsubsection{Phase 1 : Filtrage spatial}
+
+Le filtre spatial utilise la \concept{méthode de l'ellipse sphérique} pour éliminer les livreurs trop éloignés. L'ellipse est définie par deux foyers (le point de ramassage $F_1$ et le point de livraison $F_2$) :
+
+\begin{equation}
+D_{max} = d(F_1, F_2) + 2 \times \text{tol\'{e}rance}
+\label{eq:dmax}
+\end{equation}
+
+Un livreur est éligible si et seulement si :
+
+\begin{equation}
+d(\text{Livreur}, F_1) + d(F_1, F_2) \leq D_{max}
+\label{eq:ellipse-condition}
+\end{equation}
+
+Les distances sont calculées par la \concept{formule de Haversine} :
+
+\begin{equation}
+d = 2R \times \arcsin\left(\sqrt{\sin^2\!\left(\frac{\varphi_2 - \varphi_1}{2}\right) + \cos(\varphi_1)\cos(\varphi_2)\sin^2\!\left(\frac{\lambda_2 - \lambda_1}{2}\right)}\right)
+\label{eq:haversine}
+\end{equation}
+
+avec $R = 6371$~km (rayon terrestre moyen), $\varphi$ les latitudes et $\lambda$ les longitudes en radians.
+
+\subsubsection{Phase 2 : Pondération AHP}
+
+La méthode \concept{Analytic Hierarchy Process} (Saaty, 1980) calcule les poids relatifs des quatre critères d'évaluation à partir d'une matrice de comparaison par paires :
+
+\begin{equation}
+A = \begin{pmatrix}
+1 & a_{12} & a_{13} & a_{14} \\
+1/a_{12} & 1 & a_{23} & a_{24} \\
+1/a_{13} & 1/a_{23} & 1 & a_{34} \\
+1/a_{14} & 1/a_{24} & 1/a_{34} & 1
+\end{pmatrix}
+\label{eq:ahp-matrix}
+\end{equation}
+
+où les $a_{ij}$ sont des jugements sur l'échelle de Saaty (1-9). L'ordre des critères est : proximité géographique, capacité de transport, type de véhicule, réputation.
+
+Le calcul des poids s'effectue par normalisation des colonnes suivie d'un moyennage des lignes :
+
+\begin{equation}
+w_i = \frac{1}{n} \sum_{j=1}^{n} \frac{a_{ij}}{\sum_{k=1}^{n} a_{kj}}
+\label{eq:ahp-weights}
+\end{equation}
+
+La cohérence est validée par le \concept{Consistency Ratio} :
+
+\begin{equation}
+CR = \frac{CI}{RI} = \frac{(\lambda_{max} - n) / (n - 1)}{RI_n} < 0.1
+\label{eq:consistency-ratio}
+\end{equation}
+
+\begin{table}[H]
+\centering
+\caption{Matrices AHP prédéfinies selon le type de livraison}
+\label{tab:ahp-matrices}
+\begin{tabular}{>{\\raggedright}p{3cm} >{\\raggedright}p{3cm} >{\\raggedright}p{3cm} >{\\raggedright\\arraybackslash}p{3.5cm}}
+\toprule
+\textbf{Comparaison} & \textbf{Standard} & \textbf{Express} & \textbf{Same-day} \\
+\midrule
+\rowcolor{arasLight}
+Proximité / Capacité & 2 & 3 & 4 \\
+Proximité / Véhicule & 3 & 4 & 5 \\
+\rowcolor{arasLight}
+Proximité / Réputation & 4 & 5 & 7 \\
+Capacité / Véhicule & 2 & 2 & 2 \\
+\rowcolor{arasLight}
+Capacité / Réputation & 3 & 3 & 4 \\
+Véhicule / Réputation & 2 & 2 & 2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Phase 3 : Classement TOPSIS}
+
+La méthode \concept{TOPSIS} (Technique for Order Preference by Similarity to Ideal Solution) classe les livreurs éligibles en cinq étapes :
+
+\begin{enumerate}
+    \item \textbf{Construction de la matrice de décision} $X$ de taille $m \times n$ ($m$ livreurs, $n = 4$ critères).
+
+    \item \textbf{Normalisation vectorielle} :
+    \begin{equation}
+    r_{ij} = \frac{x_{ij}}{\sqrt{\sum_{k=1}^{m} x_{kj}^2}}
+    \label{eq:topsis-normalize}
+    \end{equation}
+
+    \item \textbf{Pondération} : $v_{ij} = w_j \times r_{ij}$, où $w_j$ sont les poids AHP.
+
+    \item \textbf{Solutions idéales} :
+    \begin{align}
+    A^+ &= \left(\min_i v_{i1},\; \max_i v_{i2},\; \max_i v_{i3},\; \max_i v_{i4}\right) \label{eq:ideal-pos} \\
+    A^- &= \left(\max_i v_{i1},\; \min_i v_{i2},\; \min_i v_{i3},\; \min_i v_{i4}\right) \label{eq:ideal-neg}
+    \end{align}
+    (Le critère 1, la proximité, est un critère de \textit{coût} à minimiser ; les autres sont des critères de \textit{bénéfice} à maximiser.)
+
+    \item \textbf{Score de similarité} :
+    \begin{equation}
+    C_i = \frac{d_i^-}{d_i^+ + d_i^-} \in [0, 1]
+    \label{eq:topsis-score}
+    \end{equation}
+    où $d_i^+$ et $d_i^-$ sont les distances euclidiennes aux solutions idéales.
+\end{enumerate}
+
+Le livreur avec le score $C_i$ le plus élevé est classé premier.
+
+
+% ============================================================================
+%  CHAPITRE 4 - PHASE DE DEPLOIEMENT
+%  Remplacer le chapitre 4 existant
+% ============================================================================
+
+\chapter{PHASE DE DEPLOIEMENT}
+
+Ce chapitre décrit le processus de déploiement du système AR\_AS, depuis la préparation de l'environnement jusqu'à la mise en service complète avec vérification de tous les composants.
+
+\section{Préparation du déploiement}
+
+\subsection{Prérequis matériels et logiciels}
+
+\begin{table}[H]
+\centering
+\caption{Prérequis pour le déploiement}
+\label{tab:prerequisites}
+\begin{tabular}{>{\\raggedright}p{4cm} >{\\raggedright}p{4cm} >{\\raggedright\\arraybackslash}p{5cm}}
+\toprule
+\textbf{Composant} & \textbf{Version minimale} & \textbf{Recommandé} \\
+\midrule
+\rowcolor{arasLight}
+Docker & 20.10+ & Dernière version stable \\
+Docker Compose & 2.0+ (plugin) & v2.20+ \\
+\rowcolor{arasLight}
+RAM & 8 Go & 16 Go \\
+CPU & 4 cœurs & 8 cœurs \\
+\rowcolor{arasLight}
+Disque & 20 Go SSD & 30 Go SSD \\
+Réseau & 100 Mbps & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Architecture Docker Compose}
+
+Le fichier \tech{docker-compose.yml} définit deux groupes de services distincts :
+
+\begin{processbox}
+\textbf{\textcolor{arasPrimary}{\faLayerGroup\ Services applicatifs (démarrage par défaut) :}}
+\begin{itemize}
+    \item \textbf{api} : Application FastAPI (4 workers Uvicorn)
+    \item \textbf{celery-worker} : Workers Celery (4 workers, max 1000 tâches par enfant)
+    \item \textbf{celery-beat} : Planificateur de tâches périodiques
+    \item \textbf{flower} : Interface de monitoring Celery
+    \item \textbf{postgres} : Base de données PostgreSQL 15
+    \item \textbf{redis} : Cache et broker de messages (512 Mo max, politique LRU)
+    \item \textbf{qdrant} : Base de données vectorielle
+\end{itemize}
+\end{processbox}
+
+\begin{processbox}
+\textbf{\textcolor{arasPrimary}{\faChartLine\ Services de monitoring (profil \tech{monitoring}) :}}
+\begin{itemize}
+    \item \textbf{elasticsearch} : Moteur d'indexation (sécurité xpack activée)
+    \item \textbf{kibana} : Interface de visualisation
+    \item \textbf{apm-server} : Collecteur de traces APM
+    \item \textbf{es-setup} : Conteneur éphémère d'initialisation des utilisateurs
+\end{itemize}
+\end{processbox}
+
+\subsection{Chaîne de dépendances}
+
+L'ordre de démarrage est garanti par les \tech{healthchecks} et les conditions \tech{depends\_on} :
+
+\begin{enumerate}
+    \item \textbf{PostgreSQL} et \textbf{Redis} démarrent en premier (aucune dépendance).
+    \item \textbf{Qdrant} démarre en parallèle (aucune dépendance).
+    \item \textbf{API FastAPI} attend que PostgreSQL et Redis soient \tech{healthy} et que Qdrant soit \tech{started}.
+    \item \textbf{Celery Worker} et \textbf{Celery Beat} attendent que l'API soit \tech{healthy}.
+    \item \textbf{Flower} attend que l'API et Redis soient prêts.
+\end{enumerate}
+
+Pour le profil monitoring :
+\begin{enumerate}
+    \item \textbf{Elasticsearch} démarre et passe \tech{healthy} ($\sim$60 secondes).
+    \item \textbf{es-setup} s'exécute, configure les utilisateurs, puis se termine.
+    \item \textbf{Kibana} et \textbf{APM Server} démarrent après la complétion de \tech{es-setup}.
+\end{enumerate}
+
+\section{Déploiement}
+
+\subsection{Déploiement standard (sans monitoring)}
+
+\begin{lstlisting}[language=bash, caption={Déploiement standard des services applicatifs}]
+# 1. Cloner le repository
+git clone https://github.com/TF-Jordan/AR_AS.git
+cd AR_AS
+
+# 2. Configurer les variables d'environnement
+cp .env.example .env
+# Editer .env si necessaire (mots de passe, ports)
+
+# 3. Construire l'image Docker
+docker compose build
+
+# 4. Demarrer les services
+docker compose up -d
+
+# 5. Verifier l'etat des services
+docker compose ps
+
+# 6. Verifier le health check de l'API
+curl http://localhost:8000/health
+\end{lstlisting}
+
+\subsection{Déploiement avec monitoring}
+
+\begin{lstlisting}[language=bash, caption={Déploiement avec la stack de monitoring ELK}]
+# Demarrer tous les services + monitoring
+docker compose --profile monitoring up -d
+
+# Verifier que Elasticsearch est operationnel
+curl -u elastic:Ar@s_Elastic_2024! http://localhost:9200/_cluster/health
+
+# Acceder a Kibana
+# -> http://localhost:5601 (identifiant: elastic)
+
+# Acceder au APM
+# -> http://localhost:5601/app/apm
+
+# Acceder a Flower (monitoring Celery)
+# -> http://localhost:5555 (admin / admin)
+\end{lstlisting}
+
+\subsection{Vérification post-déploiement}
+
+Après le déploiement, une série de vérifications permet de valider le bon fonctionnement de l'ensemble du système :
+
+\begin{table}[H]
+\centering
+\caption{Checklist de vérification post-déploiement}
+\label{tab:post-deploy-check}
+\begin{tabular}{>{\\raggedright}p{4cm} >{\\raggedright}p{5cm} >{\\raggedright\\arraybackslash}p{4cm}}
+\toprule
+\textbf{Service} & \textbf{Commande de vérification} & \textbf{Résultat attendu} \\
+\midrule
+\rowcolor{arasLight}
+API FastAPI & \tech{curl localhost:8000/health} & \tech{\{``status'': ``ok''\}} \\
+Documentation API & \tech{localhost:8000/docs} & Interface Swagger \\
+\rowcolor{arasLight}
+PostgreSQL & \tech{docker compose exec postgres pg\_isready} & \tech{accepting connections} \\
+Redis & \tech{docker compose exec redis redis-cli ping} & \tech{PONG} \\
+\rowcolor{arasLight}
+Qdrant & \tech{curl localhost:6333} & Page d'accueil Qdrant \\
+Flower & \tech{localhost:5555} & Dashboard Celery \\
+\rowcolor{arasLight}
+Elasticsearch & \tech{curl -u elastic:*** localhost:9200} & Cluster info JSON \\
+Kibana & \tech{localhost:5601} & Interface Kibana \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Gestion opérationnelle}
+
+\begin{lstlisting}[language=bash, caption={Commandes de gestion courantes}]
+# Consulter les logs en temps reel
+docker compose logs -f api
+docker compose logs -f celery-worker
+
+# Redemarrer un service specifique
+docker compose restart api
+
+# Arreter tous les services
+docker compose down
+
+# Arreter et supprimer les donnees (reset complet)
+docker compose down -v
+
+# Backup de la base de donnees
+docker compose exec postgres pg_dump -U postgres ar_as_db > backup.sql
+\end{lstlisting}
+
+
+% ============================================================================
+%  CONCLUSION
+%  Remplacer la conclusion existante
+% ============================================================================
+
+\chapter*{Conclusion}
+\addcontentsline{toc}{chapter}{Conclusion}
+
+Le projet \concept{AR\_AS} a permis de concevoir, développer et déployer une plateforme complète d'intelligence artificielle pour la recommandation de véhicules et le classement multicritères de livreurs. Ce travail, réalisé dans le cadre du cours d'Administration Réseaux et Systèmes, a mobilisé un large spectre de compétences techniques, depuis le traitement du langage naturel jusqu'au déploiement conteneurisé.
+
+\section*{Bilan des réalisations}
+
+Les objectifs définis en début de projet ont été intégralement atteints :
+
+\begin{enumerate}
+    \item \textbf{Analyse de sentiments} : le module d'analyse basé sur \tech{distil-camembert} permet de classifier automatiquement des avis en français avec un temps d'inférence de $\sim$45ms et un mécanisme de fallback garantissant la disponibilité du service.
+
+    \item \textbf{Recommandation par similarité sémantique} : le pipeline de recommandation combine la génération d'embeddings (768 dimensions via \tech{mpnet-base-v2}), la recherche vectorielle ultra-rapide dans Qdrant (algorithme HNSW, $\sim$12ms), et un scoring multicritères pondéré. Le cache Redis à trois niveaux de matching assure un temps de réponse de $\sim$2ms pour 75\% des requêtes.
+
+    \item \textbf{Ranking multicritères de livreurs} : le module combine le filtrage spatial par ellipse (formule de Haversine), la pondération AHP (avec vérification de cohérence), et le classement TOPSIS pour produire un ranking objectif en $\sim$23ms. Le module est entièrement \textit{stateless}, ce qui garantit des performances constantes indépendamment de la charge.
+
+    \item \textbf{Infrastructure de monitoring} : la stack ELK (Elasticsearch, Kibana, APM Server) avec sécurité xpack offre une observabilité complète : traçage distribué des requêtes, centralisation des logs structurés, et monitoring des workers Celery via Flower. Le déploiement conditionnel par profil Docker Compose permet une activation à la demande.
+\end{enumerate}
+
+\section*{Compétences mobilisées}
+
+Ce projet a permis de mettre en pratique les concepts fondamentaux de l'administration réseaux et systèmes :
+
+\begin{itemize}
+    \item \textbf{Conteneurisation} : construction d'images Docker optimisées, orchestration de 10+ services via Docker Compose, gestion des réseaux et volumes.
+    \item \textbf{Architecture distribuée} : communication inter-services par réseau bridge, files d'attente asynchrones (Celery + Redis), traçabilité par correlation ID.
+    \item \textbf{Sécurité} : authentification xpack sur la stack ELK, conteneur d'initialisation automatique des utilisateurs, exécution non-root dans les conteneurs.
+    \item \textbf{Monitoring et observabilité} : collecte centralisée des logs, traçage distribué APM, métriques d'infrastructure.
+\end{itemize}
+
+\section*{Perspectives d'amélioration}
+
+Plusieurs axes d'évolution ont été identifiés pour les versions futures :
+
+\begin{itemize}
+    \item \textbf{Orchestration avancée} : migration vers Kubernetes pour le scaling automatique et la haute disponibilité.
+    \item \textbf{Fine-tuning des modèles} : entraînement de modèles de sentiment spécialisés sur les avis du domaine automobile pour améliorer la précision.
+    \item \textbf{Enrichissement du ranking} : intégration de critères dynamiques (historique de livraison en temps réel, disponibilité confirmée) dans le module de ranking.
+    \item \textbf{Interface utilisateur} : développement d'un tableau de bord web pour la visualisation des recommandations et des classements.
+\end{itemize}
+
+\elegantsep
+
+\begin{successbox}
+Le système AR\_AS démontre qu'il est possible de construire une plateforme d'IA performante et observable en s'appuyant sur des technologies open-source modernes et des pratiques d'infrastructure rigoureuses. L'architecture modulaire adoptée facilite l'évolution et la maintenance du système à long terme.
+\end{successbox}

@@ -1,0 +1,46 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563EB', 'primaryTextColor': '#fff', 'primaryBorderColor': '#1E40AF', 'lineColor': '#6B7280', 'secondaryColor': '#10B981', 'tertiaryColor': '#F3F4F6'}}}%%
+
+graph TB
+    subgraph Acteurs Externes
+        CLIENT["👤 Client Applicatif<br/>(API Consumer)"]
+        ADMIN["🔧 Administrateur<br/>Plateforme"]
+        ML["🤖 Modèles ML<br/>(Pré-entraînés)"]
+    end
+
+    subgraph AR_AS["🖥️ Système AR_AS"]
+        API["API REST<br/>FastAPI :8000"]
+        M1["Module 1<br/>Analyse Sentiments"]
+        M2["Module 2<br/>Recommandation"]
+        M3["Module 3<br/>Orchestration Celery"]
+        M4["Module 4<br/>Ranking Livreurs"]
+        MON["Stack Monitoring<br/>ELK + APM"]
+    end
+
+    subgraph Données
+        PG["PostgreSQL<br/>Données relationnelles"]
+        REDIS["Redis<br/>Cache + Broker"]
+        QDRANT["Qdrant<br/>Vecteurs"]
+    end
+
+    CLIENT -->|"POST /recommendations<br/>POST /livreurs/rank"| API
+    ADMIN -->|"Kibana :5601<br/>Flower :5555"| MON
+    ADMIN -->|"POST /admin/*"| API
+    ML -.->|"distil-camembert"| M1
+    ML -.->|"mpnet-base-v2"| M2
+
+    API --> M1
+    API --> M2
+    API --> M3
+    API --> M4
+    API --> MON
+
+    M1 --> PG
+    M2 --> PG
+    M2 --> REDIS
+    M2 --> QDRANT
+    M3 --> REDIS
+
+    style AR_AS fill:#DBEAFE,stroke:#2563EB,stroke-width:2px
+    style CLIENT fill:#2563EB,color:#fff
+    style ADMIN fill:#10B981,color:#fff
+    style ML fill:#F59E0B,color:#fff

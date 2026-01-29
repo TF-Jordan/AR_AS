@@ -1,0 +1,54 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563EB', 'primaryTextColor': '#fff'}}}%%
+
+graph TB
+    subgraph CLIENTS["🌐 Clients Externes"]
+        APP["Application<br/>Cliente"]
+        BROWSER["Navigateur<br/>Admin"]
+    end
+
+    subgraph DOCKER["🐳 Docker Compose - ar-as-network"]
+        subgraph CORE["Services Applicatifs (défaut)"]
+            API["🚀 API FastAPI<br/>:8000<br/>4 workers Uvicorn"]
+            WORKER["⚙️ Celery Worker<br/>4 concurrency"]
+            BEAT["⏰ Celery Beat<br/>Scheduler"]
+            FLOWER["🌸 Flower<br/>:5555"]
+        end
+
+        subgraph DATA["Stockage de Données"]
+            PG["🐘 PostgreSQL 15<br/>:5432<br/>Données relationnelles"]
+            REDIS["🔴 Redis 7<br/>:6379<br/>Cache + Broker<br/>512Mo LRU"]
+            QDRANT["🔮 Qdrant 1.7.4<br/>:6333<br/>Vecteurs HNSW"]
+        end
+
+        subgraph MONITORING["Stack Monitoring (profil: monitoring)"]
+            ES["🔍 Elasticsearch 8.11<br/>:9200<br/>xpack.security=true"]
+            KIBANA["📊 Kibana 8.11<br/>:5601<br/>Dashboards + APM"]
+            APM["📈 APM Server 8.11<br/>:8200<br/>Traces applicatives"]
+            SETUP["🔧 es-setup<br/>(éphémère)<br/>Init utilisateurs"]
+        end
+    end
+
+    APP -->|"HTTP :8000"| API
+    BROWSER -->|"HTTP :5601"| KIBANA
+    BROWSER -->|"HTTP :5555"| FLOWER
+
+    API -->|"asyncpg"| PG
+    API -->|"redis-py"| REDIS
+    API -->|"qdrant-client"| QDRANT
+    API -.->|"elastic-apm"| APM
+
+    WORKER -->|"SQLAlchemy"| PG
+    WORKER -->|"broker"| REDIS
+    WORKER -->|"search"| QDRANT
+
+    BEAT -->|"schedule"| REDIS
+    FLOWER -->|"monitor"| REDIS
+
+    APM -->|"index traces"| ES
+    KIBANA -->|"query"| ES
+    SETUP -->|"configure users"| ES
+
+    style CORE fill:#DBEAFE,stroke:#2563EB
+    style DATA fill:#D1FAE5,stroke:#10B981
+    style MONITORING fill:#FEF3C7,stroke:#F59E0B
+    style DOCKER fill:#F3F4F6,stroke:#6B7280,stroke-width:2px

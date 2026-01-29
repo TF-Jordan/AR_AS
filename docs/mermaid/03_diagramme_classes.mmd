@@ -1,0 +1,105 @@
+classDiagram
+    direction TB
+
+    %% ===== DOMAINE RECOMMANDATION =====
+
+    class Vehicle {
+        +UUID vehicle_id
+        +String brand
+        +String model
+        +int year
+        +float prix_journalier
+        +bool disponible
+        +float note_moyenne
+        +String localisation
+        +to_description() String
+    }
+
+    class SentimentInput {
+        +String product_id
+        +String client_id
+        +String commentaire
+        +String product_type
+    }
+
+    class SentimentResult {
+        +String client_id
+        +String product_id
+        +float sentiment_score
+        +String sentiment_label
+        +float confidence
+    }
+
+    class RecommendationRequest {
+        +String client_id
+        +String product_id
+        +float sentiment_score
+        +String product_type
+        +int top_k
+    }
+
+    class RankedProduct {
+        +String product_id
+        +float similarity_score
+        +float availability_score
+        +float reputation_score
+        +float final_score
+        +int rank
+    }
+
+    %% ===== DOMAINE RANKING LIVREURS =====
+
+    class PointSchema {
+        +float latitude
+        +float longitude
+    }
+
+    class AnnonceSchema {
+        +String annonce_id
+        +PointSchema point_ramassage
+        +PointSchema point_livraison
+        +TypeLivraison type_livraison
+        +float volume_colis_m3
+    }
+
+    class LivreurCandidatSchema {
+        +String livreur_id
+        +PointSchema position_actuelle
+        +float reputation
+        +TypeVehicule type_vehicule
+        +float capacite_volume_m3
+    }
+
+    class RankingResponseSchema {
+        +List~String~ livreurs_ids
+    }
+
+    %% ===== ENUMS =====
+
+    class TypeLivraison {
+        <<enumeration>>
+        STANDARD
+        EXPRESS
+        SAMEDAY
+    }
+
+    class TypeVehicule {
+        <<enumeration>>
+        VELO
+        MOTO
+        VOITURE
+        CAMION
+    }
+
+    %% ===== RELATIONS =====
+
+    SentimentInput --> SentimentResult : produit
+    RecommendationRequest --> RankedProduct : génère liste
+    Vehicle ..> RankedProduct : référencé par
+
+    AnnonceSchema *-- PointSchema : point_ramassage
+    AnnonceSchema *-- PointSchema : point_livraison
+    AnnonceSchema --> TypeLivraison
+    LivreurCandidatSchema *-- PointSchema : position_actuelle
+    LivreurCandidatSchema --> TypeVehicule
+    LivreurCandidatSchema --> RankingResponseSchema : classé dans

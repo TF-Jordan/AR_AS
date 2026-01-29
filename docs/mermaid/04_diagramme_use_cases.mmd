@@ -1,0 +1,46 @@
+%%{init: {'theme': 'base'}}%%
+
+graph LR
+    subgraph Acteurs
+        CLIENT["👤 Client<br/>Applicatif"]
+        ADMIN["🔧 Administrateur<br/>Plateforme"]
+        SYSTEM["⚙️ Système<br/>(Automatisé)"]
+    end
+
+    subgraph UC["Système AR_AS"]
+        UC1["Analyser un sentiment"]
+        UC2["Analyser un lot de textes"]
+        UC3["Obtenir des<br/>recommandations"]
+        UC4["Lancer une recommandation<br/>asynchrone"]
+        UC5["Classer des livreurs"]
+        UC6["Synchroniser<br/>les vecteurs"]
+        UC7["Invalider le cache"]
+        UC8["Consulter les<br/>dashboards"]
+        UC9["Vérifier l'état<br/>du système"]
+        UC10["Health check<br/>périodique"]
+        UC11["Collecter les<br/>métriques APM"]
+        UC12["Gérer l'expiration<br/>du cache"]
+    end
+
+    CLIENT --> UC1
+    CLIENT --> UC2
+    CLIENT --> UC3
+    CLIENT --> UC4
+    CLIENT --> UC5
+
+    ADMIN --> UC6
+    ADMIN --> UC7
+    ADMIN --> UC8
+    ADMIN --> UC9
+
+    SYSTEM --> UC10
+    SYSTEM --> UC11
+    SYSTEM --> UC12
+
+    UC3 -.->|"inclut"| UC1
+    UC4 -.->|"inclut"| UC3
+
+    style UC fill:#DBEAFE,stroke:#2563EB,stroke-width:2px
+    style CLIENT fill:#2563EB,color:#fff
+    style ADMIN fill:#10B981,color:#fff
+    style SYSTEM fill:#6B7280,color:#fff

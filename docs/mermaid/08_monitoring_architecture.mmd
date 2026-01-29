@@ -1,0 +1,42 @@
+%%{init: {'theme': 'base'}}%%
+
+graph LR
+    subgraph SOURCES["Sources de données"]
+        API["API FastAPI<br/>(elastic-apm agent)"]
+        WORKER["Celery Workers"]
+        LOGS["Logs JSON<br/>(structlog)"]
+    end
+
+    subgraph COLLECTE["Collecte"]
+        APM["APM Server<br/>:8200<br/>Traces & Transactions"]
+    end
+
+    subgraph STOCKAGE["Stockage & Indexation"]
+        ES["Elasticsearch<br/>:9200<br/>xpack.security=true<br/>Single-node"]
+    end
+
+    subgraph VISUALISATION["Visualisation"]
+        KIBANA["Kibana :5601<br/>• Discover (logs)<br/>• APM (traces)<br/>• Dashboards"]
+        FLOWER["Flower :5555<br/>• Workers status<br/>• Task history<br/>• Queue depth"]
+    end
+
+    API -->|"Traces HTTP<br/>Transactions<br/>Erreurs"| APM
+    WORKER -->|"Traces tâches"| APM
+    LOGS -->|"JSON structuré"| ES
+
+    APM -->|"Index apm-*<br/>logs-apm*<br/>traces-apm*"| ES
+
+    ES -->|"Query API"| KIBANA
+    WORKER -->|"Via Redis broker"| FLOWER
+
+    subgraph SECURITE["Sécurité"]
+        SETUP["es-setup<br/>(conteneur éphémère)"]
+    end
+
+    SETUP -->|"Configure:<br/>kibana_system<br/>apm_user<br/>apm_writer role"| ES
+
+    style SOURCES fill:#DBEAFE,stroke:#2563EB
+    style COLLECTE fill:#FEF3C7,stroke:#F59E0B
+    style STOCKAGE fill:#D1FAE5,stroke:#10B981
+    style VISUALISATION fill:#EDE9FE,stroke:#7C3AED
+    style SECURITE fill:#FEE2E2,stroke:#EF4444

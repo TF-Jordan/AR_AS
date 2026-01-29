@@ -1,0 +1,42 @@
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant API as API FastAPI
+    participant MW as Middleware
+    participant CACHE as Redis Cache
+    participant M1 as Module 1<br/>Sentiment
+    participant M2 as Module 2<br/>Recommendation
+    participant QDRANT as Qdrant
+    participant PG as PostgreSQL
+
+    C->>API: POST /api/v1/recommendations
+    API->>MW: Génère correlation_id
+    MW-->>API: X-Correlation-ID: uuid
+
+    API->>CACHE: Vérification cache (3 niveaux)
+
+    alt Cache HIT
+        CACHE-->>API: Résultat en cache (~2ms)
+        API-->>C: 200 OK + recommendations
+    else Cache MISS
+        CACHE-->>API: null
+
+        API->>M1: analyze(commentaire)
+        Note over M1: distil-camembert<br/>Tokenisation → Inférence<br/>→ Softmax → Score [-1,+1]
+        M1-->>API: SentimentResult (score, label, confidence) ~45ms
+
+        API->>M2: recommend(product_id, sentiment_score)
+        M2->>M2: encode(commentaire) → embedding 768d ~80ms
+        M2->>QDRANT: search(vector, top_k=20) ~12ms
+        QDRANT-->>M2: SimilarProducts (scores cosinus)
+
+        M2->>PG: get_vehicles(product_ids)
+        PG-->>M2: Vehicle details
+
+        Note over M2: Scoring multicritères:<br/>0.6 × similarité<br/>+ 0.25 × disponibilité<br/>+ 0.15 × réputation
+
+        M2-->>API: RecommendationResult (top_k classés)
+
+        API->>CACHE: store(result, TTL=3600s)
+        API-->>C: 200 OK + recommendations ~185ms
+    end
