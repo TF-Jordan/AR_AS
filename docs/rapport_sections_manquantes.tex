@@ -947,46 +947,4 @@ docker compose exec postgres pg_dump -U postgres ar_as_db > backup.sql
 \chapter*{Conclusion}
 \addcontentsline{toc}{chapter}{Conclusion}
 
-Le projet \concept{AR\_AS} a permis de concevoir, développer et déployer une plateforme complète d'intelligence artificielle pour la recommandation de véhicules et le classement multicritères de livreurs. Ce travail, réalisé dans le cadre du cours d'Administration Réseaux et Systèmes, a mobilisé un large spectre de compétences techniques, depuis le traitement du langage naturel jusqu'au déploiement conteneurisé.
-
-\section*{Bilan des réalisations}
-
-Les objectifs définis en début de projet ont été intégralement atteints :
-
-\begin{enumerate}
-    \item \textbf{Analyse de sentiments} : le module d'analyse basé sur \tech{distil-camembert} permet de classifier automatiquement des avis en français avec un temps d'inférence de $\sim$45ms et un mécanisme de fallback garantissant la disponibilité du service.
-
-    \item \textbf{Recommandation par similarité sémantique} : le pipeline de recommandation combine la génération d'embeddings (768 dimensions via \tech{mpnet-base-v2}), la recherche vectorielle ultra-rapide dans Qdrant (algorithme HNSW, $\sim$12ms), et un scoring multicritères pondéré. Le cache Redis à trois niveaux de matching assure un temps de réponse de $\sim$2ms pour 75\% des requêtes.
-
-    \item \textbf{Ranking multicritères de livreurs} : le module combine le filtrage spatial par ellipse (formule de Haversine), la pondération AHP (avec vérification de cohérence), et le classement TOPSIS pour produire un ranking objectif en $\sim$23ms. Le module est entièrement \textit{stateless}, ce qui garantit des performances constantes indépendamment de la charge.
-
-    \item \textbf{Infrastructure de monitoring} : la stack ELK (Elasticsearch, Kibana, APM Server) avec sécurité xpack offre une observabilité complète : traçage distribué des requêtes, centralisation des logs structurés, et monitoring des workers Celery via Flower. Le déploiement conditionnel par profil Docker Compose permet une activation à la demande.
-\end{enumerate}
-
-\section*{Compétences mobilisées}
-
-Ce projet a permis de mettre en pratique les concepts fondamentaux de l'administration réseaux et systèmes :
-
-\begin{itemize}
-    \item \textbf{Conteneurisation} : construction d'images Docker optimisées, orchestration de 10+ services via Docker Compose, gestion des réseaux et volumes.
-    \item \textbf{Architecture distribuée} : communication inter-services par réseau bridge, files d'attente asynchrones (Celery + Redis), traçabilité par correlation ID.
-    \item \textbf{Sécurité} : authentification xpack sur la stack ELK, conteneur d'initialisation automatique des utilisateurs, exécution non-root dans les conteneurs.
-    \item \textbf{Monitoring et observabilité} : collecte centralisée des logs, traçage distribué APM, métriques d'infrastructure.
-\end{itemize}
-
-\section*{Perspectives d'amélioration}
-
-Plusieurs axes d'évolution ont été identifiés pour les versions futures :
-
-\begin{itemize}
-    \item \textbf{Orchestration avancée} : migration vers Kubernetes pour le scaling automatique et la haute disponibilité.
-    \item \textbf{Fine-tuning des modèles} : entraînement de modèles de sentiment spécialisés sur les avis du domaine automobile pour améliorer la précision.
-    \item \textbf{Enrichissement du ranking} : intégration de critères dynamiques (historique de livraison en temps réel, disponibilité confirmée) dans le module de ranking.
-    \item \textbf{Interface utilisateur} : développement d'un tableau de bord web pour la visualisation des recommandations et des classements.
-\end{itemize}
-
-\elegantsep
-
-\begin{successbox}
-Le système AR\_AS démontre qu'il est possible de construire une plateforme d'IA performante et observable en s'appuyant sur des technologies open-source modernes et des pratiques d'infrastructure rigoureuses. L'architecture modulaire adoptée facilite l'évolution et la maintenance du système à long terme.
-\end{successbox}
+Ce projet s'inscrivait dans le cadre du cours d'Administration Réseaux et Systèmes, avec pour objectif de concevoir, développer et déployer une plateforme intelligente capable de recommander des véhicules à partir d'avis clients et de classer objectivement des livreurs selon des critères multiples. Pour y parvenir, le travail a suivi une démarche structurée en quatre phases successives. La phase d'analyse a permis de formaliser les besoins fonctionnels et non fonctionnels du système, en identifiant les deux flux principaux --- la recommandation sémantique et le ranking multicritères --- ainsi que les exigences de performance, de disponibilité et d'observabilité. La phase de conception a traduit ces besoins en une architecture modulaire à quatre modules indépendants, formalisée par des diagrammes UML (contexte, packages, classes, cas d'utilisation, séquences) et par le choix raisonné des technologies : FastAPI pour l'API, distil-camembert et mpnet-base-v2 pour les modèles ML, Qdrant pour la recherche vectorielle, Celery pour l'orchestration asynchrone, et la stack ELK pour le monitoring. La phase de développement a implémenté l'ensemble de ces composants, depuis l'analyse de sentiments en français jusqu'au classement TOPSIS en passant par la génération d'embeddings et le filtrage spatial par ellipse. La phase de déploiement a conteneurisé le système en une dizaine de services Docker orchestrés par Docker Compose, avec des healthchecks, un démarrage ordonné par dépendances, et un profil conditionnel pour la stack de monitoring. Les objectifs définis en début de projet ont été atteints : le module d'analyse de sentiments classifie les avis en français avec un temps d'inférence d'environ 45~ms, le pipeline de recommandation retourne des résultats pertinents en 185~ms en moyenne (2~ms avec cache grâce à une stratégie de matching à trois niveaux dans Redis), et le module de ranking produit un classement objectif des livreurs en environ 23~ms en combinant AHP et TOPSIS. L'infrastructure de monitoring est opérationnelle avec la sécurité xpack activée, le traçage APM distribué et le monitoring Celery via Flower. En termes de résultats concrets, le système démontre qu'il est possible de construire un pipeline complet d'aide à la décision, de la donnée brute (un commentaire texte ou une liste de livreurs avec leurs attributs) jusqu'à une réponse exploitable (une liste ordonnée de recommandations ou un classement), en s'appuyant exclusivement sur des technologies open-source. L'intérêt pédagogique est significatif : le projet a mobilisé des compétences en conteneurisation Docker, en communication inter-services, en sécurisation d'infrastructure, en traitement du langage naturel, et en algorithmique d'aide à la décision multicritères. Le projet présente néanmoins des limites qu'il convient de reconnaître. Les modèles ML utilisés sont pré-entraînés et n'ont pas été fine-tunés sur des données spécifiques au domaine, ce qui peut limiter la précision des analyses de sentiment sur des vocabulaires métier très spécialisés. Le module de ranking repose sur des matrices AHP prédéfinies statiquement dans le code, ce qui ne permet pas aux utilisateurs d'ajuster les pondérations selon leurs propres priorités sans modifier la configuration. Par ailleurs, l'absence de jeux de données réels en volume suffisant n'a pas permis de conduire des tests de charge représentatifs d'un environnement de production. Enfin, le système ne dispose pas d'interface graphique propre, ce qui limite son accessibilité à des utilisateurs non techniques. Plusieurs pistes d'amélioration réalistes se dégagent pour des évolutions futures : permettre la personnalisation dynamique des matrices AHP via l'API pour adapter les pondérations au contexte de chaque requête, fine-tuner le modèle de sentiment sur un corpus d'avis automobiles en français pour gagner en précision, intégrer des critères de ranking en temps réel (disponibilité confirmée du livreur, historique récent de livraison), migrer vers Kubernetes pour le scaling automatique des workers en fonction de la charge, et développer une interface web permettant de visualiser les recommandations et les classements sans passer par des appels API directs. Ce projet a constitué une mise en pratique complète des enseignements du cours d'Administration Réseaux et Systèmes, en démontrant qu'une architecture distribuée, conteneurisée et monitorée peut servir de socle fiable à des services d'intelligence artificielle exigeants en performance et en traçabilité.
