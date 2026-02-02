@@ -4,7 +4,10 @@ Supports JSON format for ELK Stack integration.
 """
 
 import logging
+import logging.handlers
+import os
 import sys
+from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -76,15 +79,29 @@ def configure_json_logging(level: str) -> None:
             if session_id:
                 log_record["session_id"] = session_id
 
-    # Configure root logger
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(
-        CustomJsonFormatter(
-            "%(timestamp)s %(level)s %(name)s %(message)s"
-        )
+    json_formatter = CustomJsonFormatter(
+        "%(timestamp)s %(level)s %(name)s %(message)s"
     )
 
-    logging.root.handlers = [handler]
+    # Console handler (stdout)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(json_formatter)
+
+    # File handler (for Filebeat/ELK ingestion)
+    log_dir = Path("/app/logs")
+    handlers = [console_handler]
+    if log_dir.exists() or os.environ.get("ENVIRONMENT", "").lower() == "production":
+        log_dir.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_dir / "app.log",
+            maxBytes=50 * 1024 * 1024,  # 50 MB
+            backupCount=5,
+            encoding="utf-8",
+        )
+        file_handler.setFormatter(json_formatter)
+        handlers.append(file_handler)
+
+    logging.root.handlers = handlers
     logging.root.setLevel(level)
 
     # Configure structlog with context processor
