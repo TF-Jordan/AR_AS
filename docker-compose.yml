@@ -358,6 +358,7 @@ services:
     profiles:
       - monitoring
     user: root
+    command: filebeat -e --strict.perms=false
     volumes:
       - ./monitoring/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -381,6 +382,7 @@ services:
     profiles:
       - monitoring
     user: root
+    command: metricbeat -e --strict.perms=false
     volumes:
       - ./monitoring/metricbeat/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
