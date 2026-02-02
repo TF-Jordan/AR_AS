@@ -261,8 +261,6 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-      es-setup:
-        condition: service_completed_successfully
     networks:
       - ar-as-network
     restart: unless-stopped
@@ -339,8 +337,6 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-      es-setup:
-        condition: service_completed_successfully
     networks:
       - ar-as-network
     restart: unless-stopped
@@ -396,8 +392,6 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-      es-setup:
-        condition: service_completed_successfully
     networks:
       - ar-as-network
     restart: unless-stopped
@@ -426,8 +420,6 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-      es-setup:
-        condition: service_completed_successfully
     networks:
       - ar-as-network
     restart: unless-stopped
