@@ -94,6 +94,8 @@ metricbeat.modules:
 #-------------------------- Elasticsearch Output ------------------------------
 output.elasticsearch:
   hosts: ["http://elasticsearch:9200"]
+  username: "elastic"
+  password: "${ELASTIC_PASSWORD}"
   index: "metricbeat-%{[agent.version]}-%{+yyyy.MM.dd}"
 
   # Performance tuning
@@ -132,7 +134,9 @@ logging.files:
 
 # Setup Kibana
 setup.kibana:
-  host: "kibana:5601"
+  host: "http://kibana:5601"
+  username: "elastic"
+  password: "${ELASTIC_PASSWORD}"
 
 # Setup index template
 setup.template.settings:

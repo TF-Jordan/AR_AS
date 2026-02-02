@@ -24,7 +24,7 @@ filebeat.autodiscover:
         # API Container
         - condition:
             contains:
-              docker.container.name: recommendation-api
+              docker.container.name: ar-as-api
           config:
             - type: container
               paths:
@@ -41,7 +41,7 @@ filebeat.autodiscover:
         # Celery Worker Container
         - condition:
             contains:
-              docker.container.name: recommendation-worker
+              docker.container.name: ar-as-worker
           config:
             - type: container
               paths:
@@ -58,7 +58,7 @@ filebeat.autodiscover:
         # Celery Beat Container
         - condition:
             contains:
-              docker.container.name: recommendation-beat
+              docker.container.name: ar-as-beat
           config:
             - type: container
               paths:
@@ -79,7 +79,9 @@ setup.ilm.pattern: "{now/d}-000001"
 
 # Kibana setup for dashboards
 setup.kibana:
-  host: "kibana:5601"
+  host: "http://kibana:5601"
+  username: "elastic"
+  password: "${ELASTIC_PASSWORD}"
 
 # Logging
 logging.level: info
@@ -94,4 +96,6 @@ logging.files:
 monitoring:
   enabled: true
   elasticsearch:
-    hosts: ["elasticsearch:9200"]
+    hosts: ["http://elasticsearch:9200"]
+    username: "elastic"
+    password: "${ELASTIC_PASSWORD}"
