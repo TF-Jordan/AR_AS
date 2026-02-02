@@ -351,7 +351,7 @@ services:
       retries: 5
       start_period: 60s
 
-  # Filebeat - Collecte des logs Docker
+  # Filebeat - Collecte des logs applicatifs
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.11.0
     container_name: ar-as-filebeat
@@ -360,8 +360,9 @@ services:
     user: root
     volumes:
       - ./monitoring/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - api-logs:/var/log/app/api:ro
+      - worker-logs:/var/log/app/worker:ro
     environment:
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!}
     depends_on:

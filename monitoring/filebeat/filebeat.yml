@@ -1,11 +1,13 @@
-# Filebeat Configuration for Recommendation System
-# Collects Docker container logs and sends to Logstash/Elasticsearch
+# Filebeat Configuration for AR_AS Recommendation System
+# Collects application logs from mounted volumes and sends to Logstash
 
 filebeat.inputs:
-  # Collect Docker container logs
-  - type: container
+  # API application logs
+  - type: log
+    enabled: true
     paths:
-      - '/var/lib/docker/containers/*/*.log'
+      - '/var/log/app/api/*.log'
+      - '/var/log/app/api/**/*.log'
     processors:
       - add_docker_metadata:
           host: "unix:///var/run/docker.sock"
@@ -14,58 +16,27 @@ filebeat.inputs:
           target: ""
           overwrite_keys: true
           add_error_key: true
+    fields:
+      service_type: api
+    fields_under_root: true
 
-# Configure autodiscovery for Docker containers
-filebeat.autodiscover:
-  providers:
-    - type: docker
-      hints.enabled: true
-      templates:
-        # API Container
-        - condition:
-            contains:
-              docker.container.name: ar-as-api
-          config:
-            - type: container
-              paths:
-                - /var/lib/docker/containers/${data.docker.container.id}/*.log
-              processors:
-                - decode_json_fields:
-                    fields: ["message"]
-                    target: "json"
-                    overwrite_keys: true
-              fields:
-                service_type: api
-              fields_under_root: true
-
-        # Celery Worker Container
-        - condition:
-            contains:
-              docker.container.name: ar-as-worker
-          config:
-            - type: container
-              paths:
-                - /var/lib/docker/containers/${data.docker.container.id}/*.log
-              processors:
-                - decode_json_fields:
-                    fields: ["message"]
-                    target: "json"
-                    overwrite_keys: true
-              fields:
-                service_type: celery_worker
-              fields_under_root: true
-
-        # Celery Beat Container
-        - condition:
-            contains:
-              docker.container.name: ar-as-beat
-          config:
-            - type: container
-              paths:
-                - /var/lib/docker/containers/${data.docker.container.id}/*.log
-              fields:
-                service_type: celery_beat
-              fields_under_root: true
+  # Celery Worker logs
+  - type: log
+    enabled: true
+    paths:
+      - '/var/log/app/worker/*.log'
+      - '/var/log/app/worker/**/*.log'
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+      - decode_json_fields:
+          fields: ["message"]
+          target: ""
+          overwrite_keys: true
+          add_error_key: true
+    fields:
+      service_type: celery_worker
+    fields_under_root: true
 
 # Output to Logstash
 output.logstash:
