@@ -16,9 +16,13 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from src.config import settings
+from src.logging_config import configure_logging
 from src.database.connection import init_database, close_database
 from .routes import api_router
 from .middleware import CorrelationIdMiddleware, RequestLoggingMiddleware
+
+# Initialize logging before anything else
+configure_logging()
 
 logger = logging.getLogger(__name__)
 
