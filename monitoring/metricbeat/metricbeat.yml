@@ -139,6 +139,8 @@ setup.kibana:
   password: "${ELASTIC_PASSWORD}"
 
 # Setup index template
+setup.template.name: "metricbeat"
+setup.template.pattern: "metricbeat-*"
 setup.template.settings:
   index.number_of_shards: 1
   index.number_of_replicas: 1
