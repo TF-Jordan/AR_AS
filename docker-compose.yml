@@ -224,6 +224,8 @@ services:
       - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
       - cluster.name=ar-as-cluster
       - bootstrap.memory_lock=true
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - action.auto_create_index=.security*,.monitoring*,.watches,.triggered_watches,.watcher-history*,.ml*,*
     ulimits:
       memlock:
         soft: -1
@@ -290,6 +292,19 @@ services:
         until curl -s -u elastic:$${ELASTIC_PASSWORD} http://elasticsearch:9200 | grep -q "cluster_name"; do
           sleep 5
         done
+        echo "Setting replicas to 0 for single-node cluster..."
+        curl -s -X PUT -u elastic:$${ELASTIC_PASSWORD} \
+          -H "Content-Type: application/json" \
+          "http://elasticsearch:9200/_all/_settings" \
+          -d "{\"index.number_of_replicas\": 0}" || true
+        echo ""
+        echo "Creating default template with 0 replicas..."
+        curl -s -X PUT -u elastic:$${ELASTIC_PASSWORD} \
+          -H "Content-Type: application/json" \
+          "http://elasticsearch:9200/_template/default_zero_replicas" \
+          -d "{\"index_patterns\": [\"*\"], \"order\": 0, \"settings\": {\"number_of_replicas\": 0}}" || true
+        echo ""
+        sleep 10
         echo "Setting up kibana_system user..."
         curl -s -X POST -u elastic:$${ELASTIC_PASSWORD} \
           -H "Content-Type: application/json" \
