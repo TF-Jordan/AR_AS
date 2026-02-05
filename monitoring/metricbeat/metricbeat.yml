@@ -16,9 +16,9 @@ metricbeat.modules:
   hosts: ["redis:6379"]
   enabled: true
 
-  # Additional fields (use service.name to comply with ECS object mapping)
+  # Additional fields (monitored_service avoids ECS 'service' object conflict)
   fields:
-    service.name: redis
+    monitored_service: redis
     environment: ${ENVIRONMENT:production}
   fields_under_root: true
 
@@ -34,9 +34,9 @@ metricbeat.modules:
   password: ${POSTGRES_PASSWORD}
   enabled: true
 
-  # Additional fields (use service.name to comply with ECS object mapping)
+  # Additional fields (monitored_service avoids ECS 'service' object conflict)
   fields:
-    service.name: postgresql
+    monitored_service: postgresql
     environment: ${ENVIRONMENT:production}
   fields_under_root: true
 
@@ -54,9 +54,9 @@ metricbeat.modules:
   hosts: ["unix:///var/run/docker.sock"]
   enabled: true
 
-  # Additional fields (use service.name to comply with ECS object mapping)
+  # Additional fields (monitored_service avoids ECS 'service' object conflict)
   fields:
-    service.name: docker
+    monitored_service: docker
     environment: ${ENVIRONMENT:production}
   fields_under_root: true
 
@@ -75,9 +75,9 @@ metricbeat.modules:
     - fsstat          # Filesystem statistics
   enabled: true
 
-  # Additional fields (use service.name to comply with ECS object mapping)
+  # Additional fields (monitored_service avoids ECS 'service' object conflict)
   fields:
-    service.name: system
+    monitored_service: system
     environment: ${ENVIRONMENT:production}
   fields_under_root: true
 
