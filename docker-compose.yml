@@ -255,6 +255,7 @@ services:
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD:-Ar@s_Kibana_2024!}
       - xpack.security.enabled=true
+      - xpack.encryptedSavedObjects.encryptionKey=a]rAs2024!EncryptedSavedObj32c
       - xpack.fleet.enabled=true
       - xpack.fleet.agents.enabled=true
       - SERVER_NAME=ar-as-kibana
