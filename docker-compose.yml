@@ -41,7 +41,7 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      - APM_ENABLED=${APM_ENABLED:-false}
+      - APM_ENABLED=${APM_ENABLED:-true}
       - APM_SERVER_URL=http://apm-server:8200
     depends_on:
       postgres:

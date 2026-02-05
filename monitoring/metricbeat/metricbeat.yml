@@ -16,9 +16,9 @@ metricbeat.modules:
   hosts: ["redis:6379"]
   enabled: true
 
-  # Additional fields
+  # Additional fields (use service.name to comply with ECS object mapping)
   fields:
-    service: redis
+    service.name: redis
     environment: ${ENVIRONMENT:production}
   fields_under_root: true
 
@@ -34,9 +34,9 @@ metricbeat.modules:
   password: ${POSTGRES_PASSWORD}
   enabled: true
 
-  # Additional fields
+  # Additional fields (use service.name to comply with ECS object mapping)
   fields:
-    service: postgresql
+    service.name: postgresql
     environment: ${ENVIRONMENT:production}
   fields_under_root: true
 
@@ -54,9 +54,9 @@ metricbeat.modules:
   hosts: ["unix:///var/run/docker.sock"]
   enabled: true
 
-  # Additional fields
+  # Additional fields (use service.name to comply with ECS object mapping)
   fields:
-    service: docker
+    service.name: docker
     environment: ${ENVIRONMENT:production}
   fields_under_root: true
 
@@ -75,9 +75,9 @@ metricbeat.modules:
     - fsstat          # Filesystem statistics
   enabled: true
 
-  # Additional fields
+  # Additional fields (use service.name to comply with ECS object mapping)
   fields:
-    service: system
+    service.name: system
     environment: ${ENVIRONMENT:production}
   fields_under_root: true
 
@@ -143,7 +143,7 @@ setup.template.name: "metricbeat"
 setup.template.pattern: "metricbeat-*"
 setup.template.settings:
   index.number_of_shards: 1
-  index.number_of_replicas: 1
+  index.number_of_replicas: 0
   index.refresh_interval: "5s"
 
 # Enable ILM (Index Lifecycle Management)
