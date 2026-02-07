@@ -24,12 +24,12 @@ flower==2.0.1
 qdrant-client==1.16.2
 
 # ML & NLP (Modules 1 & 2)
+# Note: torch est installé en CPU-only via --index-url dans le Dockerfile
 sentence-transformers==5.2.0
 torch==2.9.1
-torchvision==0.24.1
-torchaudio==2.9.1
 transformers==4.55.4
 numpy==2.2.6
+# torchvision et torchaudio supprimés (non utilisés dans le projet)
 
 # Monitoring
 elastic-apm==6.20.0
