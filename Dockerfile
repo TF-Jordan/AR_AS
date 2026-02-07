@@ -38,12 +38,11 @@ RUN pip install \
     torch==2.9.1+cpu \
     --index-url https://download.pytorch.org/whl/cpu
 
-# Installer le reste des dépendances (sans torch/torchvision/torchaudio)
-RUN pip install \
-    --no-deps sentence-transformers==5.2.0 && \
-    pip install -r requirements.txt \
-    --index-url https://download.pytorch.org/whl/cpu \
-    --extra-index-url https://pypi.org/simple/
+# Installer le reste des dépendances en EXCLUANT torch (déjà installé en CPU-only)
+# Sans cela, pip réinstalle torch avec CUDA (~2.5 GB) depuis PyPI
+RUN grep -v "^torch==" requirements.txt > requirements-no-torch.txt && \
+    pip install --no-deps sentence-transformers==5.2.0 && \
+    pip install -r requirements-no-torch.txt
 
 # ---- Stage 2: Runtime ----
 FROM python:3.12-slim
