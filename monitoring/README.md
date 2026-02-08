@@ -52,14 +52,22 @@ docker-compose logs -f
 - **Elasticsearch**: http://localhost:9200
 - **APM**: http://localhost:5601/app/apm
 
-### 3. Import Kibana Assets
+### 3. Import Kibana Dashboards
 
 ```bash
-# Import dashboards and visualizations
-docker-compose exec kibana curl -X POST \
-  http://localhost:5601/api/saved_objects/_import \
+# Option A: Utiliser le script automatique (recommandé)
+./monitoring/kibana/setup-dashboards.sh
+
+# Option B: Import manuel via l'API Kibana
+curl -X POST "http://localhost:5601/api/saved_objects/_import?overwrite=true" \
+  -u elastic:Ar@s_Elastic_2024! \
   -H "kbn-xsrf: true" \
-  --form file=@/usr/share/kibana/dashboards/recommendation-dashboards.ndjson
+  --form file=@monitoring/kibana/dashboards/api-logs-dashboard.ndjson
+
+curl -X POST "http://localhost:5601/api/saved_objects/_import?overwrite=true" \
+  -u elastic:Ar@s_Elastic_2024! \
+  -H "kbn-xsrf: true" \
+  --form file=@monitoring/kibana/dashboards/recommendation-dashboards.ndjson
 ```
 
 ## 📈 Key Metrics to Monitor
@@ -159,19 +167,34 @@ This shows the complete execution chain!
 
 ## 📊 Available Dashboards
 
-### 1. Recommendation System - Overview
+### 1. API Logs Dashboard (NEW)
+Dashboard complet pour la visualisation des logs API avec 15 panneaux :
+- **KPI Metrics** : Total requêtes, taux d'erreurs (%), temps de réponse moyen, P95
+- **Requêtes dans le temps** : Bar chart empilé succès/erreurs 4xx/erreurs 5xx
+- **Temps de réponse** : Courbes moyenne, P95, P99 dans le temps
+- **Distribution codes HTTP** : Donut chart des codes de statut
+- **Catégories de réponse** : Pie chart fast/normal/slow/very_slow
+- **Top 10 Endpoints** : Tableau avec requêtes, temps moyen, P95, erreurs
+- **Requêtes par méthode HTTP** : GET, POST, PUT, DELETE dans le temps
+- **Logs par service** : api, celery_worker, celery_beat, flower
+- **Logs par niveau** : INFO, WARNING, ERROR, CRITICAL
+- **Erreurs récentes** : Tableau des erreurs avec endpoint et status code
+- **Requêtes lentes** : Tableau des requêtes >500ms avec détails
+- **Correlation ID tracking** : Suivi bout-en-bout des requêtes
+
+### 2. Recommendation System - Overview
 - Logs by service
 - Errors over time
 - Response time distribution
 - Top 10 endpoints
 
-### 2. Application Metrics
+### 3. Application Metrics
 - Cache hit/miss rate
 - ML inference time
 - Database query performance
 - Vector search latency
 
-### 3. Infrastructure Health
+### 4. Infrastructure Health
 - Redis metrics (from Metricbeat)
 - PostgreSQL metrics (from Metricbeat)
 - Docker container metrics (from Metricbeat)
@@ -190,8 +213,10 @@ monitoring/
 ├── metricbeat/
 │   └── metricbeat.yml        # Infrastructure metrics config
 └── kibana/
+    ├── setup-dashboards.sh   # Script d'import automatique
     ├── dashboards/
-    │   └── recommendation-dashboards.ndjson
+    │   ├── api-logs-dashboard.ndjson          # Dashboard API Logs (15 panneaux)
+    │   └── recommendation-dashboards.ndjson   # Dashboards overview
     └── rules/
         ├── high-error-rate.json
         ├── slow-api-response.json
