@@ -1,0 +1,397 @@
+%!TEX encoding = UTF-8 Unicode
+%!TEX program = xelatex
+% ============================================================================
+%                    RAPPORT HARMONY GLOVES - VERSION PREMIUM
+%              Traduction de la Langue des Signes Camerounaise
+%                     Design Professionnel Tech-Inspired
+% ============================================================================
+
+\documentclass[11pt,a4paper]{report}
+
+% ============================================================================
+%                              PACKAGES ESSENTIELS
+% ============================================================================
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+
+% Graphiques et médias
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption}
+
+% Mathématiques
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% Tableaux avancés
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{colortbl}
+\usepackage{multirow}
+
+% Listes
+\usepackage{enumitem}
+
+% TikZ pour graphiques vectoriels
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shadows, shapes.geometric, arrows.meta, fit, backgrounds}
+
+% Stylisation avancée
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{fancyhdr}
+\usepackage{caption}
+
+% Boîtes colorées
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+% Polices et icônes
+\usepackage{fontawesome5}
+
+% Hyperliens
+\usepackage{hyperref}
+\usepackage{xurl}
+\Urlmuskip=0mu plus 1mu
+
+% ============================================================================
+%                         PALETTE DE COULEURS PREMIUM
+% ============================================================================
+
+% Couleurs principales
+\definecolor{harmonyPrimary}{RGB}{37, 99, 235}
+\definecolor{harmonyDark}{RGB}{30, 64, 175}
+\definecolor{harmonyLight}{RGB}{219, 234, 254}
+\definecolor{harmonyAccent}{RGB}{16, 185, 129}
+\definecolor{harmonyWarm}{RGB}{245, 158, 11}
+
+% Couleurs neutres
+\definecolor{harmonyGray900}{RGB}{17, 24, 39}
+\definecolor{harmonyGray700}{RGB}{55, 65, 81}
+\definecolor{harmonyGray500}{RGB}{107, 114, 128}
+\definecolor{harmonyGray300}{RGB}{209, 213, 219}
+\definecolor{harmonyGray100}{RGB}{243, 244, 246}
+\definecolor{harmonyWhite}{RGB}{255, 255, 255}
+
+% Couleurs sémantiques
+\definecolor{harmonySuccess}{RGB}{34, 197, 94}
+\definecolor{harmonyWarning}{RGB}{234, 179, 8}
+\definecolor{harmonyError}{RGB}{239, 68, 68}
+
+% ============================================================================
+%                         CONFIGURATION DES HYPERLIENS
+% ============================================================================
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=harmonyDark,
+    urlcolor=harmonyPrimary,
+    citecolor=harmonyDark,
+    bookmarksnumbered=true
+}
+
+% ============================================================================
+%                         BOÎTES PERSONNALISÉES PREMIUM
+% ============================================================================
+
+% Boîte d'information élégante
+\newtcolorbox{infobox}[1][]{
+    enhanced, breakable,
+    colback=harmonyLight,
+    colframe=harmonyPrimary,
+    boxrule=0pt, leftrule=4pt,
+    arc=0pt, outer arc=0pt,
+    left=12pt, right=12pt, top=10pt, bottom=10pt,
+    #1
+}
+
+% Boîte de définition avec titre
+\newtcolorbox{definitionbox}[1][]{
+    enhanced, breakable,
+    colback=harmonyGray100,
+    colframe=harmonyGray300,
+    fonttitle=\bfseries\sffamily,
+    title=#1,
+    boxrule=1pt, arc=6pt,
+    left=12pt, right=12pt, top=8pt, bottom=8pt,
+    attach boxed title to top left={yshift=-3mm, xshift=10pt},
+    boxed title style={colback=harmonyPrimary, arc=3pt}
+}
+
+% Boîte pour les processus
+\newtcolorbox{processbox}[1][]{
+    enhanced, breakable,
+    colback=harmonyWhite,
+    colframe=harmonyGray300,
+    boxrule=1pt, arc=8pt,
+    left=15pt, right=15pt, top=12pt, bottom=12pt,
+    shadow={2pt}{-2pt}{0pt}{harmonyGray300},
+    #1
+}
+
+% Boîte d'alerte
+\newtcolorbox{alertbox}[1][]{
+    enhanced, breakable,
+    colback=harmonyWarm!10,
+    colframe=harmonyWarm,
+    boxrule=0pt, leftrule=4pt,
+    arc=0pt, left=12pt, right=12pt, top=10pt, bottom=10pt,
+    #1
+}
+
+% Boîte de succès
+\newtcolorbox{successbox}[1][]{
+    enhanced, breakable,
+    colback=harmonySuccess!10,
+    colframe=harmonySuccess,
+    boxrule=0pt, leftrule=4pt,
+    arc=0pt, left=12pt, right=12pt, top=10pt, bottom=10pt,
+    #1
+}
+
+% ============================================================================
+%                         STYLE DES CHAPITRES - PREMIUM
+% ============================================================================
+
+\titleformat{\chapter}[display]
+    {\normalfont\huge\bfseries\sffamily}
+    {\begin{tikzpicture}[remember picture, overlay]
+        \fill[harmonyPrimary] (current page.north west) rectangle ([yshift=-3cm]current page.north east);
+        \fill[harmonyAccent] ([yshift=-3cm]current page.north west) rectangle ([yshift=-3.15cm]current page.north east);
+        \node[anchor=east, text=harmonyWhite, font=\fontsize{72}{80}\selectfont\bfseries\sffamily]
+            at ([xshift=-2cm, yshift=-1.5cm]current page.north east) {\thechapter};
+    \end{tikzpicture}}
+    {0pt}
+    {\vspace{2cm}\textcolor{harmonyDark}}
+    [\vspace{0.5cm}{\color{harmonyGray300}\titlerule[2pt]}]
+
+\titleformat{name=\chapter,numberless}[display]
+    {\normalfont\huge\bfseries\sffamily}
+    {\begin{tikzpicture}[remember picture, overlay]
+        \fill[harmonyPrimary] (current page.north west) rectangle ([yshift=-2cm]current page.north east);
+        \fill[harmonyAccent] ([yshift=-2cm]current page.north west) rectangle ([yshift=-2.1cm]current page.north east);
+    \end{tikzpicture}}
+    {0pt}
+    {\vspace{1cm}\textcolor{harmonyDark}}
+    [\vspace{0.5cm}{\color{harmonyGray300}\titlerule[2pt]}]
+
+\titlespacing*{\chapter}{0pt}{0pt}{40pt}
+
+% ============================================================================
+%                         STYLE DES SECTIONS
+% ============================================================================
+
+\titleformat{\section}
+    {\normalfont\Large\bfseries\sffamily\color{harmonyPrimary}}
+    {\colorbox{harmonyPrimary}{\textcolor{harmonyWhite}{\hspace{8pt}\thesection\hspace{8pt}}}\hspace{12pt}}
+    {0pt}{}
+    [{\color{harmonyGray300}\titlerule[1pt]}]
+\titlespacing*{\section}{0pt}{30pt}{15pt}
+
+\titleformat{\subsection}
+    {\normalfont\large\bfseries\sffamily\color{harmonyDark}}
+    {\textcolor{harmonyPrimary}{\thesubsection}\hspace{10pt}}
+    {0pt}{}
+\titlespacing*{\subsection}{0pt}{20pt}{10pt}
+
+\titleformat{\subsubsection}
+    {\normalfont\normalsize\bfseries\sffamily\color{harmonyGray700}}
+    {\textcolor{harmonyAccent}{\thesubsubsection}\hspace{8pt}}
+    {0pt}{}
+
+% ============================================================================
+%                         STYLE TABLE DES MATIÈRES
+% ============================================================================
+
+\renewcommand{\cfttoctitlefont}{\Huge\bfseries\sffamily\color{harmonyDark}}
+\renewcommand{\cftchapfont}{\bfseries\sffamily\color{harmonyPrimary}}
+\renewcommand{\cftchappagefont}{\bfseries\color{harmonyPrimary}}
+\renewcommand{\cftsecfont}{\sffamily\color{harmonyGray900}}
+\renewcommand{\cftsubsecfont}{\sffamily\color{harmonyGray500}}
+\setlength{\cftbeforechapskip}{12pt}
+\setlength{\cftbeforesecskip}{6pt}
+
+\renewcommand{\cftloftitlefont}{\Huge\bfseries\sffamily\color{harmonyDark}}
+\renewcommand{\cftfigfont}{\sffamily Figure }
+\renewcommand{\cftlottitlefont}{\Huge\bfseries\sffamily\color{harmonyDark}}
+\renewcommand{\cfttabfont}{\sffamily Tableau }
+
+% ============================================================================
+%                         STYLE DES LÉGENDES
+% ============================================================================
+
+\captionsetup{
+    labelfont={bf, sf, color=harmonyPrimary},
+    textfont={sf, color=harmonyGray700},
+    labelsep=period,
+    justification=centering,
+    font=small, skip=10pt
+}
+
+% ============================================================================
+%                         EN-TÊTES ET PIEDS DE PAGE
+% ============================================================================
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\sffamily\small\textcolor{harmonyGray500}{\leftmark}}
+\fancyhead[R]{\sffamily\small\textcolor{harmonyPrimary}{\textbf{Harmony Gloves}}}
+\fancyfoot[C]{\begin{tikzpicture}[baseline]
+    \node[fill=harmonyPrimary, text=harmonyWhite, rounded corners=3pt, inner sep=5pt, font=\sffamily\small\bfseries] {\thepage};
+\end{tikzpicture}}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\headrule}{\vspace{2pt}{\color{harmonyGray300}\hrule height 1pt}\vspace{1pt}{\color{harmonyAccent}\hrule height 2pt width 0.3\textwidth}}
+
+\fancypagestyle{plain}{
+    \fancyhf{}
+    \fancyfoot[C]{\begin{tikzpicture}[baseline]
+        \node[fill=harmonyPrimary, text=harmonyWhite, rounded corners=3pt, inner sep=5pt, font=\sffamily\small\bfseries] {\thepage};
+    \end{tikzpicture}}
+    \renewcommand{\headrulewidth}{0pt}
+}
+
+% ============================================================================
+%                         LISTES PERSONNALISÉES
+% ============================================================================
+
+\setlist[itemize,1]{label=\textcolor{harmonyPrimary}{\faChevronRight}, leftmargin=*, itemsep=6pt}
+\setlist[itemize,2]{label=\textcolor{harmonyAccent}{$\circ$}, leftmargin=*, itemsep=4pt}
+\setlist[enumerate,1]{label=\protect\circlednum{\arabic*}, leftmargin=*, itemsep=8pt}
+
+\newcommand*\circlednum[1]{\tikz[baseline=(char.base)]{\node[shape=circle, fill=harmonyPrimary, text=harmonyWhite, inner sep=2pt, font=\sffamily\small\bfseries] (char) {#1};}}
+
+% ============================================================================
+%                         COMMANDES UTILITAIRES
+% ============================================================================
+
+\newcommand{\concept}[1]{\textcolor{harmonyPrimary}{\textbf{#1}}}
+\newcommand{\tech}[1]{\texttt{\textcolor{harmonyDark}{#1}}}
+\newcommand{\flowto}{\textcolor{harmonyAccent}{\faArrowRight}}
+\newcommand{\statusok}{\textcolor{harmonySuccess}{\faCheckCircle}}
+\newcommand{\statuswarn}{\textcolor{harmonyWarning}{\faExclamationTriangle}}
+\newcommand{\statusno}{\textcolor{harmonyError}{\faTimesCircle}}
+
+\newcommand{\elegantsep}{\begin{center}\vspace{10pt}\textcolor{harmonyGray300}{\rule{0.2\textwidth}{0.5pt}\hspace{10pt}\textcolor{harmonyAccent}{\faDiamond}\hspace{10pt}\rule{0.2\textwidth}{0.5pt}}\vspace{10pt}\end{center}}
+
+% ============================================================================
+%                              DOCUMENT
+% ============================================================================
+
+\begin{document}
+
+% ============================================================================
+%                         PAGE DE TITRE PREMIUM
+% ============================================================================
+
+\begin{titlepage}
+    \begin{tikzpicture}[remember picture, overlay]
+        \fill[harmonyGray900] (current page.south west) rectangle (current page.north east);
+        \fill[harmonyPrimary, opacity=0.8] (current page.north west) -- ++(0,-8) -- ++(21,0) -- ++(0,8) -- cycle;
+        \fill[harmonyDark, opacity=0.9] (current page.north west) -- ++(0,-6) -- ++(15,0) -- ++(6,-2) -- ++(0,8) -- cycle;
+        \foreach \x/\y/\r/\o in {15/-5/3/0.1, 18/-8/2/0.15, 3/-12/4/0.08, 17/-18/2.5/0.12} {
+            \fill[harmonyAccent, opacity=\o] (\x,-\y) circle (\r);
+        }
+        \draw[harmonyAccent, line width=2pt, opacity=0.5] (0,-10) -- (21,-10);
+        \node[anchor=center] at (10.5,-4) {
+            \begin{tikzpicture}
+                \node[circle, fill=harmonyWhite, minimum size=3cm, opacity=0.1] {};
+                \node[circle, fill=harmonyAccent, minimum size=2cm, opacity=0.2] {};
+                \node[text=harmonyWhite, font=\fontsize{48}{50}\selectfont] {\faHandPaper};
+            \end{tikzpicture}
+        };
+        \node[anchor=center, text=harmonyWhite] at (10.5,-9) {
+            \begin{minipage}{16cm}
+                \centering
+                {\fontsize{14}{16}\selectfont\sffamily\textcolor{harmonyAccent}{RAPPORT DE PROJET}}\\[0.8cm]
+                {\fontsize{56}{60}\selectfont\bfseries\sffamily HARMONY}\\[0.2cm]
+                {\fontsize{56}{60}\selectfont\bfseries\sffamily GLOVES}\\[1cm]
+                {\color{harmonyGray300}\rule{8cm}{1pt}}\\[1cm]
+                {\fontsize{18}{22}\selectfont\sffamily Traduction de la Langue des Signes Camerounaise}
+            \end{minipage}
+        };
+        \node[anchor=south, text=harmonyWhite] at (10.5,-26) {
+            \begin{minipage}{16cm}
+                \centering
+                \begin{tikzpicture}
+                    \node[fill=harmonyGray700, rounded corners=8pt, inner sep=15pt] {
+                        \begin{tabular}{c@{\hspace{3cm}}c@{\hspace{3cm}}c}
+                            \textcolor{harmonyAccent}{\faUsers} & \textcolor{harmonyAccent}{\faCalendarAlt} & \textcolor{harmonyAccent}{\faMicrochip} \\[5pt]
+                            \textcolor{harmonyWhite}{\sffamily\small Équipe Harmony} &
+                            \textcolor{harmonyWhite}{\sffamily\small Décembre 2025} &
+                            \textcolor{harmonyWhite}{\sffamily\small ESP32 \& Flutter}
+                        \end{tabular}
+                    };
+                \end{tikzpicture}
+            \end{minipage}
+        };
+    \end{tikzpicture}
+\end{titlepage}
+
+% ============================================================================
+%                              RÉSUMÉ
+% ============================================================================
+
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+
+\begin{infobox}
+La communication entre les personnes sourdes, malentendantes ou muettes et leur entourage demeure limitée, notamment au Cameroun, en raison de la faible diffusion de la langue des signes camerounaise (LSC) et de l'absence d'outils technologiques adaptés à cette réalité linguistique. Cette situation constitue un frein majeur à l'inclusion sociale, éducative et professionnelle de cette population.
+\end{infobox}
+
+\vspace{0.5cm}
+
+Le projet \concept{Harmony Gloves} s'inscrit dans ce contexte en proposant une solution technologique visant à réduire ces barrières de communication. L'objectif principal du projet est de concevoir et de réaliser un dispositif portable capable de reconnaître les gestes de la LSC et de les traduire automatiquement en texte compréhensible par des personnes non signantes. Il s'agit d'une évolution d'un prototype antérieur, un gant intelligent limité à la reconnaissance des lettres de l'alphabet, avec une extension vers la traduction de mots et de phrases complètes.
+
+\elegantsep
+
+La méthodologie adoptée a reposé sur la conception de \concept{deux gants électroniques intelligents et synchronisés}, intégrant des capteurs de flexion, une unité de mesure inertielle, des microcontrôleurs ESP32 et des modules de communication sans fil. Des données gestuelles ont été collectées, filtrées et utilisées pour entraîner un modèle de reconnaissance basé sur des algorithmes d'intelligence artificielle, puis intégrées dans une architecture matérielle et logicielle cohérente.
+
+Les résultats obtenus ont montré la faisabilité du système, avec une reconnaissance effective de gestes correspondant à des mots et des expressions de la LSC, ainsi que des performances globalement satisfaisantes malgré certaines limitations techniques. Le projet met en évidence le potentiel des dispositifs portables intelligents pour améliorer l'accessibilité et favoriser l'inclusion sociale des personnes sourdes au Cameroun.
+
+\begin{processbox}
+\textbf{\textcolor{harmonyPrimary}{\faTags\ Mots-clés :}} langue des signes camerounaise, gants intelligents, reconnaissance gestuelle, inclusion sociale, systèmes embarqués
+\end{processbox}
+
+% ============================================================================
+%                              ABSTRACT
+% ============================================================================
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+\begin{infobox}
+Communication between deaf, hard-of-hearing, or mute individuals and their surroundings remains limited, particularly in Cameroon, due to the low dissemination of Cameroonian Sign Language (CSL) and the lack of technological tools adapted to this linguistic context. This situation represents a major obstacle to the social, educational, and professional inclusion of this population.
+\end{infobox}
+
+\vspace{0.5cm}
+
+The \concept{Harmony Gloves} project addresses this issue by proposing a technological solution aimed at reducing communication barriers. The main objective of the project is to design and implement a portable device capable of recognizing CSL gestures and automatically translating them into text understandable by non-signers. This work represents an evolution of a previous prototype restricted to alphabet letter recognition, extending its capabilities to the translation of complete words and sentences.
+
+\elegantsep
+
+The adopted methodology relied on the design of \concept{two synchronized intelligent electronic gloves} integrating flex sensors, an inertial measurement unit, ESP32 microcontrollers, and wireless communication modules. Gesture data were collected, filtered, and used to train a recognition model based on artificial intelligence algorithms, then integrated into a coherent hardware and software architecture.
+
+The obtained results demonstrated the feasibility of the system, with effective recognition of gestures corresponding to CSL words and expressions, as well as overall satisfactory performance despite certain technical limitations. This project highlights the potential of intelligent wearable devices to enhance accessibility and promote the social inclusion of deaf individuals in Cameroon.
+
+\begin{processbox}
+\textbf{\textcolor{harmonyPrimary}{\faTags\ Keywords:}} Cameroonian Sign Language, smart gloves, gesture recognition, social inclusion, embedded systems
+\end{processbox}
+
+\newpage
+\tableofcontents
+\newpage
+\listoffigures
+\newpage
+\listoftables
+
+% ============================================================================
+%       NOTE: Le reste du contenu doit être ajouté ici en suivant
+%       le même format de stylisation avec les boîtes et commandes définies
+% ============================================================================
+
+\end{document}
