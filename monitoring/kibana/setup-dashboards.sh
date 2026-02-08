@@ -173,52 +173,57 @@ cleanup_old_dashboard() {
 
 # =============================================================================
 import_dashboard() {
-    log_info "Génération du fichier NDJSON..."
-    local ndjson_file="/tmp/api-logs-dashboard.ndjson"
+    log_info "Génération du JSON du dashboard..."
+    local json_file="/tmp/api-logs-dashboard.json"
 
-    python3 "${SCRIPT_DIR}/generate-dashboard-ndjson.py" > "$ndjson_file" 2>&1
-    if [ $? -ne 0 ]; then
-        log_error "Erreur lors de la génération du NDJSON"
-        cat "$ndjson_file"
+    if ! python3 "${SCRIPT_DIR}/generate-dashboard-ndjson.py" > "$json_file" 2>&1; then
+        log_error "Erreur lors de la génération du JSON"
+        cat "$json_file"
         return 1
     fi
+    log_success "JSON généré ($(wc -c < "$json_file") bytes)"
 
-    local line_count
-    line_count=$(wc -l < "$ndjson_file")
-    log_success "NDJSON généré: ${line_count} objets"
-
-    log_info "Import du dashboard via /api/saved_objects/_import..."
+    # Use direct saved objects API (avoids _import migration issues)
+    log_info "Création du dashboard via /api/saved_objects/dashboard/..."
     local response
     response=$(curl -s -w "\n%{http_code}" -X POST \
         -u "$AUTH" \
         -H "kbn-xsrf: true" \
-        "${KIBANA_URL}/api/saved_objects/_import?overwrite=true" \
-        --form file=@"$ndjson_file" 2>&1)
+        -H "Content-Type: application/json" \
+        "${KIBANA_URL}/api/saved_objects/dashboard/api-logs-dashboard" \
+        -d @"$json_file" 2>&1)
 
     local http_code
     http_code=$(echo "$response" | tail -1)
     local body
     body=$(echo "$response" | head -n -1)
 
-    if [ "$http_code" = "200" ]; then
-        local success
-        success=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('success', False))" 2>/dev/null || echo "unknown")
-
-        if [ "$success" = "True" ]; then
-            local count
-            count=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('successCount', 0))" 2>/dev/null || echo "?")
-            log_success "Dashboard importé avec succès! (${count} objets)"
+    if [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
+        log_success "Dashboard créé avec 15 panneaux!"
+    elif [ "$http_code" = "409" ]; then
+        # Already exists - update it
+        log_info "Dashboard existe déjà, mise à jour..."
+        response=$(curl -s -w "\n%{http_code}" -X PUT \
+            -u "$AUTH" \
+            -H "kbn-xsrf: true" \
+            -H "Content-Type: application/json" \
+            "${KIBANA_URL}/api/saved_objects/dashboard/api-logs-dashboard" \
+            -d @"$json_file" 2>&1)
+        http_code=$(echo "$response" | tail -1)
+        body=$(echo "$response" | head -n -1)
+        if [ "$http_code" = "200" ]; then
+            log_success "Dashboard mis à jour avec 15 panneaux!"
         else
-            log_warn "Import partiel. Réponse:"
-            echo "$body" | python3 -m json.tool 2>/dev/null || echo "$body"
+            log_error "Échec mise à jour (HTTP ${http_code})"
+            echo "$body" | head -c 500
         fi
     else
-        log_error "Échec import (HTTP ${http_code})"
+        log_error "Échec création (HTTP ${http_code})"
         echo "$body" | head -c 500
         echo ""
     fi
 
-    rm -f "$ndjson_file"
+    rm -f "$json_file"
 }
 
 # =============================================================================

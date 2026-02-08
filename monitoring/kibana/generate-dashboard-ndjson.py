@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-Generate Kibana 8.11 NDJSON for API Logs Dashboard.
+Generate Kibana 8.11 Dashboard JSON for API Logs.
 
-Produces a valid NDJSON file for import via:
-  POST /api/saved_objects/_import?overwrite=true
+Modes:
+  python3 generate-dashboard-ndjson.py          -> JSON body for saved objects API
+  python3 generate-dashboard-ndjson.py --ndjson  -> NDJSON for import API
 
-Usage:
-  python3 generate-dashboard-ndjson.py > dashboard.ndjson
+Usage with saved objects API:
+  curl -X POST .../api/saved_objects/dashboard/api-logs-dashboard \\
+    -d @<(python3 generate-dashboard-ndjson.py)
 """
 
 import json
@@ -523,47 +525,45 @@ def main():
     # Stringify panelsJSON
     panels_json_str = json.dumps(panels, separators=(",", ":"))
 
-    # Build NDJSON lines
-    ndjson_lines = []
+    use_ndjson = "--ndjson" in sys.argv
 
-    # NOTE: We do NOT include index-pattern objects here.
-    # Data views are created via the /api/data_views/data_view API
-    # in the setup script. Including index-pattern in NDJSON can cause
-    # HTTP 500 errors due to conflicts with Kibana's data views system.
-
-    # Line 1: Dashboard only
-    ndjson_lines.append(json.dumps({
-        "type": "dashboard",
-        "id": DASHBOARD_ID,
-        "attributes": {
-            "title": "API Logs Dashboard - AR_AS",
-            "description": "Dashboard de visualisation des logs API : KPIs, requetes, temps de reponse, erreurs, endpoints, methodes HTTP, services, niveaux de log et correlation",
-            "panelsJSON": panels_json_str,
-            "optionsJSON": json.dumps({
-                "useMargins": True,
-                "syncColors": True,
-                "syncCursor": True,
-                "syncTooltips": False,
-                "hidePanelTitles": False,
+    attributes = {
+        "title": "API Logs Dashboard - AR_AS",
+        "description": "Dashboard de visualisation des logs API : KPIs, requetes, temps de reponse, erreurs, endpoints, methodes HTTP, services, niveaux de log et correlation",
+        "panelsJSON": panels_json_str,
+        "optionsJSON": json.dumps({
+            "useMargins": True,
+            "syncColors": True,
+            "syncCursor": True,
+            "syncTooltips": False,
+            "hidePanelTitles": False,
+        }, separators=(",", ":")),
+        "timeRestore": True,
+        "timeTo": "now",
+        "timeFrom": "now-24h",
+        "refreshInterval": {"pause": False, "value": 30000},
+        "kibanaSavedObjectMeta": {
+            "searchSourceJSON": json.dumps({
+                "query": {"query": "", "language": "kuery"},
+                "filter": [],
             }, separators=(",", ":")),
-            "timeRestore": True,
-            "timeTo": "now",
-            "timeFrom": "now-24h",
-            "refreshInterval": {"pause": False, "value": 30000},
-            "kibanaSavedObjectMeta": {
-                "searchSourceJSON": json.dumps({
-                    "query": {"query": "", "language": "kuery"},
-                    "filter": [],
-                }, separators=(",", ":")),
-            },
         },
-        "references": dashboard_refs,
-        "migrationVersion": {},
-    }, separators=(",", ":")))
+    }
 
-    # Output NDJSON (one JSON object per line)
-    for line in ndjson_lines:
-        print(line)
+    if use_ndjson:
+        # NDJSON format for /api/saved_objects/_import
+        print(json.dumps({
+            "type": "dashboard",
+            "id": DASHBOARD_ID,
+            "attributes": attributes,
+            "references": dashboard_refs,
+        }, separators=(",", ":")))
+    else:
+        # JSON body for POST /api/saved_objects/dashboard/<id>
+        print(json.dumps({
+            "attributes": attributes,
+            "references": dashboard_refs,
+        }, separators=(",", ":")))
 
 
 if __name__ == "__main__":
