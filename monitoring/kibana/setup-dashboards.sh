@@ -144,6 +144,34 @@ update_existing_mappings() {
 }
 
 # =============================================================================
+create_data_views() {
+    log_info "Création des data views..."
+    for dv_data in \
+        "all-logs-index-pattern|recommendation-*-logs-*|Recommendation - All Logs" \
+        "api-logs-index-pattern|recommendation-api-logs-*|Recommendation - API Logs" \
+        "error-logs-index-pattern|recommendation-errors-*|Recommendation - Error Logs"; do
+        IFS='|' read -r id title name <<< "$dv_data"
+        curl -sf -X POST -u "$AUTH" -H "kbn-xsrf: true" -H "Content-Type: application/json" \
+            "${KIBANA_URL}/api/data_views/data_view" \
+            -d "{\"data_view\":{\"id\":\"${id}\",\"title\":\"${title}\",\"timeFieldName\":\"@timestamp\",\"name\":\"${name}\"},\"override\":true}" > /dev/null 2>&1 \
+            && log_success "  Data view: ${name}" || log_warn "  Data view ${name}: erreur ou existant"
+    done
+    # Set default
+    curl -sf -X POST -u "$AUTH" -H "kbn-xsrf: true" -H "Content-Type: application/json" \
+        "${KIBANA_URL}/api/data_views/default" \
+        -d '{"data_view_id":"all-logs-index-pattern","force":true}' > /dev/null 2>&1
+}
+
+# =============================================================================
+cleanup_old_dashboard() {
+    log_info "Nettoyage de l'ancien dashboard..."
+    # Delete old dashboard saved object if it exists
+    curl -sf -X DELETE -u "$AUTH" -H "kbn-xsrf: true" \
+        "${KIBANA_URL}/api/saved_objects/dashboard/api-logs-dashboard" > /dev/null 2>&1 \
+        && log_success "  Ancien dashboard supprimé" || log_info "  Pas d'ancien dashboard"
+}
+
+# =============================================================================
 import_dashboard() {
     log_info "Génération du fichier NDJSON..."
     local ndjson_file="/tmp/api-logs-dashboard.ndjson"
@@ -204,15 +232,23 @@ main() {
     wait_for_kibana
     echo ""
 
-    log_info "Étape 1/3: Template d'index"
+    log_info "Étape 1/5: Template d'index"
     create_index_template
     echo ""
 
-    log_info "Étape 2/3: Mappings des index existants"
+    log_info "Étape 2/5: Mappings des index existants"
     update_existing_mappings
     echo ""
 
-    log_info "Étape 3/3: Import du dashboard"
+    log_info "Étape 3/5: Data views"
+    create_data_views
+    echo ""
+
+    log_info "Étape 4/5: Nettoyage"
+    cleanup_old_dashboard
+    echo ""
+
+    log_info "Étape 5/5: Import du dashboard"
     import_dashboard
 
     echo ""

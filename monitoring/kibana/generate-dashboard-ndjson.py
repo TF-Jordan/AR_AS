@@ -526,20 +526,12 @@ def main():
     # Build NDJSON lines
     ndjson_lines = []
 
-    # Line 1: Data view (index-pattern)
-    ndjson_lines.append(json.dumps({
-        "type": "index-pattern",
-        "id": DV_ID,
-        "attributes": {
-            "title": DV_TITLE,
-            "timeFieldName": "@timestamp",
-            "name": "Recommendation - All Logs",
-        },
-        "references": [],
-        "migrationVersion": {},
-    }, separators=(",", ":")))
+    # NOTE: We do NOT include index-pattern objects here.
+    # Data views are created via the /api/data_views/data_view API
+    # in the setup script. Including index-pattern in NDJSON can cause
+    # HTTP 500 errors due to conflicts with Kibana's data views system.
 
-    # Line 2: Dashboard
+    # Line 1: Dashboard only
     ndjson_lines.append(json.dumps({
         "type": "dashboard",
         "id": DASHBOARD_ID,
