@@ -91,6 +91,37 @@ create_index_template() {
 }
 
 # =============================================================================
+update_existing_mappings() {
+    log_info "Mise à jour des mappings des index existants..."
+    # Get all existing recommendation log indices
+    local indices
+    indices=$(curl -sf -u "$AUTH" "${ELASTICSEARCH_URL}/_cat/indices/recommendation-*-logs-*?h=index" 2>/dev/null || echo "")
+    if [ -z "$indices" ]; then
+        log_warn "Aucun index existant trouvé"
+        return 0
+    fi
+    for idx in $indices; do
+        curl -sf -X PUT -u "$AUTH" -H "Content-Type: application/json" \
+            "${ELASTICSEARCH_URL}/${idx}/_mapping" \
+            -d '{
+                "properties": {
+                    "level": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
+                    "service_type": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
+                    "http_method": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
+                    "request_path": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
+                    "response_category": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
+                    "request_id": { "type": "text", "fields": { "keyword": { "type": "keyword" } } }
+                }
+            }' > /dev/null 2>&1 \
+            && log_success "  Mapping mis à jour: ${idx}" || log_warn "  Mapping échoué: ${idx}"
+        # Refresh the .keyword subfields on existing docs
+        curl -sf -X POST -u "$AUTH" -H "Content-Type: application/json" \
+            "${ELASTICSEARCH_URL}/${idx}/_update_by_query?wait_for_completion=false&conflicts=proceed" \
+            -d '{"query":{"match_all":{}}}' > /dev/null 2>&1 || true
+    done
+    log_info "Re-indexation en arrière-plan lancée pour les champs .keyword"
+}
+
 create_data_views() {
     log_info "Création des data views..."
     for dv_data in \
@@ -107,6 +138,15 @@ create_data_views() {
     curl -sf -X POST -u "$AUTH" -H "kbn-xsrf: true" -H "Content-Type: application/json" \
         "${KIBANA_URL}/api/data_views/default" \
         -d '{"data_view_id":"all-logs-index-pattern","force":true}' > /dev/null 2>&1
+
+    # Refresh field list for the main data view so Kibana sees .keyword subfields
+    log_info "Rafraîchissement des champs du data view..."
+    curl -sf -X POST -u "$AUTH" -H "kbn-xsrf: true" -H "Content-Type: application/json" \
+        "${KIBANA_URL}/api/data_views/data_view/${DV_ID}/runtime_field" \
+        -d '{}' > /dev/null 2>&1 || true
+    # Force refresh by re-fetching fields
+    curl -sf -u "$AUTH" -H "kbn-xsrf: true" \
+        "${KIBANA_URL}/api/data_views/data_view/${DV_ID}" > /dev/null 2>&1 || true
 }
 
 # =============================================================================
@@ -250,7 +290,7 @@ P7_EOF
       "title":"Catégorie Temps de Réponse","visualizationType":"lnsPie",
       "state":{
         "datasourceStates":{"formBased":{"layers":{"layer1":{"columns":{
-          "col1":{"label":"Catégorie","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"response_category","params":{"size":5,"orderBy":{"type":"column","columnId":"col2"},"orderDirection":"desc"}},
+          "col1":{"label":"Catégorie","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"response_category.keyword","params":{"size":5,"orderBy":{"type":"column","columnId":"col2"},"orderDirection":"desc"}},
           "col2":{"label":"Count","dataType":"number","operationType":"count","isBucketed":false,"scale":"ratio","sourceField":"___records___"}
         },"columnOrder":["col1","col2"],"incompleteColumns":{}}}}},
         "visualization":{"shape":"pie","layers":[{"layerId":"layer1","primaryGroups":["col1"],"metrics":["col2"],"numberDisplay":"percent","categoryDisplay":"default","legendDisplay":"default","layerType":"data"}]},
@@ -275,7 +315,7 @@ P8_EOF
       "title":"Top 10 Endpoints","visualizationType":"lnsDatatable",
       "state":{
         "datasourceStates":{"formBased":{"layers":{"layer1":{"columns":{
-          "col1":{"label":"Endpoint","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"request_path","params":{"size":10,"orderBy":{"type":"column","columnId":"col2"},"orderDirection":"desc"}},
+          "col1":{"label":"Endpoint","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"request_path.keyword","params":{"size":10,"orderBy":{"type":"column","columnId":"col2"},"orderDirection":"desc"}},
           "col2":{"label":"Requêtes","dataType":"number","operationType":"count","isBucketed":false,"scale":"ratio","sourceField":"___records___"},
           "col3":{"label":"Temps Moyen (ms)","dataType":"number","operationType":"average","isBucketed":false,"scale":"ratio","sourceField":"duration_ms"}
         },"columnOrder":["col1","col2","col3"],"incompleteColumns":{}}}}},
@@ -302,7 +342,7 @@ P9_EOF
       "state":{
         "datasourceStates":{"formBased":{"layers":{"layer1":{"columns":{
           "col1":{"label":"Timestamp","dataType":"date","operationType":"date_histogram","isBucketed":true,"scale":"interval","sourceField":"@timestamp","params":{"interval":"auto"}},
-          "col2":{"label":"Méthode","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"http_method","params":{"size":6,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
+          "col2":{"label":"Méthode","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"http_method.keyword","params":{"size":6,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
           "col3":{"label":"Count","dataType":"number","operationType":"count","isBucketed":false,"scale":"ratio","sourceField":"___records___"}
         },"columnOrder":["col1","col2","col3"],"incompleteColumns":{}}}}},
         "visualization":{"legend":{"isVisible":true,"position":"right"},"preferredSeriesType":"bar_stacked","layers":[{"layerId":"layer1","accessors":["col3"],"seriesType":"bar_stacked","layerType":"data","xAccessor":"col1","splitAccessor":"col2"}],"yTitle":"Requêtes"},
@@ -328,7 +368,7 @@ P10_EOF
       "state":{
         "datasourceStates":{"formBased":{"layers":{"layer1":{"columns":{
           "col1":{"label":"Timestamp","dataType":"date","operationType":"date_histogram","isBucketed":true,"scale":"interval","sourceField":"@timestamp","params":{"interval":"auto"}},
-          "col2":{"label":"Service","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"service_type","params":{"size":5,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
+          "col2":{"label":"Service","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"service_type.keyword","params":{"size":5,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
           "col3":{"label":"Count","dataType":"number","operationType":"count","isBucketed":false,"scale":"ratio","sourceField":"___records___"}
         },"columnOrder":["col1","col2","col3"],"incompleteColumns":{}}}}},
         "visualization":{"legend":{"isVisible":true,"position":"right"},"preferredSeriesType":"area_stacked","layers":[{"layerId":"layer1","accessors":["col3"],"seriesType":"area_stacked","layerType":"data","xAccessor":"col1","splitAccessor":"col2"}],"yTitle":"Logs"},
@@ -354,7 +394,7 @@ P11_EOF
       "state":{
         "datasourceStates":{"formBased":{"layers":{"layer1":{"columns":{
           "col1":{"label":"Timestamp","dataType":"date","operationType":"date_histogram","isBucketed":true,"scale":"interval","sourceField":"@timestamp","params":{"interval":"auto"}},
-          "col2":{"label":"Level","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"level","params":{"size":5,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
+          "col2":{"label":"Level","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"level.keyword","params":{"size":5,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
           "col3":{"label":"Count","dataType":"number","operationType":"count","isBucketed":false,"scale":"ratio","sourceField":"___records___"}
         },"columnOrder":["col1","col2","col3"],"incompleteColumns":{}}}}},
         "visualization":{"legend":{"isVisible":true,"position":"right"},"preferredSeriesType":"bar_stacked","layers":[{"layerId":"layer1","accessors":["col3"],"seriesType":"bar_stacked","layerType":"data","xAccessor":"col1","splitAccessor":"col2"}],"yTitle":"Logs"},
@@ -380,7 +420,7 @@ P12_EOF
       "state":{
         "datasourceStates":{"formBased":{"layers":{"layer1":{"columns":{
           "col1":{"label":"Timestamp","dataType":"date","operationType":"date_histogram","isBucketed":true,"scale":"interval","sourceField":"@timestamp","params":{"interval":"1h"}},
-          "col2":{"label":"Endpoint","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"request_path","params":{"size":20,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
+          "col2":{"label":"Endpoint","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"request_path.keyword","params":{"size":20,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
           "col3":{"label":"Count","dataType":"number","operationType":"count","isBucketed":false,"scale":"ratio","sourceField":"___records___"}
         },"columnOrder":["col1","col2","col3"],"incompleteColumns":{}}}}},
         "visualization":{"layerId":"layer1","layerType":"data","columns":[{"columnId":"col1"},{"columnId":"col2","width":250},{"columnId":"col3","alignment":"center"}],"paging":{"size":10,"enabled":true}},
@@ -405,7 +445,7 @@ P13_EOF
       "title":"Requêtes Lentes","visualizationType":"lnsDatatable",
       "state":{
         "datasourceStates":{"formBased":{"layers":{"layer1":{"columns":{
-          "col1":{"label":"Endpoint","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"request_path","params":{"size":15,"orderBy":{"type":"column","columnId":"col2"},"orderDirection":"desc"}},
+          "col1":{"label":"Endpoint","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"request_path.keyword","params":{"size":15,"orderBy":{"type":"column","columnId":"col2"},"orderDirection":"desc"}},
           "col2":{"label":"Temps Moyen (ms)","dataType":"number","operationType":"average","isBucketed":false,"scale":"ratio","sourceField":"duration_ms"},
           "col3":{"label":"Count","dataType":"number","operationType":"count","isBucketed":false,"scale":"ratio","sourceField":"___records___"}
         },"columnOrder":["col1","col2","col3"],"incompleteColumns":{}}}}},
@@ -431,8 +471,8 @@ P14_EOF
       "title":"Correlation ID","visualizationType":"lnsDatatable",
       "state":{
         "datasourceStates":{"formBased":{"layers":{"layer1":{"columns":{
-          "col1":{"label":"Request ID","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"request_id","params":{"size":20,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
-          "col2":{"label":"Service","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"service_type","params":{"size":5,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
+          "col1":{"label":"Request ID","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"request_id.keyword","params":{"size":20,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
+          "col2":{"label":"Service","dataType":"string","operationType":"terms","isBucketed":true,"scale":"ordinal","sourceField":"service_type.keyword","params":{"size":5,"orderBy":{"type":"column","columnId":"col3"},"orderDirection":"desc"}},
           "col3":{"label":"Logs","dataType":"number","operationType":"count","isBucketed":false,"scale":"ratio","sourceField":"___records___"},
           "col4":{"label":"Durée (ms)","dataType":"number","operationType":"average","isBucketed":false,"scale":"ratio","sourceField":"duration_ms"}
         },"columnOrder":["col1","col2","col3","col4"],"incompleteColumns":{}}}}},
@@ -515,6 +555,8 @@ main() {
     wait_for_kibana
     echo ""
     create_index_template
+    echo ""
+    update_existing_mappings
     echo ""
     create_data_views
     echo ""
