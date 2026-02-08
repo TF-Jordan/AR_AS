@@ -11,11 +11,6 @@ filebeat.inputs:
     processors:
       - add_docker_metadata:
           host: "unix:///var/run/docker.sock"
-      - decode_json_fields:
-          fields: ["message"]
-          target: ""
-          overwrite_keys: true
-          add_error_key: true
     fields:
       service_type: api
     fields_under_root: true
@@ -29,11 +24,6 @@ filebeat.inputs:
     processors:
       - add_docker_metadata:
           host: "unix:///var/run/docker.sock"
-      - decode_json_fields:
-          fields: ["message"]
-          target: ""
-          overwrite_keys: true
-          add_error_key: true
     fields:
       service_type: celery_worker
     fields_under_root: true
