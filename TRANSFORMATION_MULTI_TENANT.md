@@ -1045,11 +1045,26 @@ kibana_host
 
 ## 📝 Checklist Complète
 
-### Phase 0: Préparation
-- [ ] Backup complet de la DB actuelle
-- [ ] Documenter flux existants
-- [ ] Créer branche `feature/multi-tenant`
-- [ ] Setup environnement dev avec Keycloak local
+### Phase 0: Préparation ✅ **COMPLETED**
+- [x] ~~Backup complet de la DB actuelle~~ **SKIPPED** (suppression directe confirmée par utilisateur)
+- [x] Documenter flux existants
+  - [x] Créé `PHASE0_AUDIT_VEHICLE_DEPENDENCIES.md` (audit complet de 23 fichiers couplés)
+  - [x] Identifié ~1500 lignes de code à modifier
+  - [x] Matrice de dépendances avec priorités P0-P3
+- [x] Créer branche `feature/multi-tenant` → Utilise `claude/review-project-perspectives-lUDIe`
+- [x] Setup environnement dev avec Keycloak local
+  - [x] Ajouté service Keycloak 25.0 dans Docker Compose
+  - [x] Configuration backend PostgreSQL (schéma keycloak)
+  - [x] Realm `raas` avec import automatique
+  - [x] Clients pré-configurés: `raas-api` (backend) et `raas-admin-ui` (frontend)
+  - [x] Custom claims JWT: `tenant_id`, `client_id`
+  - [x] Documentation complète dans `keycloak/README.md`
+- [x] Créer scripts de nettoyage
+  - [x] `scripts/cleanup_vehicle_data.sql` (suppression tables PostgreSQL)
+  - [x] `scripts/cleanup_qdrant_vehicles.py` (suppression collection Qdrant)
+  - [x] Documentation dans `scripts/CLEANUP_README.md`
+
+**Status**: Phase 0 terminée avec succès. Scripts de cleanup créés et prêts à l'exécution. Keycloak opérationnel.
 
 ### Phase 1: Nettoyage (1 semaine)
 - [ ] Supprimer Celery
