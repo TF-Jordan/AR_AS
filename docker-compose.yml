@@ -4,8 +4,11 @@
 # Build:
 #   docker compose build
 #
-# Lancement:
+# Lancement (sans monitoring):
 #   docker compose up -d
+#
+# Lancement (avec monitoring ELK + APM):
+#   docker compose --profile monitoring up -d
 #
 # ==============================================================================
 
@@ -203,13 +206,16 @@ services:
     restart: unless-stopped
 
   # ============================================================================
-  # MONITORING STACK (ELK + APM)
+  # MONITORING STACK (Profil: monitoring)
+  # Lancer avec: docker compose --profile monitoring up -d
   # ============================================================================
 
   # Elasticsearch - Stockage des logs et métriques (avec sécurité)
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: ar-as-elasticsearch
+    profiles:
+      - monitoring
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=true
@@ -242,7 +248,8 @@ services:
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.0
     container_name: ar-as-kibana
-
+    profiles:
+      - monitoring
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - ELASTICSEARCH_USERNAME=kibana_system
@@ -271,7 +278,8 @@ services:
   es-setup:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: ar-as-es-setup
-
+    profiles:
+      - monitoring
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -331,7 +339,8 @@ services:
   logstash:
     image: docker.elastic.co/logstash/logstash:8.11.0
     container_name: ar-as-logstash
-
+    profiles:
+      - monitoring
     volumes:
       - ./monitoring/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
       - ./monitoring/logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
@@ -358,7 +367,8 @@ services:
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.11.0
     container_name: ar-as-filebeat
-
+    profiles:
+      - monitoring
     user: root
     command: filebeat -e --strict.perms=false
     volumes:
@@ -381,7 +391,8 @@ services:
   metricbeat:
     image: docker.elastic.co/beats/metricbeat:8.11.0
     container_name: ar-as-metricbeat
-
+    profiles:
+      - monitoring
     user: root
     command: metricbeat -e --strict.perms=false
     volumes:
@@ -405,7 +416,8 @@ services:
   apm-server:
     image: docker.elastic.co/apm/apm-server:8.11.0
     container_name: ar-as-apm
-
+    profiles:
+      - monitoring
     command: >
       apm-server -e
         -E apm-server.host=0.0.0.0:8200
