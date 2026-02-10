@@ -81,19 +81,18 @@ graph TB
 │  PLATEFORME CLIENTE (Ex: Immobilier Pro)                    │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  1. L'utilisateur final fait une recherche:                 │
-│     "Je cherche un appartement lumineux avec balcon Paris"  │
+│  1. Un client laisse un commentaire sur un produit:         │
+│     Client ID: "client_456"                                  │
+│     Produit ID: "prod_abc123"                                │
+│     Commentaire: "Excellent appartement, très lumineux !"   │
 │                                                              │
 │  2. Application prépare requête API:                        │
 │                                                              │
 │     const request = {                                        │
-│       query: "appartement lumineux balcon Paris",           │
-│       user_context: "famille 2 enfants",                    │
-│       filters: {                                             │
-│         price_max: 500000,                                   │
-│         rooms_min: 3                                         │
-│       },                                                     │
-│       top_k: 10                                              │
+│       client_id: "client_456",                              │
+│       product_id: "prod_abc123",                            │
+│       comment: "Excellent appartement, très lumineux !",    │
+│       top_k: 10  // Optionnel, défaut: 10                   │
 │     };                                                       │
 │                                                              │
 │  3. Obtient access_token OAuth2 (si expiré):               │
@@ -124,7 +123,7 @@ graph TB
 │       Content-Type: application/json                        │
 │       X-Request-ID: uuid-1234                               │
 │                                                              │
-│     Body: { query, filters, top_k }                         │
+│     Body: { client_id, product_id, comment, top_k }         │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
                            │
@@ -223,16 +222,15 @@ graph TB
 │  ):                                                          │
 │      start_time = time.time()                               │
 │                                                              │
-│      # 1. Prépare contexte                                  │
-│      user_query = request.query                             │
-│      user_context = request.user_context or ""              │
+│      # 1. Extraire les données de la requête                │
+│      client_id = request.client_id                          │
+│      product_id = request.product_id                        │
+│      comment = request.comment                              │
+│      top_k = request.top_k or 10                            │
 │                                                              │
-│      # Combine query + context pour analyse sentiment       │
-│      full_text = f"{user_query}. {user_context}"           │
-│                                                              │
-│      # 2. Analyse sentiment                                 │
+│      # 2. Analyse sentiment du commentaire                  │
 │      sentiment_result = await sentiment_analyzer.analyze(   │
-│          text=full_text                                     │
+│          text=comment                                       │
 │      )                                                       │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
@@ -293,12 +291,7 @@ graph TB
 │      return SentimentResult(                                │
 │          label="positive",                                  │
 │          score=0.88,                                        │
-│          confidence=0.88,                                    │
-│          raw_probabilities={                                 │
-│              "negative": 0.02,                              │
-│              "neutral": 0.10,                               │
-│              "positive": 0.88                               │
-│          }                                                   │
+│          confidence=0.88                                    │
 │      )                                                       │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
@@ -360,22 +353,66 @@ graph TB
 
 **Cache HIT:** Retour immédiat en **~2ms** total
 
-**Cache MISS:** Continue vers génération embedding...
+**Cache MISS:** Continue vers récupération produit...
 
 ---
 
-### ÉTAPE 10-12: Génération Embedding
+### ÉTAPE 10: Récupération Description Produit
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  MODULE 2: Vector Store - Retrieve Product                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  # 4. Récupère la description du produit commenté           │
+│  collection_name = f"tenant_{tenant_id}"                    │
+│                                                              │
+│  product_point = await vector_store.retrieve(               │
+│      collection_name=collection_name,                       │
+│      ids=[product_id]                                       │
+│  )                                                           │
+│                                                              │
+│  # product_point contient:                                  │
+│  {                                                           │
+│    "id": "prod_abc123",                                     │
+│    "vector": [...],  # Vecteur 768D (déjà calculé)         │
+│    "payload": {                                             │
+│      "id": "prod_abc123",                                   │
+│      "description": "Appartement 3 pièces 72m², lumineux,  │
+│                      avec balcon, Paris 15e, proche métro", │
+│      "metadata": {                                          │
+│        "price": 280000,                                     │
+│        "surface": 72,                                       │
+│        "rooms": 3,                                          │
+│        "location": "Paris 15e"                              │
+│      }                                                       │
+│    }                                                         │
+│  }                                                           │
+│                                                              │
+│  product_description = product_point.payload["description"] │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Temps écoulé: ~3ms** (retrieve by ID from Qdrant)
+
+---
+
+### ÉTAPE 11-12: Génération Embedding
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  MODULE 2: Embedding Service                                 │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  # 4. Génération embedding de la requête                    │
-│  query_embedding = await embedding_service.generate(        │
-│      text=user_query,                                       │
+│  # 5. Génération embedding de la description du produit     │
+│  product_embedding = await embedding_service.generate(      │
+│      text=product_description,                              │
 │      sentiment_boost=sentiment_result.score                 │
 │  )                                                           │
+│                                                              │
+│  # Note: On vectorise la DESCRIPTION du produit commenté,   │
+│  # pas le commentaire lui-même !                            │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
                            │
@@ -687,24 +724,10 @@ embedding_vector = [
 │  API RESPONSE                                                │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  # 9. Formater réponse                                      │
-│  processing_time = (time.time() - start_time) * 1000        │
-│                                                              │
+│  # 9. Formater réponse simplifiée                           │
 │  response = RecommendationResponse(                         │
-│      recommendations=[                                       │
-│          RecommendationItem(                                │
-│              product_id=r.product_id,                       │
-│              score=r.final_score,                           │
-│              similarity=r.similarity_score,                 │
-│              metadata=r.metadata                            │
-│          )                                                   │
-│          for r in ranked_results                            │
-│      ],                                                      │
-│      sentiment=sentiment_result,                            │
-│      processing_time_ms=processing_time,                    │
-│      cached=False,                                          │
-│      tenant_id=tenant_id,                                   │
-│      request_id=request_id                                  │
+│      client_id=client_id,                                   │
+│      product_ids=[r.product_id for r in ranked_results]    │
 │  )                                                           │
 │                                                              │
 │  return response                                            │
@@ -721,42 +744,25 @@ embedding_vector = [
 │  Headers:                                                    │
 │    Content-Type: application/json                           │
 │    X-Request-ID: uuid-1234                                  │
-│    X-Processing-Time-Ms: 185                                │
 │    X-RateLimit-Limit: 500                                   │
 │    X-RateLimit-Remaining: 487                               │
 │    X-RateLimit-Reset: 1705334400                            │
 │                                                              │
-│  Body:                                                       │
+│  Body (SIMPLIFIÉ):                                          │
 │  {                                                           │
-│    "recommendations": [                                      │
-│      {                                                       │
-│        "product_id": "prod_abc123",                         │
-│        "score": 0.8546,                                     │
-│        "similarity": 0.923,                                 │
-│        "metadata": {                                         │
-│          "price": 280000,                                   │
-│          "surface": 72,                                     │
-│          "rooms": 3,                                        │
-│          "location": "Paris 15e"                            │
-│        }                                                     │
-│      },                                                      │
-│      {                                                       │
-│        "product_id": "prod_xyz789",                         │
-│        "score": 0.8421,                                     │
-│        "similarity": 0.901,                                 │
-│        "metadata": {...}                                    │
-│      },                                                      │
-│      ... (8 autres)                                         │
-│    ],                                                        │
-│    "sentiment": {                                            │
-│      "label": "positive",                                   │
-│      "score": 0.88,                                         │
-│      "confidence": 0.88                                     │
-│    },                                                        │
-│    "processing_time_ms": 185,                               │
-│    "cached": false,                                         │
-│    "tenant_id": "immopro_123",                              │
-│    "request_id": "uuid-1234"                                │
+│    "client_id": "client_456",                               │
+│    "product_ids": [                                         │
+│      "prod_abc123",                                         │
+│      "prod_xyz789",                                         │
+│      "prod_def456",                                         │
+│      "prod_ghi012",                                         │
+│      "prod_jkl345",                                         │
+│      "prod_mno678",                                         │
+│      "prod_pqr901",                                         │
+│      "prod_stu234",                                         │
+│      "prod_vwx567",                                         │
+│      "prod_yza890"                                          │
+│    ]                                                         │
 │  }                                                           │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
@@ -916,13 +922,9 @@ sequenceDiagram
 
 ```json
 {
-  "query": "appartement lumineux balcon Paris",
-  "user_context": "famille 2 enfants",
-  "filters": {
-    "price_max": 500000,
-    "rooms_min": 3,
-    "location": "Paris"
-  },
+  "client_id": "client_456",
+  "product_id": "prod_abc123",
+  "comment": "Excellent appartement, très lumineux avec un beau balcon !",
   "top_k": 10
 }
 ```
@@ -933,12 +935,7 @@ sequenceDiagram
 {
   "label": "positive",
   "score": 0.88,
-  "confidence": 0.88,
-  "raw_probabilities": {
-    "negative": 0.02,
-    "neutral": 0.10,
-    "positive": 0.88
-  }
+  "confidence": 0.88
 }
 ```
 
@@ -971,18 +968,51 @@ sequenceDiagram
 ]
 ```
 
-### 5. Config Scoring (PostgreSQL)
+### 5. Config Scoring Dynamique (PostgreSQL)
 
 ```json
 {
   "tenant_id": "immopro_123",
-  "similarity_weight": 0.70,
-  "price_weight": 0.15,
-  "availability_weight": 0.10,
-  "reputation_weight": 0.05,
-  "custom_criteria": {}
+  "scoring_criteria": [
+    {
+      "name": "similarity",
+      "weight": 0.70,
+      "type": "system",
+      "description": "Similarité sémantique (toujours présent)"
+    },
+    {
+      "name": "price_match",
+      "weight": 0.15,
+      "type": "custom",
+      "metadata_key": "price",
+      "normalization": "inverse",
+      "description": "Correspondance de prix (plus bas = mieux)"
+    },
+    {
+      "name": "availability",
+      "weight": 0.10,
+      "type": "custom",
+      "metadata_key": "available",
+      "normalization": "direct",
+      "description": "Disponibilité immédiate"
+    },
+    {
+      "name": "reputation",
+      "weight": 0.05,
+      "type": "custom",
+      "metadata_key": "rating",
+      "normalization": "direct",
+      "description": "Note moyenne"
+    }
+  ]
 }
 ```
+
+**Note:** Les critères sont **complètement configurables** par tenant via l'interface admin. L'admin peut:
+- Ajouter un nouveau critère
+- Supprimer un critère
+- Modifier les poids
+- Changer la normalisation (direct, inverse, custom)
 
 ### 6. Résultats Scorés Finaux (Top-10)
 
@@ -1009,29 +1039,30 @@ sequenceDiagram
 ]
 ```
 
-### 7. Réponse API Finale
+### 7. Réponse API Finale (Simplifiée)
 
 ```json
 {
-  "recommendations": [
-    {
-      "product_id": "prod_abc123",
-      "score": 0.8546,
-      "similarity": 0.923,
-      "metadata": {...}
-    },
-    ...
-  ],
-  "sentiment": {
-    "label": "positive",
-    "score": 0.88
-  },
-  "processing_time_ms": 185,
-  "cached": false,
-  "tenant_id": "immopro_123",
-  "request_id": "uuid-1234"
+  "client_id": "client_456",
+  "product_ids": [
+    "prod_abc123",
+    "prod_xyz789",
+    "prod_def456",
+    "prod_ghi012",
+    "prod_jkl345",
+    "prod_mno678",
+    "prod_pqr901",
+    "prod_stu234",
+    "prod_vwx567",
+    "prod_yza890"
+  ]
 }
 ```
+
+**Note:** Réponse ultra-simplifiée :
+- `client_id` : Pour qui sont ces recommandations
+- `product_ids` : Liste des IDs des produits recommandés (dans l'ordre de pertinence)
+- Pas de scores, pas de metadata, pas de surcharge JSON
 
 ---
 

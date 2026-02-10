@@ -237,17 +237,43 @@ class ScoringConfig(Base):
     id = Column(UUID, primary_key=True, default=uuid4)
     tenant_id = Column(String, ForeignKey("tenants.tenant_id"))
 
-    # Poids personnalisables
-    similarity_weight = Column(Float, default=0.70)
-    price_weight = Column(Float, default=0.15)
-    availability_weight = Column(Float, default=0.10)
-    reputation_weight = Column(Float, default=0.05)
+    # Critères de scoring COMPLÈTEMENT dynamiques (JSON)
+    scoring_criteria = Column(JSON)  # Liste de critères configurables
+    # Format:
+    # [
+    #   {
+    #     "name": "similarity",
+    #     "weight": 0.70,
+    #     "type": "system",  // Toujours présent
+    #     "description": "Similarité sémantique"
+    #   },
+    #   {
+    #     "name": "price_match",
+    #     "weight": 0.15,
+    #     "type": "custom",
+    #     "metadata_key": "price",
+    #     "normalization": "inverse",  // inverse, direct, custom
+    #     "description": "Correspondance de prix"
+    #   },
+    #   // ... autres critères ajoutables/supprimables
+    # ]
 
-    # Métadonnées
-    custom_criteria = Column(JSON)  # Critères additionnels
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
 
     # Relations
     tenant = relationship("Tenant", back_populates="scoring_config")
+
+
+class ScoringCriterion(BaseModel):
+    """Pydantic model pour validation des critères."""
+    name: str
+    weight: float  # 0.0 à 1.0
+    type: Literal["system", "custom"]
+    metadata_key: Optional[str] = None  # Pour type=custom
+    normalization: Optional[Literal["direct", "inverse", "custom"]] = "direct"
+    description: Optional[str] = None
 ```
 
 **Actions:**
@@ -870,11 +896,17 @@ frontend/
 - Quotas rate limiting
 - Statut (active, suspended)
 
-**Configuration Scoring:**
-- Interface visuelle pour ajuster poids
-- Preview en temps réel
-- Validation (somme = 1.0)
-- Critères custom
+**Configuration Scoring (COMPLÈTEMENT DYNAMIQUE):**
+- **Ajouter un critère** : Bouton "+" pour créer nouveau critère custom
+  - Nom du critère
+  - Clé metadata (ex: "price", "availability")
+  - Type de normalisation (direct, inverse, custom)
+  - Poids (slider 0-100%)
+- **Supprimer un critère** : Bouton "×" sur chaque critère (sauf "similarity")
+- **Modifier les poids** : Sliders interactifs avec ajustement auto pour maintenir total = 100%
+- **Preview en temps réel** : Graphique montrant la pondération
+- **Validation** : Somme des poids = 1.0 (100%)
+- **Critère "similarity" obligatoire** : Ne peut pas être supprimé, toujours présent
 
 **Monitoring:**
 - Métriques temps réel (WebSocket ou polling)
