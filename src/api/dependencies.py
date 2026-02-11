@@ -1,99 +1,44 @@
 """
 FastAPI dependencies for dependency injection.
+
+Provides database sessions, authentication (Keycloak OAuth2),
+Redis clients, and rate limiting dependencies.
 """
 
 from typing import AsyncGenerator, Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError, jwt
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.database.connection import get_async_session
 
-# Security
-security = HTTPBearer(auto_error=False)
+# ---------------------------------------------------------------------------
+# Re-export Keycloak auth dependencies for backward compatibility
+# and convenience -- routes can import from here or from src.auth.
+# ---------------------------------------------------------------------------
+from src.auth.keycloak import (  # noqa: F401
+    get_token_payload,
+    get_current_tenant_id,
+    get_current_client_id,
+    require_admin,
+    security,
+)
 
+# Re-export rate limiter dependency
+from src.middleware.rate_limiter import (  # noqa: F401
+    get_redis,
+    rate_limit_dependency,
+)
+
+
+# ---------------------------------------------------------------------------
+# Database session dependency
+# ---------------------------------------------------------------------------
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for database session."""
     async for session in get_async_session():
         yield session
-
-
-async def verify_token(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> Optional[dict]:
-    """
-    Verify JWT token for protected endpoints.
-
-    Args:
-        credentials: HTTP Bearer credentials
-
-    Returns:
-        Token payload if valid
-
-    Raises:
-        HTTPException: If token is invalid
-    """
-    if credentials is None:
-        return None
-
-    try:
-        token = credentials.credentials
-        payload = jwt.decode(
-            token,
-            settings.secret_key,
-            algorithms=[settings.algorithm],
-        )
-        return payload
-    except JWTError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-
-async def require_auth(
-    payload: Optional[dict] = Depends(verify_token),
-) -> dict:
-    """
-    Dependency that requires authentication.
-
-    Args:
-        payload: Token payload from verify_token
-
-    Returns:
-        Token payload
-
-    Raises:
-        HTTPException: If not authenticated
-    """
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return payload
-
-
-def create_access_token(data: dict) -> str:
-    """
-    Create JWT access token.
-
-    Args:
-        data: Data to encode in token
-
-    Returns:
-        Encoded JWT token
-    """
-    from datetime import datetime, timedelta
-
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
-    to_encode.update({"exp": expire})
-
-    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)

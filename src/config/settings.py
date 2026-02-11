@@ -84,14 +84,47 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 3600
     sentiment_score_tolerance: float = 0.1
 
-    # Rate Limiting
+    # Rate Limiting (global defaults, overridden per-tenant in DB)
     rate_limit_requests: int = 100
     rate_limit_window_seconds: int = 60
 
-    # Security
+    # Security (legacy, kept for backward compatibility)
     secret_key: str = "maclésecrete"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+
+    # Keycloak OAuth2
+    keycloak_host: str = Field(default="http://localhost:8080")
+    keycloak_port: int = Field(default=8080)
+    keycloak_realm: str = Field(default="raas")
+    keycloak_client_id: str = Field(default="raas-api")
+    keycloak_client_secret: Optional[str] = Field(default=None)
+
+    @property
+    def keycloak_url(self) -> str:
+        """Full Keycloak base URL."""
+        return f"{self.keycloak_host}"
+
+    @property
+    def keycloak_jwks_url(self) -> str:
+        """JWKS endpoint for fetching Keycloak public signing keys."""
+        return (
+            f"{self.keycloak_url}/realms/{self.keycloak_realm}"
+            "/protocol/openid-connect/certs"
+        )
+
+    @property
+    def keycloak_issuer_url(self) -> str:
+        """Expected issuer claim in JWT tokens."""
+        return f"{self.keycloak_url}/realms/{self.keycloak_realm}"
+
+    @property
+    def keycloak_token_url(self) -> str:
+        """Token endpoint for obtaining access tokens."""
+        return (
+            f"{self.keycloak_url}/realms/{self.keycloak_realm}"
+            "/protocol/openid-connect/token"
+        )
 
     # Logging
     log_level: str = "INFO"

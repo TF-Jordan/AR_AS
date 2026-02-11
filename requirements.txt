@@ -32,8 +32,10 @@ numpy==2.2.6
 python-json-logger==3.3.0
 structlog==25.5.0
 
-# Security
-python-jose==3.5.0
+# Security & OAuth2
+python-jose[cryptography]==3.5.0
+PyJWT[crypto]==2.9.0
+cryptography>=41.0.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 slowapi==0.1.9
