@@ -6,15 +6,11 @@ Orchestrates the complete recommendation workflow.
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 
 from src.config import settings
 from src.config.constants import ProductType
-from src.database.models import Vehicle
-from src.database.repositories import vehicle_repository
 
 from .cache import CacheManager, get_cache_manager
 from .embeddings import EmbeddingService, get_embedding_service
@@ -165,130 +161,22 @@ class RecommendationEngine:
         logger.info(f"Recommendation completed: {len(ranked_products)} results")
         return result
 
-    def recommend_sync(
-        self,
-        request: RecommendationRequest,
-        session: Session,
-    ) -> RecommendationResult:
-        """
-        Synchronous version for Celery tasks.
-
-        Args:
-            request: Recommendation request
-            session: Sync database session
-
-        Returns:
-            RecommendationResult
-        """
-        logger.info(f"Processing sync recommendation for {request.product_id}")
-
-        # Get product details
-        product_details = self._get_product_details_sync(
-            request.product_id, request.product_type, session
-        )
-
-        if product_details is None:
-            return self._empty_result(request)
-
-        # Generate embedding and search
-        query_vector = self.embeddings.encode_for_qdrant(product_details.description)
-
-        similar_products = self.vectors.search(
-            product_type=request.product_type,
-            query_vector=query_vector,
-            top_k=request.top_k * 2,
-        )
-
-        similar_products = [
-            p for p in similar_products if p.product_id != request.product_id
-        ]
-
-        if not similar_products:
-            return self._empty_result(request)
-
-        # Get details and rank
-        all_details = self._get_multiple_product_details_sync(
-            [p.product_id for p in similar_products[:request.top_k]],
-            request.product_type,
-            session,
-        )
-
-        ranked_products = self.ranking.rank_products(
-            similar_products[:request.top_k],
-            all_details,
-            request.product_type,
-        )
-
-        return RecommendationResult(
-            client_id=request.client_id,
-            reference_product_id=request.product_id,
-            sentiment_score=request.sentiment_score,
-            product_type=request.product_type,
-            recommendations=ranked_products,
-            total_results=len(ranked_products),
-            cached=False,
-            processed_at=datetime.utcnow(),
-        )
-
     async def _get_product_details(
         self,
         product_id: str,
         product_type: ProductType,
         session: AsyncSession,
     ) -> Optional[ProductDetails]:
-        """Retrieve product details from PostgreSQL."""
-        try:
-            uuid_id = UUID(product_id)
-        except ValueError:
-            logger.error(f"Invalid product ID format: {product_id}")
-            return None
+        """
+        Retrieve product details from PostgreSQL.
 
-        product = await vehicle_repository.get_by_id(session, uuid_id)
-        if product:
-            return ProductDetails(
-                product_id=str(product.vehicle_id),
-                product_type=product_type,
-                description=product.to_description(),
-                disponible=product.disponible,
-                reputation=product.note_moyenne,
-                localisation=product.localisation,
-                metadata={
-                    "brand": product.brand,
-                    "model": product.model,
-                    "year": product.year,
-                    "prix_journalier": product.prix_journalier,
-                },
-            )
-
-        return None
-
-    def _get_product_details_sync(
-        self,
-        product_id: str,
-        product_type: ProductType,
-        session: Session,
-    ) -> Optional[ProductDetails]:
-        """Sync version for Celery tasks."""
-        try:
-            uuid_id = UUID(product_id)
-        except ValueError:
-            return None
-
-        product = vehicle_repository.get_by_id_sync(session, uuid_id)
-        if product:
-            return ProductDetails(
-                product_id=str(product.vehicle_id),
-                product_type=product_type,
-                description=product.to_description(),
-                disponible=product.disponible,
-                reputation=product.note_moyenne,
-                localisation=product.localisation,
-                metadata={
-                    "brand": product.brand,
-                    "model": product.model,
-                },
-            )
-
+        TODO: Implement tenant-specific product retrieval in multi-tenant phase.
+        Legacy vehicle-specific logic has been removed.
+        """
+        logger.warning(
+            f"Product details retrieval not yet implemented for multi-tenant. "
+            f"product_id={product_id}, product_type={product_type}"
+        )
         return None
 
     async def _get_multiple_product_details(
@@ -301,20 +189,6 @@ class RecommendationEngine:
         details = {}
         for product_id in product_ids:
             detail = await self._get_product_details(product_id, product_type, session)
-            if detail:
-                details[product_id] = detail
-        return details
-
-    def _get_multiple_product_details_sync(
-        self,
-        product_ids: List[str],
-        product_type: ProductType,
-        session: Session,
-    ) -> Dict[str, ProductDetails]:
-        """Sync version for multiple products."""
-        details = {}
-        for product_id in product_ids:
-            detail = self._get_product_details_sync(product_id, product_type, session)
             if detail:
                 details[product_id] = detail
         return details

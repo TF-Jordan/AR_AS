@@ -11,8 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.database.connection import get_async_session
-from src.modules.module3_orchestration import Orchestrator
-from src.modules.module3_orchestration.orchestrator import get_orchestrator
 
 # Security
 security = HTTPBearer(auto_error=False)
@@ -22,11 +20,6 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for database session."""
     async for session in get_async_session():
         yield session
-
-
-def get_orchestrator_dep() -> Orchestrator:
-    """Dependency for orchestrator."""
-    return get_orchestrator()
 
 
 async def verify_token(

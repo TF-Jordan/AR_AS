@@ -3,56 +3,14 @@ Administration API endpoints.
 """
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.api.dependencies import require_auth
-from src.api.schemas import VectorizationRequest, AsyncTaskResponse
 from src.config.constants import ProductType
-from src.modules.module3_orchestration.orchestrator import get_orchestrator
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-@router.post(
-    "/vectorize",
-    response_model=AsyncTaskResponse,
-    summary="Trigger product vectorization",
-    description="Start vectorization of all products for a given type.",
-)
-async def trigger_vectorization(
-    request: VectorizationRequest,
-    auth: dict = Depends(require_auth),
-):
-    """
-    Trigger vectorization of products.
-
-    This creates/updates vectors in Qdrant for all products of the specified type.
-    Requires authentication.
-    """
-    logger.info(f"Vectorization request: {request.product_type}")
-
-    try:
-        orchestrator = get_orchestrator()
-        task_id = orchestrator.trigger_vectorization(
-            product_type=request.product_type.value,
-            batch_size=request.batch_size,
-        )
-
-        return AsyncTaskResponse(
-            task_id=task_id,
-            status="pending",
-            message=f"Vectorization started for {request.product_type}",
-        )
-
-    except Exception as e:
-        logger.error(f"Vectorization trigger error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
 
 
 @router.post(
@@ -73,8 +31,9 @@ async def invalidate_cache(
     logger.info(f"Cache invalidation request: {product_id}")
 
     try:
-        orchestrator = get_orchestrator()
-        count = await orchestrator.invalidate_product_cache(
+        from src.modules.module2_recommendation.cache import get_cache_manager
+        cache = get_cache_manager()
+        count = await cache.invalidate(
             product_id=product_id,
             product_type=product_type.value,
         )

@@ -19,10 +19,6 @@ class RecommendationRequestSchema(BaseModel):
     commentaire: str = Field(..., description="Comment text to analyze")
     product_type: ProductType = Field(..., description="Type: vehicle")
     top_k: int = Field(default=10, ge=1, le=100, description="Number of results")
-    async_processing: bool = Field(
-        default=False, description="Process asynchronously via Celery"
-    )
-
     class Config:
         json_schema_extra = {
             "example": {
@@ -31,7 +27,6 @@ class RecommendationRequestSchema(BaseModel):
                 "commentaire": "Excellent service, très professionnel!",
                 "product_type": "vehicle",
                 "top_k": 10,
-                "async_processing": False,
             }
         }
 
@@ -75,13 +70,6 @@ class RecommendationOnlyRequest(BaseModel):
                 "top_k": 10,
             }
         }
-
-
-class VectorizationRequest(BaseModel):
-    """Schema for triggering vectorization."""
-
-    product_type: ProductType = Field(..., description="Product type to vectorize")
-    batch_size: int = Field(default=100, ge=10, le=1000)
 
 
 # Response schemas
@@ -129,33 +117,6 @@ class FullWorkflowResponse(BaseModel):
     processing_time_seconds: float
     sentiment: SentimentResponse
     recommendations: RecommendationResponse
-
-
-class AsyncTaskResponse(BaseModel):
-    """Response for async task submission."""
-
-    task_id: str
-    status: str
-    message: str
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "task_id": "abc123-def456",
-                "status": "pending",
-                "message": "Task submitted successfully",
-            }
-        }
-
-
-class TaskStatusResponse(BaseModel):
-    """Response for task status query."""
-
-    task_id: str
-    status: str
-    ready: bool
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
 
 
 class HealthResponse(BaseModel):

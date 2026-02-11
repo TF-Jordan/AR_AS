@@ -1,5 +1,5 @@
 # ==============================================================================
-# Requirements - AR_AS (versions alignées avec l'environnement local)
+# Requirements - AR_AS RaaS Platform
 # ==============================================================================
 
 # Core API
@@ -15,10 +15,8 @@ asyncpg==0.31.0
 psycopg2-binary==2.9.11
 alembic==1.18.1
 
-# Redis & Celery
+# Redis
 redis==7.1.0
-celery==5.6.2
-flower==2.0.1
 
 # Vector Database
 qdrant-client==1.16.2
@@ -29,10 +27,8 @@ sentence-transformers==5.2.0
 torch==2.9.1
 transformers==4.55.4
 numpy==2.2.6
-# torchvision et torchaudio supprimés (non utilisés dans le projet)
 
-# Monitoring
-elastic-apm==6.20.0
+# Logging
 python-json-logger==3.3.0
 structlog==25.5.0
 

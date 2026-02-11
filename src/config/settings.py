@@ -64,18 +64,6 @@ class Settings(BaseSettings):
             return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
-    # Celery
-    celery_broker_url: Optional[str] = None
-    celery_result_backend: Optional[str] = None
-
-    @property
-    def celery_broker(self) -> str:
-        return self.celery_broker_url or self.redis_url
-
-    @property
-    def celery_backend(self) -> str:
-        return self.celery_result_backend or self.redis_url
-
     # Qdrant Vector Database
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
@@ -109,9 +97,6 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
 
-    # Monitoring - Elastic APM (désactivé par défaut)
-    apm_enabled: bool = False
-    apm_server_url: str = "http://localhost:8200"
 
 
 @lru_cache()

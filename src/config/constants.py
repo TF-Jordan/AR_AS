@@ -30,34 +30,9 @@ class SentimentLabel(str, Enum):
     NEUTRAL = "neutral"
 
 
-class TaskStatus(str, Enum):
-    """Celery task status values."""
-    PENDING = "pending"
-    STARTED = "started"
-    SUCCESS = "success"
-    FAILURE = "failure"
-    RETRY = "retry"
-
-
 class CacheKeyPrefix(str, Enum):
     """Redis cache key prefixes."""
     RECOMMENDATION = "rec"
     SENTIMENT = "sent"
     PRODUCT = "prod"
     EMBEDDING = "emb"
-
-
-# Vehicle-specific constants
-VEHICLE_FUEL_TYPES = [
-    "essence",
-    "diesel",
-    "electrique",
-    "hybride",
-    "gpl",
-]
-
-VEHICLE_TRANSMISSION_TYPES = [
-    "manuelle",
-    "automatique",
-    "semi-automatique",
-]

@@ -4,13 +4,13 @@ from .connection import (
     async_engine,
     Base,
 )
-from .models import Vehicle, Personne
+from .models import Personne, Comment
 
 __all__ = [
     "get_async_session",
     "get_sync_session",
     "async_engine",
     "Base",
-    "Vehicle",
     "Personne",
+    "Comment",
 ]

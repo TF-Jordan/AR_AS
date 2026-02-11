@@ -10,7 +10,6 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from elasticapm.contrib.starlette import make_apm_client, ElasticAPM
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -52,16 +51,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     except Exception as e:
         logger.error(f"Redis connection failed: {e}")
 
-    # Initialize vector store
-    try:
-        from src.modules.module2_recommendation import get_vector_store
-        from src.config.constants import ProductType
-        vector_store = get_vector_store()
-        vector_store.create_collection_sync(ProductType.VEHICLE)
-        logger.info("Qdrant collections initialized")
-    except Exception as e:
-        logger.error(f"Qdrant initialization failed: {e}")
-
     logger.info("Application startup complete")
 
     yield
@@ -89,29 +78,23 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         description="""
-        # Sentiment-Based Vehicle Recommendation System
+        # Multi-Tenant RaaS Platform
 
-        A modular microservices system for vehicle recommendations based on sentiment analysis.
+        A modular Recommendation-as-a-Service platform with sentiment analysis.
 
         ## Features
 
         - **Sentiment Analysis (Module 1)**: Analyzes customer comments using fine-tuned distil-camembert
         - **Recommendation Engine (Module 2)**: Generates semantic similarity-based recommendations
-        - **Orchestration (Module 3)**: Coordinates the workflow with async task support
         - **Livreur Ranking (Module 4)**: Multi-criteria ranking of delivery persons using AHP + TOPSIS
-
-        ## Use Cases
-
-        - **Vehicle Recommendations**: Intelligent vehicle recommendations for rental platforms
-        - **Delivery Person Ranking**: Stateless ranking service for delivery platform integration
 
         ## Architecture
 
         - FastAPI for API
-        - Celery + Redis for async tasks
         - PostgreSQL for data storage
+        - Redis for caching
         - Qdrant for vector similarity search
-        - ELK Stack + APM for monitoring
+        - Keycloak for authentication
         """,
         version=settings.app_version,
         docs_url="/docs",
@@ -140,17 +123,6 @@ def create_app() -> FastAPI:
     # Request logging middleware (logs all HTTP requests/responses)
     app.add_middleware(RequestLoggingMiddleware)
     logger.info("RequestLoggingMiddleware registered")
-
-    # Elastic APM integration
-    if settings.apm_enabled:
-        apm_client = make_apm_client({
-            'SERVICE_NAME': settings.app_name,
-            'SERVER_URL': settings.apm_server_url,
-            'ENVIRONMENT': settings.environment,
-            'CAPTURE_BODY': 'all',
-            'TRANSACTION_SAMPLE_RATE': 1.0,
-        })
-        app.add_middleware(ElasticAPM, client=apm_client)
 
     # Global exception handler
     @app.exception_handler(Exception)
