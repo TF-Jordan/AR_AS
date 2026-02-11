@@ -22,9 +22,11 @@ redis==7.1.0
 qdrant-client==1.16.2
 
 # ML & NLP (Modules 1 & 2)
-# Note: torch est installé en CPU-only via --index-url dans le Dockerfile
+# IMPORTANT: torch est installé en CPU-only (torch==2.9.1+cpu) dans le Dockerfile
+# via --index-url https://download.pytorch.org/whl/cpu (~250 MB au lieu de ~2.5 GB)
+# Pour installation locale CPU: pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu
 sentence-transformers==5.2.0
-torch==2.9.1
+torch==2.9.1  # Version CPU installée via Dockerfile, voir ci-dessus
 transformers==4.55.4
 numpy==2.2.6
 
