@@ -7,7 +7,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -27,6 +27,46 @@ logger = logging.getLogger(__name__)
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
+
+# OpenAPI tag metadata for Swagger UI organization
+tags_metadata = [
+    {
+        "name": "Health",
+        "description": "Health check and readiness/liveness probe endpoints",
+    },
+    {
+        "name": "Recommendations",
+        "description": "Multi-tenant product recommendation engine",
+    },
+    {
+        "name": "Products",
+        "description": "Product upload and management per tenant",
+    },
+    {
+        "name": "Admin - Tenants",
+        "description": "Tenant lifecycle management (admin only)",
+    },
+    {
+        "name": "Admin - Scoring",
+        "description": "Scoring configuration management (admin only)",
+    },
+    {
+        "name": "Scoring - Self Service",
+        "description": "Tenant self-service scoring configuration",
+    },
+    {
+        "name": "Administration",
+        "description": "Cache management and collection administration",
+    },
+    {
+        "name": "Sentiment Analysis",
+        "description": "Text sentiment analysis (Module 1)",
+    },
+    {
+        "name": "Livreur Ranking (Module 4)",
+        "description": "Multi-criteria delivery person ranking using AHP + TOPSIS",
+    },
+]
 
 
 @asynccontextmanager
@@ -76,7 +116,7 @@ def create_app() -> FastAPI:
     """Create and configure FastAPI application."""
 
     app = FastAPI(
-        title=settings.app_name,
+        title="RaaS Platform - Recommendation as a Service",
         description="""
         # Multi-Tenant RaaS Platform
 
@@ -87,19 +127,22 @@ def create_app() -> FastAPI:
         - **Sentiment Analysis (Module 1)**: Analyzes customer comments using fine-tuned distil-camembert
         - **Recommendation Engine (Module 2)**: Generates semantic similarity-based recommendations
         - **Livreur Ranking (Module 4)**: Multi-criteria ranking of delivery persons using AHP + TOPSIS
+        - **Multi-Tenant Management**: Full tenant lifecycle with per-tenant scoring configuration
+        - **OAuth2 Authentication**: Keycloak-based JWT authentication with role-based access
 
         ## Architecture
 
         - FastAPI for API
         - PostgreSQL for data storage
-        - Redis for caching
+        - Redis for caching and rate limiting
         - Qdrant for vector similarity search
-        - Keycloak for authentication
+        - Keycloak for OAuth2 authentication
         """,
-        version=settings.app_version,
+        version="2.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        openapi_tags=tags_metadata,
         lifespan=lifespan,
     )
 
@@ -124,15 +167,39 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggingMiddleware)
     logger.info("RequestLoggingMiddleware registered")
 
-    # Global exception handler
+    # Auth middleware (extracts tenant context from JWT for all requests)
+    from src.middleware.auth_middleware import AuthMiddleware
+    app.add_middleware(AuthMiddleware)
+    logger.info("AuthMiddleware registered")
+
+    # --- Custom exception handlers ---
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        """Custom HTTP exception handler with structured error response."""
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": {
+                    "code": exc.status_code,
+                    "message": exc.detail,
+                    "path": str(request.url.path),
+                }
+            },
+        )
+
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
+        """Catch-all handler for unhandled exceptions."""
         logger.error(f"Unhandled exception: {exc}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
-                "error": "Internal server error",
-                "detail": str(exc) if settings.debug else "An error occurred",
+                "error": {
+                    "code": 500,
+                    "message": str(exc) if settings.debug else "Internal server error",
+                    "path": str(request.url.path),
+                }
             },
         )
 
@@ -143,10 +210,10 @@ def create_app() -> FastAPI:
     @app.get("/", tags=["Root"])
     async def root():
         return {
-            "name": settings.app_name,
-            "version": settings.app_version,
+            "name": "RaaS Platform",
+            "version": "2.0.0",
             "docs": "/docs",
-            "health": "/health",
+            "health": f"{settings.api_prefix}/health",
         }
 
     # Health endpoint (root level for Docker healthcheck)

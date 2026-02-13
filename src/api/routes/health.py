@@ -1,14 +1,22 @@
 """
 Health Check API endpoints.
+
+Provides:
+- Comprehensive health check of all services
+- Kubernetes liveness probe
+- Kubernetes readiness probe (with database, Redis, Qdrant checks)
 """
 
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, status
+from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.api.schemas import HealthResponse
+from src.api.dependencies import get_db_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -96,32 +104,72 @@ async def health_check():
     description="Simple liveness check for Kubernetes.",
 )
 async def liveness():
-    """Simple liveness probe - returns 200 if server is running."""
+    """
+    Liveness probe -- returns 200 if the process is alive.
+
+    This endpoint performs no dependency checks. If the HTTP server
+    can respond, the process is alive.
+    """
     return {"status": "alive"}
 
 
 @router.get(
     "/ready",
     summary="Readiness probe",
-    description="Readiness check for Kubernetes.",
+    description="Readiness check for Kubernetes with dependency verification.",
 )
-async def readiness():
+async def readiness(db: AsyncSession = Depends(get_db_session)):
     """
-    Readiness probe - checks if the application is ready to serve traffic.
+    Readiness probe -- checks if the application is ready to serve traffic.
 
-    Verifies critical dependencies are available.
+    Verifies critical dependencies:
+    - **PostgreSQL**: Database connection via SQLAlchemy
+    - **Redis**: Cache connection for rate limiting and recommendations
+    - **Qdrant**: Vector database connection for similarity search
+
+    Returns 200 if all services are ready, 503 otherwise.
     """
-    from src.modules.module2_recommendation.cache import get_cache_manager
+    checks = {}
 
+    # Check PostgreSQL
     try:
-        # Quick check of critical services
+        from sqlalchemy import text
+        await db.execute(text("SELECT 1"))
+        checks["postgresql"] = True
+    except Exception as exc:
+        logger.error("Readiness: PostgreSQL check failed: %s", exc)
+        checks["postgresql"] = False
+
+    # Check Redis
+    try:
+        from src.modules.module2_recommendation.cache import get_cache_manager
         cache = get_cache_manager()
-        redis_ok = await cache.health_check()
+        checks["redis"] = await cache.health_check()
+    except Exception as exc:
+        logger.error("Readiness: Redis check failed: %s", exc)
+        checks["redis"] = False
 
-        if not redis_ok:
-            return {"status": "not_ready", "reason": "Redis unavailable"}
+    # Check Qdrant
+    try:
+        from src.modules.module2_recommendation.vector_store import get_vector_store
+        vector_store = get_vector_store()
+        checks["qdrant"] = vector_store.health_check()
+    except Exception as exc:
+        logger.error("Readiness: Qdrant check failed: %s", exc)
+        checks["qdrant"] = False
 
-        return {"status": "ready"}
+    all_ready = all(checks.values())
 
-    except Exception as e:
-        return {"status": "not_ready", "reason": str(e)}
+    if all_ready:
+        return {"status": "ready", "checks": checks}
+
+    # Return 503 Service Unavailable if any check fails
+    failed = [name for name, ok in checks.items() if not ok]
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "status": "not_ready",
+            "checks": checks,
+            "failed": failed,
+        },
+    )
