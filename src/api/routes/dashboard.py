@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_db_session, require_admin
 from src.api.schemas import ErrorResponse
-from src.database.models import Tenant, Product, Review, Score
+from src.database.models_multitenant import Tenant, Product
 
 logger = logging.getLogger(__name__)
 
@@ -59,15 +59,11 @@ async def get_dashboard_metrics(
         total_products_result = await db.execute(total_products_query)
         total_products = total_products_result.scalar() or 0
 
-        # Total reviews
-        total_reviews_query = select(func.count(Review.id))
-        total_reviews_result = await db.execute(total_reviews_query)
-        total_reviews = total_reviews_result.scalar() or 0
+        # Total reviews (TODO: Implement Review model)
+        total_reviews = 0  # Placeholder until Review model is created
 
-        # Average score (only where score is not null)
-        avg_score_query = select(func.avg(Score.final_score))
-        avg_score_result = await db.execute(avg_score_query)
-        avg_score = avg_score_result.scalar() or 0.0
+        # Average score (TODO: Implement Score model)
+        avg_score = 0.0  # Placeholder until Score model is created
 
         # Recent activity (simplified - get last 10 tenants created)
         recent_tenants_query = (

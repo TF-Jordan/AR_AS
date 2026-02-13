@@ -28,7 +28,7 @@ from src.api.schemas import (
 )
 from src.services.product_service import ProductService
 from src.services.tenant_service import TenantService
-from src.database.models import Product
+from src.database.models_multitenant import Product
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

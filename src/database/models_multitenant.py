@@ -270,3 +270,70 @@ class ProductDescription(Base):
             f"<ProductDescription(tenant_id={self.tenant_id!r}, "
             f"product_id={self.product_id!r})>"
         )
+
+
+# =============================================================================
+# Product Model (Full product catalog)
+# =============================================================================
+
+class Product(Base):
+    """
+    Full product catalog with rich metadata.
+
+    This model stores complete product information including name,
+    description, category, SKU, and other attributes needed for
+    the frontend product management interface.
+    """
+
+    __tablename__ = "products"
+
+    # Primary key
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    # Foreign key to Tenant (UUID reference)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # External product ID from the client's system
+    product_id: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True,
+    )
+
+    # Product name
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    # Product description
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Product category
+    category: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+
+    # SKU (Stock Keeping Unit)
+    sku: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False,
+    )
+
+    __table_args__ = (
+        # Unique product per tenant
+        UniqueConstraint("tenant_id", "product_id", name="uq_tenant_product_catalog"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Product(tenant_id={self.tenant_id!r}, "
+            f"product_id={self.product_id!r}, name={self.name!r})>"
+        )
