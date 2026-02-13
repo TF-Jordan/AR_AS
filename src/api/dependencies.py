@@ -2,7 +2,7 @@
 FastAPI dependencies for dependency injection.
 
 Provides database sessions, authentication (Keycloak OAuth2),
-Redis clients, and rate limiting dependencies.
+Redis clients, rate limiting, and multi-tenant service dependencies.
 """
 
 from typing import AsyncGenerator, Optional
@@ -42,3 +42,50 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for database session."""
     async for session in get_async_session():
         yield session
+
+
+# ---------------------------------------------------------------------------
+# Multi-tenant recommendation engine dependency
+# ---------------------------------------------------------------------------
+
+async def get_recommendation_engine(
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Dependency that returns a MultiTenantRecommendationEngine wired
+    with the current request's database session (needed to resolve
+    the tenant's ScoringConfig).
+
+    Usage in routes::
+
+        engine = Depends(get_recommendation_engine)
+    """
+    from src.modules.module2_recommendation.engine import (
+        MultiTenantRecommendationEngine,
+    )
+    from src.modules.module2_recommendation.vector_store import get_vector_store
+    from src.modules.module2_recommendation.embeddings import get_embedding_service
+    from src.modules.module2_recommendation.cache import get_cache_manager
+
+    return MultiTenantRecommendationEngine(
+        db=db,
+        cache_manager=get_cache_manager(),
+        embedding_service=get_embedding_service(),
+        vector_store=get_vector_store(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Product service dependency
+# ---------------------------------------------------------------------------
+
+def get_product_service():
+    """
+    Dependency that returns a ProductService instance.
+
+    Usage in routes::
+
+        service = Depends(get_product_service)
+    """
+    from src.services.product_service import ProductService
+    return ProductService()

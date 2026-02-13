@@ -243,20 +243,20 @@ class TenantService:
         """
         Create a Qdrant collection for the tenant.
 
-        This is a placeholder that should be replaced with actual
-        Qdrant client calls when the vector store module is integrated.
+        Uses the MultiTenantVectorStore to create the collection with
+        the correct HNSW configuration and vector parameters.
 
         Args:
             collection_name: Name of the Qdrant collection to create.
         """
-        # TODO: Integrate with Qdrant client
-        # from qdrant_client import QdrantClient
-        # client = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
-        # client.create_collection(
-        #     collection_name=collection_name,
-        #     vectors_config=VectorParams(size=768, distance=Distance.COSINE),
-        # )
-        logger.info("Qdrant collection creation requested: %s", collection_name)
+        from src.modules.module2_recommendation.vector_store import get_vector_store
+
+        vector_store = get_vector_store()
+        success = vector_store.ensure_collection_exists(collection_name)
+        if success:
+            logger.info("Qdrant collection created: %s", collection_name)
+        else:
+            logger.error("Failed to create Qdrant collection: %s", collection_name)
 
     async def _delete_qdrant_collection(self, collection_name: str) -> None:
         """
@@ -265,9 +265,16 @@ class TenantService:
         Args:
             collection_name: Name of the Qdrant collection to delete.
         """
-        # TODO: Integrate with Qdrant client
-        # client.delete_collection(collection_name=collection_name)
-        logger.info("Qdrant collection deletion requested: %s", collection_name)
+        from src.modules.module2_recommendation.vector_store import get_vector_store
+
+        vector_store = get_vector_store()
+        # Extract tenant_id from collection name (format: "tenant_{tenant_id}")
+        tenant_id = collection_name.replace("tenant_", "", 1)
+        success = vector_store.delete_collection(tenant_id)
+        if success:
+            logger.info("Qdrant collection deleted: %s", collection_name)
+        else:
+            logger.error("Failed to delete Qdrant collection: %s", collection_name)
 
     # ------------------------------------------------------------------
     # Internal helpers

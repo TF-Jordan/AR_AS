@@ -2,5 +2,6 @@
 
 from .tenant_service import TenantService
 from .scoring_service import ScoringConfigService
+from .product_service import ProductService
 
-__all__ = ["TenantService", "ScoringConfigService"]
+__all__ = ["TenantService", "ScoringConfigService", "ProductService"]

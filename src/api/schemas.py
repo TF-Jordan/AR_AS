@@ -1,5 +1,10 @@
 """
 API schemas for request/response validation.
+
+Updated for multi-tenant architecture:
+- RecommendationRequestSchema now uses tenant_id instead of product_type
+- New ProductUpload / ProductBatchUpload schemas for product management
+- New multi-tenant recommendation response schemas
 """
 
 from datetime import datetime
@@ -7,29 +12,10 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from src.config.constants import ProductType
 
-
-# Request schemas
-class RecommendationRequestSchema(BaseModel):
-    """Schema for recommendation request."""
-
-    product_id: str = Field(..., description="Product identifier")
-    client_id: str = Field(..., description="Client identifier")
-    commentaire: str = Field(..., description="Comment text to analyze")
-    product_type: ProductType = Field(..., description="Type: vehicle")
-    top_k: int = Field(default=10, ge=1, le=100, description="Number of results")
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "product_id": "550e8400-e29b-41d4-a716-446655440000",
-                "client_id": "client_123",
-                "commentaire": "Excellent service, très professionnel!",
-                "product_type": "vehicle",
-                "top_k": 10,
-            }
-        }
-
+# =============================================================================
+# Sentiment schemas (Module 1 -- unchanged)
+# =============================================================================
 
 class SentimentOnlyRequest(BaseModel):
     """Schema for sentiment-only analysis."""
@@ -42,37 +28,13 @@ class SentimentOnlyRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "product_id": "550e8400-e29b-41d4-a716-446655440000",
+                "product_id": "product_001",
                 "client_id": "client_123",
                 "commentaire": "Service rapide et efficace",
             }
         }
 
 
-class RecommendationOnlyRequest(BaseModel):
-    """Schema for recommendation with pre-computed sentiment."""
-
-    product_id: str = Field(..., description="Reference product ID")
-    client_id: str = Field(..., description="Client identifier")
-    sentiment_score: float = Field(
-        ..., ge=-1.0, le=1.0, description="Pre-computed sentiment score"
-    )
-    product_type: ProductType = Field(..., description="Product type")
-    top_k: int = Field(default=10, ge=1, le=100)
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "product_id": "550e8400-e29b-41d4-a716-446655440000",
-                "client_id": "client_123",
-                "sentiment_score": 0.75,
-                "product_type": "vehicle",
-                "top_k": 10,
-            }
-        }
-
-
-# Response schemas
 class SentimentResponse(BaseModel):
     """Response schema for sentiment analysis."""
 
@@ -83,41 +45,146 @@ class SentimentResponse(BaseModel):
     confidence: Optional[float] = None
 
 
-class RankedProductResponse(BaseModel):
-    """Response schema for a ranked product."""
+# =============================================================================
+# Multi-tenant Recommendation schemas
+# =============================================================================
+
+class RecommendationRequest(BaseModel):
+    """
+    Multi-tenant recommendation request.
+
+    The tenant_id is typically injected from the OAuth2 token,
+    so it may not appear in the request body.
+    """
+
+    client_id: str = Field(..., description="Client identifier")
+    product_id: str = Field(..., description="Reference product ID")
+    comment: str = Field(..., description="Comment text for sentiment analysis")
+    top_k: int = Field(default=10, ge=1, le=100, description="Number of results")
+    filters: Optional[Dict[str, Any]] = Field(
+        None, description="Optional Qdrant payload filters"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "client_id": "client_123",
+                "product_id": "product_001",
+                "comment": "Excellent produit, tres satisfait!",
+                "top_k": 10,
+                "filters": None,
+            }
+        }
+
+
+class ProductScoreResponse(BaseModel):
+    """Response schema for a dynamically scored product."""
 
     product_id: str
-    product_type: str
-    similarity_score: float
-    availability_score: float
-    reputation_score: float
-    final_score: float
-    rank: int
+    total_score: float
+    criterion_scores: Dict[str, Dict[str, float]] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    rank: int
 
 
 class RecommendationResponse(BaseModel):
-    """Response schema for recommendations."""
+    """
+    Multi-tenant recommendation response.
+
+    Returns the client_id and an ordered list of recommended product_ids.
+    For detailed score breakdowns, use RecommendationDetailedResponse.
+    """
 
     client_id: str
+    product_ids: List[str]
+
+
+class RecommendationDetailedResponse(BaseModel):
+    """Multi-tenant recommendation response with full scoring details."""
+
+    tenant_id: str
+    client_id: str
     reference_product_id: str
+    sentiment_label: str
     sentiment_score: float
-    product_type: str
-    recommendations: List[RankedProductResponse]
+    recommendations: List[ProductScoreResponse]
     total_results: int
+    scoring_config_version: int
     cached: bool
-    processing_time_seconds: Optional[float] = None
     processed_at: datetime
 
 
 class FullWorkflowResponse(BaseModel):
-    """Response schema for complete workflow."""
+    """Response schema for complete workflow (sentiment + recommendation)."""
 
     status: str
     processing_time_seconds: float
     sentiment: SentimentResponse
-    recommendations: RecommendationResponse
+    recommendations: RecommendationDetailedResponse
 
+
+# =============================================================================
+# Product Upload schemas
+# =============================================================================
+
+class ProductUpload(BaseModel):
+    """Schema for a single product upload."""
+
+    product_id: str = Field(..., description="Product identifier")
+    description: str = Field(..., description="Product description for vectorization")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Custom fields for scoring"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "product_id": "product_001",
+                "description": "Appartement 3 pieces, centre-ville, lumineux",
+                "metadata": {"price_match": 0.8, "location_proximity": 0.9},
+            }
+        }
+
+
+class ProductBatchUpload(BaseModel):
+    """Schema for batch product upload."""
+
+    products: List[ProductUpload] = Field(
+        ..., min_length=1, description="List of products to upload"
+    )
+
+
+class ProductUploadResponse(BaseModel):
+    """Response schema for product upload."""
+
+    tenant_id: str
+    uploaded: int
+    errors: int
+    error_details: Optional[List[str]] = None
+
+
+class ProductDeleteResponse(BaseModel):
+    """Response schema for product deletion."""
+
+    tenant_id: str
+    product_id: str
+    deleted: bool
+
+
+class ProductStatsResponse(BaseModel):
+    """Response schema for product collection statistics."""
+
+    tenant_id: str
+    collection_name: str
+    vectors_count: Optional[int] = None
+    points_count: Optional[int] = None
+    status: Optional[str] = None
+    error: Optional[str] = None
+
+
+# =============================================================================
+# Health / Error schemas (unchanged)
+# =============================================================================
 
 class HealthResponse(BaseModel):
     """Response for health check."""

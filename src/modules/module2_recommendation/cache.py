@@ -1,6 +1,10 @@
 """
 Redis Cache Manager for recommendation results.
 Implements cache verification with sentiment score tolerance.
+
+Updated for multi-tenant architecture:
+- Cache keys are tenant-scoped
+- Works with MultiTenantRecommendationResult
 """
 
 import hashlib
@@ -15,7 +19,7 @@ import redis.asyncio as redis
 from src.config import settings, SENTIMENT_SCORE_TOLERANCE, CACHE_TTL_SECONDS
 from src.config.constants import CacheKeyPrefix
 from src.utils.context import get_correlation_id
-from .schemas import RecommendationRequest, RecommendationResult
+from .schemas import MultiTenantRecommendationResult
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +29,8 @@ class CacheManager:
     Redis cache manager for recommendation results.
 
     Implements:
-    1. Exact match lookup by product_id, client_id, and sentiment_score
-    2. Fuzzy match with sentiment score tolerance
+    1. Tenant-scoped cache keys
+    2. Exact match lookup by tenant_id, product_id, client_id, sentiment_score
     3. Cache storage with configurable TTL
     """
 
@@ -63,68 +67,65 @@ class CacheManager:
 
     def _generate_cache_key(
         self,
+        tenant_id: str,
         product_id: str,
         client_id: str,
         sentiment_score: float,
-        product_type: str,
     ) -> str:
         """
-        Generate cache key from request parameters.
+        Generate tenant-scoped cache key from request parameters.
 
         Uses sentiment score interval for fuzzy matching.
         """
-        # Round sentiment score to nearest tolerance interval
-        score_bucket = round(sentiment_score / self.sentiment_tolerance) * self.sentiment_tolerance
+        score_bucket = round(
+            sentiment_score / self.sentiment_tolerance
+        ) * self.sentiment_tolerance
 
-        key_data = f"{product_type}:{product_id}:{client_id}:{score_bucket:.2f}"
+        key_data = f"{tenant_id}:{product_id}:{client_id}:{score_bucket:.2f}"
         key_hash = hashlib.md5(key_data.encode()).hexdigest()[:16]
 
-        return f"{CacheKeyPrefix.RECOMMENDATION.value}:{product_type}:{key_hash}"
+        return f"{CacheKeyPrefix.RECOMMENDATION.value}:{tenant_id}:{key_hash}"
 
-    def _generate_product_key(self, product_id: str, product_type: str) -> str:
-        """Generate key for product-only lookup."""
-        return f"{CacheKeyPrefix.PRODUCT.value}:{product_type}:{product_id}"
+    def _generate_product_key(self, tenant_id: str, product_id: str) -> str:
+        """Generate key for product-only lookup (tenant-scoped)."""
+        return f"{CacheKeyPrefix.PRODUCT.value}:{tenant_id}:{product_id}"
 
     async def get_cached_result(
-        self, request: RecommendationRequest
-    ) -> Optional[RecommendationResult]:
+        self,
+        tenant_id: str,
+        product_id: str,
+        client_id: str,
+        sentiment_score: float,
+    ) -> Optional[MultiTenantRecommendationResult]:
         """
         Check cache for existing recommendation result.
 
-        First checks exact match, then checks for similar sentiment scores.
-
         Args:
-            request: The recommendation request
+            tenant_id: Tenant identifier.
+            product_id: Product identifier.
+            client_id: Client identifier.
+            sentiment_score: Sentiment score for bucketing.
 
         Returns:
-            Cached result if found, None otherwise
+            Cached result if found, None otherwise.
         """
         start_time = time.time()
         await self.connect()
 
-        cache_hit = False
-        cache_hit_type = None
-        result = None
-
         try:
-            # Try exact match first
             cache_key = self._generate_cache_key(
-                request.product_id,
-                request.client_id,
-                request.sentiment_score,
-                request.product_type.value,
+                tenant_id, product_id, client_id, sentiment_score
             )
 
             cached_data = await self.client.get(cache_key)
             if cached_data:
-                cache_hit = True
-                cache_hit_type = "exact"
-                logger.info(f"Cache hit (exact): {cache_key}")
-                result = RecommendationResult.model_validate_json(cached_data)
+                logger.info("Cache hit (exact): %s", cache_key)
+                result = MultiTenantRecommendationResult.model_validate_json(
+                    cached_data
+                )
                 result.cached = True
                 result.cache_key = cache_key
 
-                # Log cache metrics
                 duration_ms = (time.time() - start_time) * 1000
                 logger.info(
                     "Cache operation completed",
@@ -135,83 +136,12 @@ class CacheManager:
                         "cache_hit": True,
                         "cache_hit_type": "exact",
                         "duration_ms": round(duration_ms, 2),
-                        "product_id": request.product_id,
-                        "product_type": request.product_type.value,
+                        "tenant_id": tenant_id,
+                        "product_id": product_id,
                         "correlation_id": get_correlation_id(),
-                    }
+                    },
                 )
                 return result
-
-            # Try fuzzy match with nearby sentiment scores
-            for delta in [-self.sentiment_tolerance, self.sentiment_tolerance]:
-                nearby_score = request.sentiment_score + delta
-                if -1.0 <= nearby_score <= 1.0:
-                    fuzzy_key = self._generate_cache_key(
-                        request.product_id,
-                        request.client_id,
-                        nearby_score,
-                        request.product_type.value,
-                    )
-                    cached_data = await self.client.get(fuzzy_key)
-                    if cached_data:
-                        cache_hit = True
-                        cache_hit_type = "fuzzy"
-                        logger.info(f"Cache hit (fuzzy): {fuzzy_key}")
-                        result = RecommendationResult.model_validate_json(cached_data)
-                        result.cached = True
-                        result.cache_key = fuzzy_key
-
-                        # Log cache metrics
-                        duration_ms = (time.time() - start_time) * 1000
-                        logger.info(
-                            "Cache operation completed",
-                            extra={
-                                "event": "cache_get",
-                                "metric_type": "cache_operation",
-                                "operation": "get",
-                                "cache_hit": True,
-                                "cache_hit_type": "fuzzy",
-                                "duration_ms": round(duration_ms, 2),
-                                "product_id": request.product_id,
-                                "product_type": request.product_type.value,
-                                "sentiment_delta": delta,
-                                "correlation_id": get_correlation_id(),
-                            }
-                        )
-                        return result
-
-            # Check product-only cache (same product, any client)
-            product_key = self._generate_product_key(
-                request.product_id, request.product_type.value
-            )
-            product_cache = await self.client.get(product_key)
-            if product_cache:
-                # Verify sentiment score is within tolerance
-                cached_result = RecommendationResult.model_validate_json(product_cache)
-                if abs(cached_result.sentiment_score - request.sentiment_score) <= self.sentiment_tolerance:
-                    cache_hit = True
-                    cache_hit_type = "product"
-                    logger.info(f"Cache hit (product): {product_key}")
-                    cached_result.cached = True
-                    cached_result.cache_key = product_key
-
-                    # Log cache metrics
-                    duration_ms = (time.time() - start_time) * 1000
-                    logger.info(
-                        "Cache operation completed",
-                        extra={
-                            "event": "cache_get",
-                            "metric_type": "cache_operation",
-                            "operation": "get",
-                            "cache_hit": True,
-                            "cache_hit_type": "product",
-                            "duration_ms": round(duration_ms, 2),
-                            "product_id": request.product_id,
-                            "product_type": request.product_type.value,
-                            "correlation_id": get_correlation_id(),
-                        }
-                    )
-                    return cached_result
 
             # Cache miss
             duration_ms = (time.time() - start_time) * 1000
@@ -222,19 +152,19 @@ class CacheManager:
                     "metric_type": "cache_operation",
                     "operation": "get",
                     "cache_hit": False,
-                    "cache_hit_type": None,
                     "duration_ms": round(duration_ms, 2),
-                    "product_id": request.product_id,
-                    "product_type": request.product_type.value,
+                    "tenant_id": tenant_id,
+                    "product_id": product_id,
                     "correlation_id": get_correlation_id(),
-                }
+                },
             )
             return None
 
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(
-                f"Cache lookup error: {e}",
+                "Cache lookup error: %s",
+                e,
                 extra={
                     "event": "cache_error",
                     "metric_type": "cache_operation",
@@ -242,41 +172,42 @@ class CacheManager:
                     "error": str(e),
                     "duration_ms": round(duration_ms, 2),
                     "correlation_id": get_correlation_id(),
-                }
+                },
             )
             return None
 
     async def store_result(
         self,
-        request: RecommendationRequest,
-        result: RecommendationResult,
+        tenant_id: str,
+        product_id: str,
+        client_id: str,
+        sentiment_score: float,
+        result: MultiTenantRecommendationResult,
     ) -> bool:
         """
         Store recommendation result in cache.
 
         Args:
-            request: Original request
-            result: Recommendation result to cache
+            tenant_id: Tenant identifier.
+            product_id: Product identifier.
+            client_id: Client identifier.
+            sentiment_score: Sentiment score for bucketing.
+            result: Recommendation result to cache.
 
         Returns:
-            True if stored successfully
+            True if stored successfully.
         """
         start_time = time.time()
         await self.connect()
 
         try:
-            # Store with full key (includes client_id)
             cache_key = self._generate_cache_key(
-                request.product_id,
-                request.client_id,
-                request.sentiment_score,
-                request.product_type.value,
+                tenant_id, product_id, client_id, sentiment_score
             )
 
             result_json = result.model_dump_json()
-            data_size_bytes = len(result_json.encode('utf-8'))
+            data_size_bytes = len(result_json.encode("utf-8"))
 
-            # Set with TTL
             await self.client.setex(
                 cache_key,
                 self.ttl_seconds,
@@ -284,9 +215,7 @@ class CacheManager:
             )
 
             # Also store product-level cache
-            product_key = self._generate_product_key(
-                request.product_id, request.product_type.value
-            )
+            product_key = self._generate_product_key(tenant_id, product_id)
             await self.client.setex(
                 product_key,
                 self.ttl_seconds,
@@ -296,7 +225,8 @@ class CacheManager:
             duration_ms = (time.time() - start_time) * 1000
 
             logger.info(
-                f"Cache store completed: {cache_key}",
+                "Cache store completed: %s",
+                cache_key,
                 extra={
                     "event": "cache_set",
                     "metric_type": "cache_operation",
@@ -304,17 +234,18 @@ class CacheManager:
                     "duration_ms": round(duration_ms, 2),
                     "data_size_bytes": data_size_bytes,
                     "ttl_seconds": self.ttl_seconds,
-                    "product_id": request.product_id,
-                    "product_type": request.product_type.value,
+                    "tenant_id": tenant_id,
+                    "product_id": product_id,
                     "correlation_id": get_correlation_id(),
-                }
+                },
             )
             return True
 
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(
-                f"Cache store error: {e}",
+                "Cache store error: %s",
+                e,
                 extra={
                     "event": "cache_error",
                     "metric_type": "cache_operation",
@@ -322,7 +253,7 @@ class CacheManager:
                     "error": str(e),
                     "duration_ms": round(duration_ms, 2),
                     "correlation_id": get_correlation_id(),
-                }
+                },
             )
             return False
 
@@ -335,13 +266,15 @@ class CacheManager:
         """
         Invalidate cache entries for a product.
 
+        In multi-tenant mode, product_type is typically the tenant_id.
+
         Args:
-            product_id: Product to invalidate
-            product_type: Type of product
-            client_id: Optional specific client to invalidate
+            product_id: Product to invalidate.
+            product_type: Tenant ID (used as namespace).
+            client_id: Optional specific client to invalidate.
 
         Returns:
-            Number of keys deleted
+            Number of keys deleted.
         """
         await self.connect()
 
@@ -354,15 +287,15 @@ class CacheManager:
                 keys_deleted += 1
 
             # Also invalidate product key
-            product_key = self._generate_product_key(product_id, product_type)
+            product_key = self._generate_product_key(product_type, product_id)
             await self.client.delete(product_key)
             keys_deleted += 1
 
-            logger.info(f"Invalidated {keys_deleted} cache entries")
+            logger.info("Invalidated %d cache entries", keys_deleted)
             return keys_deleted
 
         except Exception as e:
-            logger.error(f"Cache invalidation error: {e}")
+            logger.error("Cache invalidation error: %s", e)
             return 0
 
     async def health_check(self) -> bool:
@@ -372,7 +305,7 @@ class CacheManager:
             await self.client.ping()
             return True
         except Exception as e:
-            logger.error(f"Redis health check failed: {e}")
+            logger.error("Redis health check failed: %s", e)
             return False
 
 

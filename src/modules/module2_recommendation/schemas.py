@@ -1,156 +1,56 @@
 """
-Schemas for the recommendation module.
-Defines data structures for recommendations workflow.
+Schemas for the multi-tenant recommendation module.
+Defines data structures for the recommendation workflow.
+
+All vehicle-specific and PostgreSQL-specific schemas have been removed.
+Product details are now sourced from Qdrant payload.
 """
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from src.config.constants import ProductType
 
+class ProductScore(BaseModel):
+    """Score breakdown for a single product after dynamic scoring."""
 
-class RecommendationRequest(BaseModel):
-    """Input schema for recommendation request from Module 1."""
-
-    client_id: str = Field(..., description="Client identifier")
-    product_id: str = Field(..., description="Product identifier (reference product)")
-    sentiment_score: float = Field(
-        ..., ge=-1.0, le=1.0, description="Sentiment score from analysis"
+    product_id: str = Field(..., description="Product identifier from Qdrant payload")
+    total_score: float = Field(..., description="Weighted total score")
+    criterion_scores: Dict[str, Dict[str, float]] = Field(
+        default_factory=dict,
+        description="Per-criterion breakdown: {name: {value, weight, contribution}}",
     )
-    product_type: ProductType = Field(
-        ..., description="Type of product: vehicle or livreur"
-    )
-    top_k: Optional[int] = Field(
-        default=10, ge=1, le=100, description="Number of recommendations to return"
-    )
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "client_id": "client_123",
-                "product_id": "vehicle_456",
-                "sentiment_score": 0.85,
-                "product_type": "vehicle",
-                "top_k": 10,
-            }
-        }
-
-
-class SimilarProduct(BaseModel):
-    """Intermediate structure for similar products from vector search."""
-
-    product_id: str = Field(..., description="Product identifier from PostgreSQL")
-    similarity_score: float = Field(
-        ..., ge=0.0, le=1.0, description="Cosine similarity score"
-    )
-    vector_id: Optional[str] = Field(None, description="Vector ID in Qdrant")
-
-
-class ProductDetails(BaseModel):
-    """Product details retrieved from PostgreSQL."""
-
-    product_id: str
-    product_type: ProductType
-    description: str
-    disponible: bool
-    reputation: Optional[float] = None
-    localisation: Optional[str] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-
-
-class RankedProduct(BaseModel):
-    """Final ranked product in recommendation result."""
-
-    product_id: str = Field(..., description="Product identifier")
-    product_type: ProductType = Field(..., description="Product type")
-    similarity_score: float = Field(..., description="Semantic similarity score")
-    availability_score: float = Field(..., description="Availability score (0 or 1)")
-    reputation_score: float = Field(
-        default=0.0, description="Reputation/rating score"
-    )
-    final_score: float = Field(..., description="Weighted final score")
-    rank: int = Field(..., description="Position in ranking (1-based)")
     metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional product info"
+        default_factory=dict,
+        description="Full Qdrant payload metadata for this product",
     )
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "product_id": "vehicle_789",
-                "product_type": "vehicle",
-                "similarity_score": 0.92,
-                "availability_score": 1.0,
-                "reputation_score": 0.85,
-                "final_score": 0.91,
-                "rank": 1,
-                "metadata": {"brand": "Toyota", "model": "Corolla"},
-            }
-        }
+    rank: int = Field(default=0, description="Position in ranking (1-based)")
 
 
-class IntermediateResult(BaseModel):
-    """Intermediate dictionary structure as specified in requirements."""
+class MultiTenantRecommendationResult(BaseModel):
+    """Final output from the multi-tenant recommendation engine."""
 
-    client_id: str
-    similarity_score: float
-
-
-class RecommendationResult(BaseModel):
-    """Final output schema from recommendation engine."""
-
+    tenant_id: str = Field(..., description="Tenant that owns these recommendations")
     client_id: str = Field(..., description="Client who requested recommendations")
     reference_product_id: str = Field(
         ..., description="Original product used as reference"
     )
+    sentiment_label: str = Field(
+        ..., description="Sentiment label from analysis (positive/negative/neutral)"
+    )
     sentiment_score: float = Field(
         ..., description="Sentiment score from the original analysis"
     )
-    product_type: ProductType = Field(..., description="Type of recommended products")
-    recommendations: List[RankedProduct] = Field(
-        ..., description="Ranked list of recommendations"
+    recommendations: List[ProductScore] = Field(
+        ..., description="Ranked list of recommendations with dynamic scoring"
     )
     total_results: int = Field(..., description="Total number of results")
+    scoring_config_version: int = Field(
+        default=1, description="Version of the scoring config used"
+    )
     cached: bool = Field(default=False, description="Whether result was from cache")
     cache_key: Optional[str] = Field(None, description="Cache key if cached")
     processed_at: datetime = Field(
         default_factory=datetime.utcnow, description="Processing timestamp"
     )
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "client_id": "client_123",
-                "reference_product_id": "vehicle_456",
-                "sentiment_score": 0.85,
-                "product_type": "vehicle",
-                "recommendations": [
-                    {
-                        "product_id": "vehicle_789",
-                        "product_type": "vehicle",
-                        "similarity_score": 0.92,
-                        "availability_score": 1.0,
-                        "reputation_score": 0.85,
-                        "final_score": 0.91,
-                        "rank": 1,
-                        "metadata": {},
-                    }
-                ],
-                "total_results": 10,
-                "cached": False,
-                "processed_at": "2024-01-15T10:30:00Z",
-            }
-        }
-
-
-class CacheEntry(BaseModel):
-    """Schema for cached recommendation entry."""
-
-    key: str
-    result: RecommendationResult
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    expires_at: datetime
-    sentiment_score_range: tuple[float, float]

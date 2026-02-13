@@ -1,13 +1,14 @@
 """
-Administration API endpoints.
+Administration API endpoints (multi-tenant).
 """
 
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.dependencies import require_auth
-from src.config.constants import ProductType
+from src.api.dependencies import get_db_session, get_current_tenant_id
+from src.api.schemas import ErrorResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -17,35 +18,43 @@ router = APIRouter()
     "/cache/invalidate",
     summary="Invalidate cache",
     description="Invalidate cache entries for a specific product.",
+    responses={
+        500: {"model": ErrorResponse, "description": "Internal error"},
+    },
 )
 async def invalidate_cache(
     product_id: str,
-    product_type: ProductType,
-    auth: dict = Depends(require_auth),
+    tenant_id: str = Depends(get_current_tenant_id),
 ):
     """
     Invalidate cache entries for a product.
 
-    Removes all cached recommendations related to the specified product.
+    Removes all cached recommendations related to the specified product
+    within the current tenant scope.
     """
-    logger.info(f"Cache invalidation request: {product_id}")
+    logger.info(
+        "Cache invalidation request: tenant=%s, product=%s",
+        tenant_id,
+        product_id,
+    )
 
     try:
         from src.modules.module2_recommendation.cache import get_cache_manager
+
         cache = get_cache_manager()
         count = await cache.invalidate(
             product_id=product_id,
-            product_type=product_type.value,
+            product_type=tenant_id,  # Use tenant_id as namespace
         )
 
         return {
             "message": f"Invalidated {count} cache entries",
+            "tenant_id": tenant_id,
             "product_id": product_id,
-            "product_type": product_type,
         }
 
     except Exception as e:
-        logger.error(f"Cache invalidation error: {e}")
+        logger.error("Cache invalidation error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -53,54 +62,24 @@ async def invalidate_cache(
 
 
 @router.get(
-    "/collections/{product_type}",
-    summary="Get collection info",
-    description="Get Qdrant collection statistics.",
+    "/collections/stats",
+    summary="Get collection stats for current tenant",
+    description="Get Qdrant collection statistics for the authenticated tenant.",
 )
-async def get_collection_info(
-    product_type: ProductType,
+async def get_collection_stats(
+    tenant_id: str = Depends(get_current_tenant_id),
 ):
-    """Get information about a Qdrant collection."""
+    """Get information about the tenant's Qdrant collection."""
     from src.modules.module2_recommendation.vector_store import get_vector_store
 
     try:
         vector_store = get_vector_store()
-        info = vector_store.get_collection_info(product_type)
+        info = vector_store.get_collection_stats(tenant_id)
         return info
 
     except Exception as e:
-        logger.error(f"Collection info error: {e}")
+        logger.error("Collection stats error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
-
-
-@router.post(
-    "/token",
-    summary="Generate API token",
-    description="Generate a JWT token for API authentication (for testing).",
-)
-async def generate_token(client_id: str, secret: str):
-    """
-    Generate an API token for testing.
-
-    In production, use proper authentication flow.
-    """
-    from src.config import settings
-    from src.api.dependencies import create_access_token
-
-    # Simple secret check for demo purposes
-    if secret != settings.secret_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid secret",
-        )
-
-    token = create_access_token({"sub": client_id, "type": "api"})
-
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "expires_in": settings.access_token_expire_minutes * 60,
-    }

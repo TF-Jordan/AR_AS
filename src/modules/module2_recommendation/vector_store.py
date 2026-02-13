@@ -1,12 +1,15 @@
 """
-Qdrant Vector Store for semantic search.
-Implements HNSW-based similarity search.
+Multi-tenant Qdrant Vector Store for semantic search.
+Implements per-tenant collections with HNSW-based similarity search.
+
+Each tenant gets its own Qdrant collection named "tenant_{tenant_id}".
+Product data is stored entirely in the Qdrant payload (no PostgreSQL dependency).
 """
 
 import logging
 import time
-from typing import Dict, List, Optional, Any
-from uuid import  uuid4
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
@@ -16,24 +19,24 @@ from qdrant_client.http.models import (
     VectorParams,
     SearchParams,
     HnswConfigDiff,
+    ScoredPoint,
 )
 
 from src.config import settings
-from src.config.constants import ProductType
 from src.utils.context import get_correlation_id
-from .schemas import SimilarProduct
 
 logger = logging.getLogger(__name__)
 
 
-class VectorStore:
+class MultiTenantVectorStore:
     """
-    Qdrant vector store for vehicle embeddings.
+    Multi-tenant Qdrant vector store.
 
-    Supports:
-    - Vehicle collection for rental platform
-    - HNSW-based similarity search
-    - Metadata storage with real_product_id mapping
+    Each tenant has its own collection ("tenant_{tenant_id}").
+    Product details are stored entirely in the Qdrant payload:
+        {product_id, description, ...custom_metadata}
+
+    No Vehicle model dependency.  No hardcoded collection names.
     """
 
     def __init__(
@@ -41,69 +44,64 @@ class VectorStore:
         host: Optional[str] = None,
         port: Optional[int] = None,
     ):
-        """
-        Initialize vector store connection.
-
-        Args:
-            host: Qdrant host
-            port: Qdrant port
-        """
         self.host = host or settings.qdrant_host
         self.port = port or settings.qdrant_port
         self._client: Optional[QdrantClient] = None
         self.dimension = settings.embedding_dimension
-        self.collections = {
-            ProductType.VEHICLE: settings.qdrant_collection_vehicles,
-        }
 
     def connect(self) -> None:
         """Establish Qdrant connection."""
         if self._client is None:
             self._client = QdrantClient(host=self.host, port=self.port)
-            logger.info(f"Qdrant connection established: {self.host}:{self.port}")
+            logger.info(
+                "Qdrant connection established: %s:%s", self.host, self.port
+            )
 
     @property
     def client(self) -> QdrantClient:
-        """Get Qdrant client."""
+        """Get Qdrant client, connecting lazily if needed."""
         if self._client is None:
             self.connect()
         return self._client
 
-    def _get_collection_name(self, product_type: ProductType) -> str:
-        """Get collection name for product type."""
-        return self.collections.get(product_type, "products")
+    # ------------------------------------------------------------------
+    # Collection name helpers
+    # ------------------------------------------------------------------
 
-    async def create_collection(
-        self, product_type: ProductType, recreate: bool = False
+    @staticmethod
+    def collection_name_for_tenant(tenant_id: str) -> str:
+        """Return the Qdrant collection name for a given tenant."""
+        return f"tenant_{tenant_id}"
+
+    # ------------------------------------------------------------------
+    # Collection management
+    # ------------------------------------------------------------------
+
+    def ensure_collection_exists(
+        self,
+        collection_name: str,
+        vector_size: int = 768,
     ) -> bool:
         """
-        Create or recreate a collection.
+        Create a collection if it does not already exist.
 
         Args:
-            product_type: Type of products for this collection
-            recreate: If True, delete existing collection first
+            collection_name: Qdrant collection name.
+            vector_size: Embedding dimension.
 
         Returns:
-            True if created successfully
+            True if the collection exists (or was created successfully).
         """
         self.connect()
-        collection_name = self._get_collection_name(product_type)
-
         try:
-            # Check if collection exists
             collections = self.client.get_collections().collections
             exists = any(c.name == collection_name for c in collections)
-
-            if exists and recreate:
-                self.client.delete_collection(collection_name)
-                logger.info(f"Deleted existing collection: {collection_name}")
-                exists = False
 
             if not exists:
                 self.client.create_collection(
                     collection_name=collection_name,
                     vectors_config=VectorParams(
-                        size=self.dimension,
+                        size=vector_size,
                         distance=Distance.COSINE,
                     ),
                     hnsw_config=HnswConfigDiff(
@@ -112,239 +110,279 @@ class VectorStore:
                         full_scan_threshold=10000,
                     ),
                 )
-                logger.info(f"Created collection: {collection_name}")
+                logger.info("Created Qdrant collection: %s", collection_name)
+            else:
+                logger.debug(
+                    "Qdrant collection already exists: %s", collection_name
+                )
 
             return True
 
         except Exception as e:
-            logger.error(f"Error creating collection {collection_name}: {e}")
+            logger.error(
+                "Error ensuring collection %s: %s", collection_name, e
+            )
             return False
 
-    def create_collection_sync(
-        self, product_type: ProductType, recreate: bool = False
-    ) -> bool:
-        """Synchronous version of create_collection."""
+    def delete_collection(self, tenant_id: str) -> bool:
+        """
+        Delete the Qdrant collection for a tenant.
+
+        Args:
+            tenant_id: External tenant identifier.
+
+        Returns:
+            True if deleted successfully (or collection did not exist).
+        """
         self.connect()
-        collection_name = self._get_collection_name(product_type)
+        collection_name = self.collection_name_for_tenant(tenant_id)
 
         try:
             collections = self.client.get_collections().collections
             exists = any(c.name == collection_name for c in collections)
 
-            if exists and recreate:
+            if exists:
                 self.client.delete_collection(collection_name)
-                exists = False
-
-            if not exists:
-                self.client.create_collection(
-                    collection_name=collection_name,
-                    vectors_config=VectorParams(
-                        size=self.dimension,
-                        distance=Distance.COSINE,
-                    ),
-                    hnsw_config=HnswConfigDiff(
-                        m=16,
-                        ef_construct=100,
-                        full_scan_threshold=10000,
-                    ),
+                logger.info(
+                    "Deleted Qdrant collection: %s", collection_name
                 )
-                logger.info(f"Created collection: {collection_name}")
-
+            else:
+                logger.debug(
+                    "Collection does not exist, nothing to delete: %s",
+                    collection_name,
+                )
             return True
 
         except Exception as e:
-            logger.error(f"Error creating collection: {e}")
+            logger.error(
+                "Error deleting collection %s: %s", collection_name, e
+            )
             return False
 
-    def upsert_vector(
-        self,
-        product_type: ProductType,
-        real_product_id: str,
-        vector: List[float],
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> str:
+    def get_collection_stats(self, tenant_id: str) -> Dict[str, Any]:
         """
-        Insert or update a single vector.
+        Return collection statistics for a tenant.
 
         Args:
-            product_type: Type of product
-            real_product_id: PostgreSQL product ID
-            vector: Embedding vector
-            metadata: Additional metadata
+            tenant_id: External tenant identifier.
 
         Returns:
-            Vector UUID in Qdrant
+            Dict with collection info or error description.
         """
         self.connect()
-        collection_name = self._get_collection_name(product_type)
-        vector_id = str(uuid4())
+        collection_name = self.collection_name_for_tenant(tenant_id)
 
-        payload = {
-            "real_product_id": real_product_id,
-            **(metadata or {}),
-        }
+        try:
+            info = self.client.get_collection(collection_name)
+            return {
+                "tenant_id": tenant_id,
+                "collection_name": collection_name,
+                "vectors_count": info.points_count,
+                "points_count": info.points_count,
+                "status": str(info.status),
+            }
+        except Exception as e:
+            logger.error(
+                "Error getting collection stats for %s: %s",
+                collection_name,
+                e,
+            )
+            return {
+                "tenant_id": tenant_id,
+                "collection_name": collection_name,
+                "error": str(e),
+            }
 
-        self.client.upsert(
-            collection_name=collection_name,
-            points=[
-                PointStruct(
-                    id=vector_id,
-                    vector=vector,
-                    payload=payload,
-                )
-            ],
-        )
+    # ------------------------------------------------------------------
+    # Product upload (batch upsert with vectors)
+    # ------------------------------------------------------------------
 
-        logger.debug(f"Upserted vector {vector_id} for product {real_product_id}")
-        return vector_id
-
-    def upsert_vectors_batch(
+    def add_products(
         self,
-        product_type: ProductType,
-        items: List[Dict[str, Any]],
+        tenant_id: str,
+        products: List[Dict[str, Any]],
     ) -> int:
         """
-        Batch insert vectors.
+        Batch upsert products into the tenant's Qdrant collection.
+
+        Each product dict must contain:
+            - product_id: str
+            - vector: List[float]  (embedding)
+            - description: str
+            - metadata: dict (optional custom fields for scoring)
+
+        The full payload stored in Qdrant is:
+            {product_id, description, **metadata}
 
         Args:
-            product_type: Type of products
-            items: List of dicts with 'real_product_id', 'vector', and optional 'metadata'
+            tenant_id: External tenant identifier.
+            products: List of product dicts with vectors.
 
         Returns:
-            Number of vectors inserted
+            Number of points upserted.
         """
         self.connect()
-        collection_name = self._get_collection_name(product_type)
+        collection_name = self.collection_name_for_tenant(tenant_id)
+
+        # Ensure collection exists
+        self.ensure_collection_exists(collection_name, self.dimension)
 
         points = []
-        for item in items:
-            vector_id = str(uuid4())
+        for item in products:
+            point_id = str(uuid4())
             payload = {
-                "real_product_id": item["real_product_id"],
+                "product_id": item["product_id"],
+                "description": item.get("description", ""),
                 **(item.get("metadata", {})),
             }
             points.append(
                 PointStruct(
-                    id=vector_id,
+                    id=point_id,
                     vector=item["vector"],
                     payload=payload,
                 )
             )
 
         if points:
-            self.client.upsert(
-                collection_name=collection_name,
-                points=points,
-                wait=True,
+            # Batch in chunks of 100
+            batch_size = 100
+            for i in range(0, len(points), batch_size):
+                batch = points[i : i + batch_size]
+                self.client.upsert(
+                    collection_name=collection_name,
+                    points=batch,
+                    wait=True,
+                )
+            logger.info(
+                "Batch upserted %d products to collection %s",
+                len(points),
+                collection_name,
             )
-            logger.info(f"Batch upserted {len(points)} vectors to {collection_name}")
 
         return len(points)
 
-    def search(
+    # ------------------------------------------------------------------
+    # Search
+    # ------------------------------------------------------------------
+
+    def search_similar(
         self,
-        product_type: ProductType,
+        tenant_id: str,
         query_vector: List[float],
-        top_k: int = 10,
+        limit: int = 10,
         score_threshold: float = 0.0,
-    ) -> List[SimilarProduct]:
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[ScoredPoint]:
         """
-        Search for similar products.
+        Search for similar products in a tenant's collection.
+
+        Returns raw ScoredPoint objects so the engine can access
+        both the score and the full payload for dynamic scoring.
 
         Args:
-            product_type: Type of products to search
-            query_vector: Query embedding vector
-            top_k: Number of results to return
-            score_threshold: Minimum similarity score
+            tenant_id: External tenant identifier.
+            query_vector: Query embedding vector.
+            limit: Max number of results.
+            score_threshold: Minimum similarity score.
+            filters: Optional Qdrant payload filters.
 
         Returns:
-            List of SimilarProduct objects
+            List of ScoredPoint from Qdrant.
         """
         start_time = time.time()
         self.connect()
-        collection_name = self._get_collection_name(product_type)
+        collection_name = self.collection_name_for_tenant(tenant_id)
+
+        # Build Qdrant filter from dict if provided
+        qdrant_filter = None
+        if filters:
+            must_conditions = []
+            for key, value in filters.items():
+                must_conditions.append(
+                    qdrant_models.FieldCondition(
+                        key=key,
+                        match=qdrant_models.MatchValue(value=value),
+                    )
+                )
+            qdrant_filter = qdrant_models.Filter(must=must_conditions)
 
         try:
             results = self.client.search(
                 collection_name=collection_name,
                 query_vector=query_vector,
-                limit=top_k,
+                limit=limit,
                 score_threshold=score_threshold,
+                query_filter=qdrant_filter,
                 search_params=SearchParams(
                     hnsw_ef=128,
                     exact=False,
                 ),
             )
 
-            similar_products = []
-            scores = []
-            for result in results:
-                similar_products.append(
-                    SimilarProduct(
-                        product_id=result.payload.get("real_product_id", ""),
-                        similarity_score=result.score,
-                        vector_id=str(result.id),
-                    )
-                )
-                scores.append(result.score)
-
             duration_ms = (time.time() - start_time) * 1000
+            scores = [r.score for r in results]
 
-            # Log vector search metrics
             logger.info(
-                f"Vector search completed: {len(similar_products)} results",
+                "Vector search completed: %d results in %.2fms",
+                len(results),
+                duration_ms,
                 extra={
                     "event": "vector_search",
                     "metric_type": "vector_search",
                     "operation": "search",
                     "collection": collection_name,
-                    "product_type": product_type.value,
-                    "query_limit": top_k,
-                    "results_count": len(similar_products),
+                    "tenant_id": tenant_id,
+                    "query_limit": limit,
+                    "results_count": len(results),
                     "score_threshold": score_threshold,
                     "duration_ms": round(duration_ms, 2),
                     "avg_score": round(sum(scores) / len(scores), 3) if scores else 0,
                     "max_score": round(max(scores), 3) if scores else 0,
                     "min_score": round(min(scores), 3) if scores else 0,
                     "vector_dim": len(query_vector),
-                    "hnsw_ef": 128,
+                    "has_filters": filters is not None,
                     "correlation_id": get_correlation_id(),
-                }
+                },
             )
 
-            return similar_products
+            return results
 
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(
-                f"Vector search error: {e}",
+                "Vector search error for tenant %s: %s",
+                tenant_id,
+                e,
                 extra={
                     "event": "vector_search_error",
                     "metric_type": "vector_search",
                     "operation": "search",
                     "collection": collection_name,
+                    "tenant_id": tenant_id,
                     "error": str(e),
                     "duration_ms": round(duration_ms, 2),
                     "correlation_id": get_correlation_id(),
-                }
+                },
             )
             return []
 
-    def delete_by_product_id(
-        self, product_type: ProductType, real_product_id: str
-    ) -> bool:
+    # ------------------------------------------------------------------
+    # Delete single product
+    # ------------------------------------------------------------------
+
+    def delete_product(self, tenant_id: str, product_id: str) -> bool:
         """
-        Delete vectors for a specific product.
+        Delete vectors for a specific product from a tenant's collection.
 
         Args:
-            product_type: Type of product
-            real_product_id: PostgreSQL product ID
+            tenant_id: External tenant identifier.
+            product_id: Product ID to delete.
 
         Returns:
-            True if deleted successfully
+            True if deletion succeeded.
         """
         self.connect()
-        collection_name = self._get_collection_name(product_type)
+        collection_name = self.collection_name_for_tenant(tenant_id)
 
         try:
             self.client.delete(
@@ -353,36 +391,32 @@ class VectorStore:
                     filter=qdrant_models.Filter(
                         must=[
                             qdrant_models.FieldCondition(
-                                key="real_product_id",
-                                match=qdrant_models.MatchValue(value=real_product_id),
+                                key="product_id",
+                                match=qdrant_models.MatchValue(value=product_id),
                             )
                         ]
                     )
                 ),
             )
-            logger.info(f"Deleted vectors for product {real_product_id}")
+            logger.info(
+                "Deleted product %s from tenant %s collection",
+                product_id,
+                tenant_id,
+            )
             return True
 
         except Exception as e:
-            logger.error(f"Delete error: {e}")
+            logger.error(
+                "Delete error for product %s in tenant %s: %s",
+                product_id,
+                tenant_id,
+                e,
+            )
             return False
 
-    def get_collection_info(self, product_type: ProductType) -> Dict[str, Any]:
-        """Get collection statistics."""
-        self.connect()
-        collection_name = self._get_collection_name(product_type)
-
-        try:
-            info = self.client.get_collection(collection_name)
-            return {
-                "name": collection_name,
-                "vectors_count": info.points_count,
-                "points_count": info.points_count,
-                "status": info.status,
-            }
-        except Exception as e:
-            logger.error(f"Error getting collection info: {e}")
-            return {"error": str(e)}
+    # ------------------------------------------------------------------
+    # Health
+    # ------------------------------------------------------------------
 
     def health_check(self) -> bool:
         """Check Qdrant connection health."""
@@ -391,17 +425,20 @@ class VectorStore:
             self.client.get_collections()
             return True
         except Exception as e:
-            logger.error(f"Qdrant health check failed: {e}")
+            logger.error("Qdrant health check failed: %s", e)
             return False
 
 
-# Singleton instance
-_vector_store: Optional[VectorStore] = None
+# ---------------------------------------------------------------------------
+# Singleton
+# ---------------------------------------------------------------------------
+
+_vector_store: Optional[MultiTenantVectorStore] = None
 
 
-def get_vector_store() -> VectorStore:
-    """Get or create singleton vector store instance."""
+def get_vector_store() -> MultiTenantVectorStore:
+    """Get or create singleton multi-tenant vector store instance."""
     global _vector_store
     if _vector_store is None:
-        _vector_store = VectorStore()
+        _vector_store = MultiTenantVectorStore()
     return _vector_store
