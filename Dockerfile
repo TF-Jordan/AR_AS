@@ -41,8 +41,8 @@ RUN pip install \
 # Installer le reste des dépendances en EXCLUANT torch (déjà installé en CPU-only)
 # Sans cela, pip réinstalle torch avec CUDA (~2.5 GB) depuis PyPI
 RUN grep -v "^torch==" requirements.txt > requirements-no-torch.txt && \
-    pip install --no-deps sentence-transformers==5.2.0 && \
-    pip install -r requirements-no-torch.txt
+    pip install --default-timeout=300 --retries=5 --no-deps sentence-transformers==5.2.0 && \
+    pip install --default-timeout=300 --retries=5 -r requirements-no-torch.txt
 
 # ---- Stage 2: Runtime ----
 FROM python:3.12-slim
