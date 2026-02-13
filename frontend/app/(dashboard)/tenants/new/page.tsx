@@ -1,13 +1,24 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
-import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input, Textarea } from '@/components/ui/Input'
+import { TenantForm } from '@/components/tenants/TenantForm'
+import { useCreateTenant } from '@/hooks/useTenants'
+import type { CreateTenantPayload } from '@/lib/types'
 
 export default function CreateTenantPage() {
+  const router = useRouter()
+  const createTenant = useCreateTenant()
+
+  const handleSubmit = (data: CreateTenantPayload) => {
+    createTenant.mutate(data, {
+      onSuccess: (tenant) => {
+        router.push(`/tenants/${tenant.id}`)
+      },
+    })
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       {/* Back link */}
@@ -19,45 +30,12 @@ export default function CreateTenantPage() {
         Back to Tenants
       </Link>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Tenant</h1>
-        <p className="text-gray-500 mb-8">Set up a new organization on the platform</p>
+        <p className="text-gray-500">Set up a new organization on the platform</p>
+      </div>
 
-        <Card>
-          <form className="space-y-6">
-            <Input
-              label="Tenant Name"
-              placeholder="e.g., Acme Corporation"
-              helperText="The display name for this organization"
-            />
-            <Input
-              label="Slug"
-              placeholder="e.g., acme-corp"
-              helperText="URL-friendly identifier (auto-generated from name)"
-            />
-            <Input
-              label="Domain"
-              placeholder="e.g., acme.example.com"
-              helperText="Optional custom domain for this tenant"
-            />
-            <Textarea
-              label="Description"
-              placeholder="Brief description of this tenant..."
-              rows={3}
-            />
-
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-100">
-              <Link href="/tenants">
-                <Button variant="secondary">Cancel</Button>
-              </Link>
-              <Button type="submit">Create Tenant</Button>
-            </div>
-          </form>
-        </Card>
-      </motion.div>
+      <TenantForm mode="create" onSubmit={handleSubmit} isSubmitting={createTenant.isPending} />
     </div>
   )
 }
