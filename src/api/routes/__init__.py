@@ -8,6 +8,7 @@ from .livreur_ranking import router as livreur_ranking_router
 from .products import router as products_router
 from .tenants import router as tenants_router
 from .scoring import router as scoring_router
+from .dashboard import router as dashboard_router
 
 api_router = APIRouter()
 
@@ -52,3 +53,4 @@ api_router.include_router(
 # --- Admin routes (require admin role) ---
 api_router.include_router(tenants_router)
 api_router.include_router(scoring_router)
+api_router.include_router(dashboard_router)
