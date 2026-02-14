@@ -80,18 +80,19 @@ class MultiTenantVectorStore:
     def ensure_collection_exists(
         self,
         collection_name: str,
-        vector_size: int = 768,
+        vector_size: Optional[int] = None,
     ) -> bool:
         """
         Create a collection if it does not already exist.
 
         Args:
             collection_name: Qdrant collection name.
-            vector_size: Embedding dimension.
+            vector_size: Embedding dimension. Defaults to self.dimension from settings.
 
         Returns:
             True if the collection exists (or was created successfully).
         """
+        effective_size = vector_size if vector_size is not None else self.dimension
         self.connect()
         try:
             collections = self.client.get_collections().collections
@@ -101,7 +102,7 @@ class MultiTenantVectorStore:
                 self.client.create_collection(
                     collection_name=collection_name,
                     vectors_config=VectorParams(
-                        size=vector_size,
+                        size=effective_size,
                         distance=Distance.COSINE,
                     ),
                     hnsw_config=HnswConfigDiff(

@@ -86,6 +86,11 @@ class TOPSISRanker:
 
             # Ordre: [proximité, capacité, type_véhicule, réputation]
             # Column 0: Proximité géographique (total distance in km) - COST criterion
+            if livreur.livreur_id not in distances:
+                raise ValueError(
+                    f"Missing distance for livreur '{livreur.livreur_id}'. "
+                    "Ensure spatial filtering computed distances for all candidates."
+                )
             matrix[i, 0] = distances[livreur.livreur_id]
 
             # Column 1: Capacité (volume en m³) - BENEFIT criterion

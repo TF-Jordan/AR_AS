@@ -273,10 +273,10 @@ class KeycloakAuth:
                     "roles": roles,
                 },
             )
+            current_roles = ", ".join(roles) if roles else "none"
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin role required. "
-                "Current roles: " + ", ".join(roles) if roles else "none",
+                detail=f"Admin role required. Current roles: {current_roles}",
             )
         return True
 

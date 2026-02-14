@@ -12,7 +12,7 @@ Ordre des critères:
 
 import logging
 import numpy as np
-from typing import Tuple, Dict
+from typing import Any, Dict, Tuple
 
 from .constants import (
     AHP_MATRICES,
@@ -176,7 +176,7 @@ class AHPCalculator:
     def calculate_criteria_weights(
         self,
         type_livraison: TypeLivraison
-    ) -> Tuple[Dict[str, float], Dict[str, any]]:
+    ) -> Tuple[Dict[str, float], Dict[str, Any]]:
         """
         Complete AHP process: build matrix, calculate weights, check consistency.
 

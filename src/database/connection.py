@@ -34,12 +34,12 @@ async_engine = create_async_engine(
     pool_pre_ping=True,
 )
 
-# Create sync engine for Celery tasks
+# Sync engine for migrations and one-off scripts
 sync_engine = create_engine(
     settings.database_url_sync,
     echo=settings.debug,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=5,
+    max_overflow=10,
     pool_pre_ping=True,
 )
 
@@ -188,13 +188,8 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 def get_sync_session() -> Session:
-    """Get sync database session for Celery tasks."""
-    session = SyncSessionLocal()
-    try:
-        return session
-    except Exception:
-        session.rollback()
-        raise
+    """Get sync database session for migrations and scripts."""
+    return SyncSessionLocal()
 
 
 @asynccontextmanager

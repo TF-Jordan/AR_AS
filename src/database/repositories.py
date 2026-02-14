@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import Base, Personne, Comment
+from .models import Base, Comment
 
 T = TypeVar("T", bound=Base)
 

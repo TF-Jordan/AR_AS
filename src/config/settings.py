@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     )
 
     # Application
-    app_name: str = "Sentiment Recommendation System"
-    app_version: str = "1.0.0"
+    app_name: str = "RaaS Multi-Tenant Platform"
+    app_version: str = "2.0.0"
     debug: bool = False
     environment: str = "development"
 
@@ -34,9 +34,9 @@ class Settings(BaseSettings):
     # PostgreSQL Database
     postgres_host: str = "localhost"
     postgres_port: int = 5432
-    postgres_user: str = "test"
-    postgres_password: str = "testPass123"
-    postgres_db: str = "test_db"
+    postgres_user: str = "postgres"
+    postgres_password: str = "postgres"
+    postgres_db: str = "ar_as_db"
 
     @property
     def database_url(self) -> str:
@@ -67,7 +67,6 @@ class Settings(BaseSettings):
     # Qdrant Vector Database
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
-    qdrant_collection_vehicles: str = "vehicles"
 
     # Embedding Model
     embedding_model_name: str = "paraphrase-multilingual-mpnet-base-v2"
@@ -88,14 +87,8 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 100
     rate_limit_window_seconds: int = 60
 
-    # Security (legacy, kept for backward compatibility)
-    secret_key: str = "maclésecrete"
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
-
     # Keycloak OAuth2
     keycloak_host: str = Field(default="http://localhost:8080")
-    keycloak_port: int = Field(default=8080)
     keycloak_realm: str = Field(default="raas")
     keycloak_client_id: str = Field(default="raas-api")
     keycloak_client_secret: Optional[str] = Field(default=None)

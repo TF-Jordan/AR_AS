@@ -1,15 +1,16 @@
 # ==============================================================================
-# Makefile for AR_AS Recommendation System
+# Makefile for AR_AS RaaS Multi-Tenant Platform
 # Simplifies Docker operations and development workflow
 # ==============================================================================
 
-.PHONY: help build up down restart logs clean test lint format migrate seed backup restore
+.PHONY: help build up down restart logs clean test lint format migrate backup restore
 
 # Default target
 .DEFAULT_GOAL := help
 
-# Load environment variables
-include .env.example
+# Load environment variables (use .env if it exists, otherwise .env.example)
+-include .env
+-include .env.example
 export
 
 # ==============================================================================
@@ -50,10 +51,9 @@ up: ## Start all services in detached mode
 	@echo "$(BLUE)Starting all services...$(NC)"
 	docker-compose up -d
 	@echo "$(GREEN)✓ All services started!$(NC)"
-	@echo "$(YELLOW)API:     http://localhost:8000$(NC)"
-	@echo "$(YELLOW)Docs:    http://localhost:8000/docs$(NC)"
-	@echo "$(YELLOW)Flower:  http://localhost:5555$(NC)"
-	@echo "$(YELLOW)Kibana:  http://localhost:5601$(NC)"
+	@echo "$(YELLOW)API:      http://localhost:8000$(NC)"
+	@echo "$(YELLOW)Docs:     http://localhost:8000/docs$(NC)"
+	@echo "$(YELLOW)Keycloak: http://localhost:8080$(NC)"
 
 up-build: ## Build and start all services
 	@echo "$(BLUE)Building and starting all services...$(NC)"
@@ -86,11 +86,6 @@ restart-api: ## Restart only the API service
 	docker-compose restart api
 	@echo "$(GREEN)✓ API restarted!$(NC)"
 
-restart-worker: ## Restart Celery workers
-	@echo "$(BLUE)Restarting Celery workers...$(NC)"
-	docker-compose restart celery-worker
-	@echo "$(GREEN)✓ Workers restarted!$(NC)"
-
 # ==============================================================================
 # LOGS & MONITORING
 # ==============================================================================
@@ -100,17 +95,14 @@ logs: ## Show logs from all services
 logs-api: ## Show logs from API service
 	docker-compose logs -f api
 
-logs-worker: ## Show logs from Celery workers
-	docker-compose logs -f celery-worker
-
 logs-postgres: ## Show logs from PostgreSQL
 	docker-compose logs -f postgres
 
 logs-redis: ## Show logs from Redis
 	docker-compose logs -f redis
 
-logs-elk: ## Show logs from ELK stack
-	docker-compose logs -f elasticsearch logstash kibana
+logs-keycloak: ## Show logs from Keycloak
+	docker-compose logs -f keycloak
 
 status: ## Show status of all services
 	@echo "$(BLUE)Service Status:$(NC)"
@@ -124,11 +116,8 @@ ps: status ## Alias for status
 shell-api: ## Open shell in API container
 	docker-compose exec api /bin/bash
 
-shell-worker: ## Open shell in Worker container
-	docker-compose exec celery-worker /bin/bash
-
 shell-postgres: ## Open PostgreSQL shell
-	docker-compose exec postgres psql -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-recommendation_db}
+	docker-compose exec postgres psql -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-ar_as_db}
 
 shell-redis: ## Open Redis CLI
 	docker-compose exec redis redis-cli
@@ -151,23 +140,13 @@ migrate-rollback: ## Rollback last migration
 	docker-compose exec api alembic downgrade -1
 	@echo "$(GREEN)✓ Rollback complete!$(NC)"
 
-seed: ## Seed database with sample data
-	@echo "$(BLUE)Seeding database...$(NC)"
-	docker-compose exec api python scripts/seed_data.py
-	@echo "$(GREEN)✓ Database seeded!$(NC)"
-
-init-vectors: ## Initialize vector database
-	@echo "$(BLUE)Initializing vector database...$(NC)"
-	docker-compose exec api python scripts/init_vectors.py
-	@echo "$(GREEN)✓ Vector database initialized!$(NC)"
-
 # ==============================================================================
 # BACKUP & RESTORE
 # ==============================================================================
 backup-db: ## Backup PostgreSQL database
 	@echo "$(BLUE)Backing up database...$(NC)"
 	@mkdir -p backups
-	docker-compose exec -T postgres pg_dump -U $${POSTGRES_USER:-postgres} $${POSTGRES_DB:-recommendation_db} | gzip > backups/db_$(shell date +%Y%m%d_%H%M%S).sql.gz
+	docker-compose exec -T postgres pg_dump -U $${POSTGRES_USER:-postgres} $${POSTGRES_DB:-ar_as_db} | gzip > backups/db_$(shell date +%Y%m%d_%H%M%S).sql.gz
 	@echo "$(GREEN)✓ Database backup created in backups/$(NC)"
 
 restore-db: ## Restore PostgreSQL database (use: make restore-db FILE=backups/db_YYYYMMDD_HHMMSS.sql.gz)
@@ -176,7 +155,7 @@ restore-db: ## Restore PostgreSQL database (use: make restore-db FILE=backups/db
 		echo "$(RED)Error: Please specify FILE=path/to/backup.sql.gz$(NC)"; \
 		exit 1; \
 	fi
-	gunzip < $(FILE) | docker-compose exec -T postgres psql -U $${POSTGRES_USER:-postgres} $${POSTGRES_DB:-recommendation_db}
+	gunzip < $(FILE) | docker-compose exec -T postgres psql -U $${POSTGRES_USER:-postgres} $${POSTGRES_DB:-ar_as_db}
 	@echo "$(GREEN)✓ Database restored!$(NC)"
 
 backup-qdrant: ## Backup Qdrant vector database
@@ -237,7 +216,7 @@ clean-all: ## Remove all containers, images, and volumes
 
 clean-logs: ## Remove log volumes
 	@echo "$(BLUE)Removing log volumes...$(NC)"
-	docker volume rm ar-as-api-logs ar-as-worker-logs || true
+	docker volume rm ar-as-api-logs || true
 	@echo "$(GREEN)✓ Log volumes removed!$(NC)"
 
 # ==============================================================================
@@ -247,29 +226,11 @@ health: ## Check health of all services
 	@echo "$(BLUE)Checking service health...$(NC)"
 	@echo ""
 	@echo "$(YELLOW)API Health:$(NC)"
-	@curl -sf http://localhost:8000/api/v1/health/live || echo "$(RED)✗ API not healthy$(NC)"
+	@curl -sf http://localhost:8000/health || echo "$(RED)✗ API not healthy$(NC)"
 	@echo ""
-	@echo "$(YELLOW)Elasticsearch Health:$(NC)"
-	@curl -sf http://localhost:9200/_cluster/health || echo "$(RED)✗ Elasticsearch not healthy$(NC)"
+	@echo "$(YELLOW)Keycloak Health:$(NC)"
+	@curl -sf http://localhost:8080/health/ready || echo "$(RED)✗ Keycloak not healthy$(NC)"
 	@echo ""
-	@echo "$(YELLOW)Kibana Health:$(NC)"
-	@curl -sf http://localhost:5601/api/status || echo "$(RED)✗ Kibana not healthy$(NC)"
-	@echo ""
-
-# ==============================================================================
-# MONITORING
-# ==============================================================================
-monitor-api: ## Monitor API metrics
-	@echo "$(BLUE)Opening API metrics...$(NC)"
-	@open http://localhost:8000/api/v1/metrics || xdg-open http://localhost:8000/api/v1/metrics
-
-monitor-flower: ## Open Flower dashboard
-	@echo "$(BLUE)Opening Flower dashboard...$(NC)"
-	@open http://localhost:5555 || xdg-open http://localhost:5555
-
-monitor-kibana: ## Open Kibana dashboard
-	@echo "$(BLUE)Opening Kibana dashboard...$(NC)"
-	@open http://localhost:5601 || xdg-open http://localhost:5601
 
 # ==============================================================================
 # DEVELOPMENT
@@ -286,23 +247,21 @@ dev-down: ## Stop development environment
 # QUICK START
 # ==============================================================================
 quickstart: ## Quick start: build, start, and initialize everything
-	@echo "$(BLUE)Quick start: Setting up AR_AS Recommendation System...$(NC)"
+	@echo "$(BLUE)Quick start: Setting up AR_AS RaaS Platform...$(NC)"
 	@make build
 	@make up
 	@echo "$(YELLOW)Waiting for services to be ready...$(NC)"
 	@sleep 20
 	@make migrate
-	@make init-vectors
 	@echo ""
 	@echo "$(GREEN)════════════════════════════════════════════════════════════$(NC)"
-	@echo "$(GREEN)  ✓ AR_AS Recommendation System is ready!$(NC)"
+	@echo "$(GREEN)  ✓ AR_AS RaaS Platform is ready!$(NC)"
 	@echo "$(GREEN)════════════════════════════════════════════════════════════$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Access points:$(NC)"
-	@echo "  API:     http://localhost:8000"
-	@echo "  Docs:    http://localhost:8000/docs"
-	@echo "  Flower:  http://localhost:5555"
-	@echo "  Kibana:  http://localhost:5601"
+	@echo "  API:      http://localhost:8000"
+	@echo "  Docs:     http://localhost:8000/docs"
+	@echo "  Keycloak: http://localhost:8080"
 	@echo ""
 	@echo "$(YELLOW)Useful commands:$(NC)"
 	@echo "  make logs       - View logs"

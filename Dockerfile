@@ -72,8 +72,9 @@ RUN groupadd -r appgroup && \
 COPY --from=builder --chown=appuser:appgroup /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copier le code source avec --chown (évite une couche RUN chown séparée)
+# Copier le code source et main.py avec --chown (évite une couche RUN chown séparée)
 COPY --chown=appuser:appgroup src/ /app/src/
+COPY --chown=appuser:appgroup main.py /app/main.py
 
 USER appuser
 

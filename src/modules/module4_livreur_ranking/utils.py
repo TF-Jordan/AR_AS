@@ -8,6 +8,18 @@ from typing import Tuple
 from .constants import EARTH_RADIUS_KM
 
 
+def _validate_coordinates(lat: float, lon: float, label: str = "point") -> None:
+    """Validate that latitude and longitude are within valid ranges."""
+    if not (-90 <= lat <= 90):
+        raise ValueError(
+            f"Invalid latitude for {label}: {lat}. Must be between -90 and 90."
+        )
+    if not (-180 <= lon <= 180):
+        raise ValueError(
+            f"Invalid longitude for {label}: {lon}. Must be between -180 and 180."
+        )
+
+
 def haversine_distance(
     lat1: float,
     lon1: float,
@@ -32,10 +44,16 @@ def haversine_distance(
     Returns:
         Distance in kilometers
 
+    Raises:
+        ValueError: If coordinates are outside valid ranges.
+
     Example:
         >>> haversine_distance(48.8566, 2.3522, 51.5074, -0.1278)
         343.56  # Paris to London in km
     """
+    _validate_coordinates(lat1, lon1, "point 1")
+    _validate_coordinates(lat2, lon2, "point 2")
+
     # Convert degrees to radians
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)

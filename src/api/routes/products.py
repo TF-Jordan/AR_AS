@@ -173,7 +173,7 @@ async def upload_products_csv(
 )
 async def list_products(
     tenant_id: str,
-    page: int = Query(1, ge=1, description="Page number"),
+    page: int = Query(1, ge=1, le=10000, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -294,6 +294,7 @@ async def upload_products(
 @router.delete(
     "/{product_id}",
     response_model=ProductDeleteResponse,
+    status_code=status.HTTP_200_OK,
     summary="Delete a product",
     description="Delete a product from the tenant's Qdrant collection.",
     responses={
