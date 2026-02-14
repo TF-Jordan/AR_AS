@@ -1,6 +1,6 @@
 """
 Structured logging configuration.
-Supports JSON format for ELK Stack integration.
+Supports JSON format for structured log analysis.
 """
 
 import logging
@@ -87,8 +87,8 @@ def configure_json_logging(level: str) -> None:
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(json_formatter)
 
-    # File handler (for Filebeat/ELK ingestion)
-    log_dir = Path("/app/logs")
+    # File handler (for log aggregation)
+    log_dir = Path(os.environ.get("LOG_DIR", "/app/logs"))
     handlers = [console_handler]
     if log_dir.exists() or os.environ.get("ENVIRONMENT", "").lower() == "production":
         log_dir.mkdir(parents=True, exist_ok=True)

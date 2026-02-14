@@ -42,14 +42,15 @@ class CacheManager:
         self.sentiment_tolerance = SENTIMENT_SCORE_TOLERANCE
 
     async def connect(self) -> None:
-        """Establish Redis connection."""
-        if self._client is None:
-            self._client = redis.from_url(
-                self.redis_url,
-                encoding="utf-8",
-                decode_responses=True,
-            )
-            logger.info("Redis cache connection established")
+        """Establish Redis connection (idempotent - only connects once)."""
+        if self._client is not None:
+            return
+        self._client = redis.from_url(
+            self.redis_url,
+            encoding="utf-8",
+            decode_responses=True,
+        )
+        logger.info("Redis cache connection established")
 
     async def disconnect(self) -> None:
         """Close Redis connection."""

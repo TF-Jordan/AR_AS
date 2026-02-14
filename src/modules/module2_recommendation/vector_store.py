@@ -365,7 +365,7 @@ class MultiTenantVectorStore:
                     "correlation_id": get_correlation_id(),
                 },
             )
-            return []
+            raise
 
     # ------------------------------------------------------------------
     # Delete single product

@@ -261,7 +261,7 @@ class TOPSISRanker:
         """
         # Avoid division by zero
         total_distance = distances_positive + distances_negative
-        total_distance = np.where(total_distance == 0, 1e-10, total_distance)
+        total_distance = np.where(total_distance == 0, 1.0, total_distance)
 
         # Calculate similarity scores
         scores = distances_negative / total_distance

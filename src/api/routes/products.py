@@ -130,10 +130,21 @@ async def upload_products_csv(
             except Exception as e:
                 errors.append(f"Line {idx}: {str(e)}")
 
-        # Commit to database
-        await session.commit()
+        if errors and not products:
+            # All rows failed - rollback
+            await session.rollback()
+        else:
+            # Commit successfully parsed products
+            try:
+                await session.commit()
+            except Exception as db_error:
+                await session.rollback()
+                logger.error(f"Database commit failed: {db_error}", exc_info=True)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Database error while saving products: {str(db_error)}",
+                )
 
-        # Index in Qdrant (simplified - in real implementation use product_service)
         logger.info(f"Uploaded {len(products)} products for tenant {tenant_id}")
 
         return ProductUploadResponse(

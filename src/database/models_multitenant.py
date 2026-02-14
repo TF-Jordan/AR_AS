@@ -327,6 +327,13 @@ class Product(Base):
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False,
     )
 
+    # ----- Relationships -----
+    tenant: Mapped["Tenant"] = relationship(
+        "Tenant",
+        foreign_keys=[tenant_id],
+        primaryjoin="Product.tenant_id == Tenant.id",
+    )
+
     __table_args__ = (
         # Unique product per tenant
         UniqueConstraint("tenant_id", "product_id", name="uq_tenant_product_catalog"),

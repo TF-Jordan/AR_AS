@@ -314,13 +314,31 @@ class SentimentAnalyzer:
         """
         Analyze sentiment for multiple comments.
 
+        Each item is processed independently - a failure on one item
+        does not affect the others (analyze() already returns a neutral
+        fallback on error).
+
         Args:
             inputs: List of SentimentInput objects
 
         Returns:
-            List of SentimentResult objects
+            List of SentimentResult objects (same length as inputs)
         """
-        return [self.analyze(input_data) for input_data in inputs]
+        results = []
+        for input_data in inputs:
+            try:
+                results.append(self.analyze(input_data))
+            except Exception as e:
+                logger.error("Batch item failed for product %s: %s", input_data.product_id, e)
+                results.append(SentimentResult(
+                    client_id=input_data.client_id,
+                    product_id=input_data.product_id,
+                    sentiment_score=0.0,
+                    sentiment_label="neutral",
+                    confidence=0.0,
+                    product_type=input_data.product_type,
+                ))
+        return results
 
     def health_check(self) -> bool:
         """Check if the model is loaded and functional."""
