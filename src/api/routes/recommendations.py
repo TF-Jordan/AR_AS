@@ -3,7 +3,6 @@ Recommendation API endpoints.
 """
 
 import logging
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +13,6 @@ from src.api.schemas import (
     RecommendationOnlyRequest,
     RecommendationResponse,
     FullWorkflowResponse,
-    AsyncTaskResponse,
     ErrorResponse,
 )
 from src.modules.module3_orchestration import Orchestrator
@@ -27,8 +25,6 @@ router = APIRouter()
     "/",
     response_model=FullWorkflowResponse,
     responses={
-        200: {"description": "Successful recommendation"},
-        202: {"model": AsyncTaskResponse, "description": "Async task submitted"},
         400: {"model": ErrorResponse, "description": "Invalid request"},
         500: {"model": ErrorResponse, "description": "Internal error"},
     },
@@ -40,8 +36,6 @@ router = APIRouter()
     1. Analyzes sentiment of the provided comment (Module 1)
     2. Generates recommendations based on semantic similarity (Module 2)
     3. Returns ranked results
-
-    Set `async_processing=true` to process via Celery and get a task ID.
     """,
 )
 async def get_recommendations(
@@ -56,22 +50,6 @@ async def get_recommendations(
     )
 
     try:
-        if request.async_processing:
-            # Async processing via Celery
-            task_id = orchestrator.process_async(
-                product_id=request.product_id,
-                client_id=request.client_id,
-                commentaire=request.commentaire,
-                product_type=request.product_type.value,
-                top_k=request.top_k,
-            )
-            return AsyncTaskResponse(
-                task_id=task_id,
-                status="pending",
-                message="Task submitted for async processing",
-            )
-
-        # Synchronous processing
         result = await orchestrator.process_recommendation_request(
             product_id=request.product_id,
             client_id=request.client_id,
@@ -100,10 +78,8 @@ async def get_recommendations(
 async def get_recommendations_direct(
     request: RecommendationOnlyRequest,
     session: AsyncSession = Depends(get_db_session),
-    orchestrator: Orchestrator = Depends(get_orchestrator_dep),
 ):
     """Get recommendations with pre-computed sentiment score."""
-    from src.config.constants import ProductType
     from src.modules.module2_recommendation import (
         RecommendationEngine,
         RecommendationRequest,
@@ -128,30 +104,3 @@ async def get_recommendations_direct(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
-
-
-@router.get(
-    "/vehicles",
-    summary="Get vehicle recommendations",
-    description="Shortcut endpoint for vehicle recommendations.",
-)
-async def get_vehicle_recommendations(
-    product_id: str,
-    client_id: str,
-    commentaire: str,
-    top_k: int = 10,
-    session: AsyncSession = Depends(get_db_session),
-    orchestrator: Orchestrator = Depends(get_orchestrator_dep),
-):
-    """Get vehicle recommendations."""
-    result = await orchestrator.process_recommendation_request(
-        product_id=product_id,
-        client_id=client_id,
-        commentaire=commentaire,
-        product_type="vehicle",
-        session=session,
-        top_k=top_k,
-    )
-    return result
-
-

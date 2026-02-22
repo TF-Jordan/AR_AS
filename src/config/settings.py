@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     )
 
     # Application
-    app_name: str = "Sentiment Recommendation System"
-    app_version: str = "1.0.0"
+    app_name: str = "AR_AS RaaS Platform"
+    app_version: str = "2.0.0"
     debug: bool = False
     environment: str = "development"
 
@@ -34,21 +34,14 @@ class Settings(BaseSettings):
     # PostgreSQL Database
     postgres_host: str = "localhost"
     postgres_port: int = 5432
-    postgres_user: str = "test"
-    postgres_password: str = "testPass123"
-    postgres_db: str = "test_db"
+    postgres_user: str = "postgres"
+    postgres_password: str = "postgres"
+    postgres_db: str = "ar_as_db"
 
     @property
     def database_url(self) -> str:
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-        )
-
-    @property
-    def database_url_sync(self) -> str:
-        return (
-            f"postgresql://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 
@@ -64,22 +57,9 @@ class Settings(BaseSettings):
             return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
-    # Celery
-    celery_broker_url: Optional[str] = None
-    celery_result_backend: Optional[str] = None
-
-    @property
-    def celery_broker(self) -> str:
-        return self.celery_broker_url or self.redis_url
-
-    @property
-    def celery_backend(self) -> str:
-        return self.celery_result_backend or self.redis_url
-
     # Qdrant Vector Database
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
-    qdrant_collection_vehicles: str = "vehicles"
 
     # Embedding Model
     embedding_model_name: str = "paraphrase-multilingual-mpnet-base-v2"
@@ -101,17 +81,13 @@ class Settings(BaseSettings):
     rate_limit_window_seconds: int = 60
 
     # Security
-    secret_key: str = "maclésecrete"
+    secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
     # Logging
     log_level: str = "INFO"
     log_format: str = "json"
-
-    # Monitoring - Elastic APM (désactivé par défaut)
-    apm_enabled: bool = False
-    apm_server_url: str = "http://localhost:8200"
 
 
 @lru_cache()

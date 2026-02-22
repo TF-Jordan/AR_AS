@@ -31,7 +31,7 @@ class RecommendationRequest(BaseModel):
         json_schema_extra = {
             "example": {
                 "client_id": "client_123",
-                "product_id": "vehicle_456",
+                "product_id": "product_456",
                 "sentiment_score": 0.85,
                 "product_type": "vehicle",
                 "top_k": 10,
@@ -80,14 +80,14 @@ class RankedProduct(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "product_id": "vehicle_789",
+                "product_id": "product_789",
                 "product_type": "vehicle",
                 "similarity_score": 0.92,
                 "availability_score": 1.0,
                 "reputation_score": 0.85,
                 "final_score": 0.91,
                 "rank": 1,
-                "metadata": {"brand": "Toyota", "model": "Corolla"},
+                "metadata": {},
             }
         }
 
@@ -124,12 +124,12 @@ class RecommendationResult(BaseModel):
         json_schema_extra = {
             "example": {
                 "client_id": "client_123",
-                "reference_product_id": "vehicle_456",
+                "reference_product_id": "product_456",
                 "sentiment_score": 0.85,
                 "product_type": "vehicle",
                 "recommendations": [
                     {
-                        "product_id": "vehicle_789",
+                        "product_id": "product_789",
                         "product_type": "vehicle",
                         "similarity_score": 0.92,
                         "availability_score": 1.0,

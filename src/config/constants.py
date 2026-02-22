@@ -4,9 +4,6 @@ Application constants and enumerations.
 
 from enum import Enum
 
-# Product Types
-PRODUCT_TYPE_VEHICLE = "vehicle"
-
 # Cache Settings
 CACHE_TTL_SECONDS = 3600
 SENTIMENT_SCORE_TOLERANCE = 0.1
@@ -30,34 +27,9 @@ class SentimentLabel(str, Enum):
     NEUTRAL = "neutral"
 
 
-class TaskStatus(str, Enum):
-    """Celery task status values."""
-    PENDING = "pending"
-    STARTED = "started"
-    SUCCESS = "success"
-    FAILURE = "failure"
-    RETRY = "retry"
-
-
 class CacheKeyPrefix(str, Enum):
     """Redis cache key prefixes."""
     RECOMMENDATION = "rec"
     SENTIMENT = "sent"
     PRODUCT = "prod"
     EMBEDDING = "emb"
-
-
-# Vehicle-specific constants
-VEHICLE_FUEL_TYPES = [
-    "essence",
-    "diesel",
-    "electrique",
-    "hybride",
-    "gpl",
-]
-
-VEHICLE_TRANSMISSION_TYPES = [
-    "manuelle",
-    "automatique",
-    "semi-automatique",
-]

@@ -2,7 +2,7 @@
 Context management utilities.
 
 Provides context variables for request tracing and correlation across
-async operations, Celery tasks, and external services.
+async operations and external services.
 """
 
 import logging

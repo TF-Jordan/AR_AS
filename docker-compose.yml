@@ -1,14 +1,11 @@
 # ==============================================================================
-# Docker Compose - AR_AS Système Complet
+# Docker Compose - AR_AS RaaS Platform
 # ==============================================================================
 # Build:
 #   docker compose build
 #
-# Lancement (sans monitoring):
+# Lancement:
 #   docker compose up -d
-#
-# Lancement (avec monitoring ELK + APM):
-#   docker compose --profile monitoring up -d
 #
 # ==============================================================================
 
@@ -26,7 +23,7 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
-      - APP_NAME=AR_AS Recommendation System
+      - APP_NAME=AR_AS RaaS Platform
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - API_PREFIX=/api/v1
@@ -37,12 +34,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-ar_as_db}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      - APM_ENABLED=${APM_ENABLED:-true}
-      - APM_SERVER_URL=http://apm-server:8200
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,92 +54,6 @@ services:
       timeout: 10s
       start_period: 40s
       retries: 3
-
-  # ============================================================================
-  # Celery Worker
-  # ============================================================================
-  celery-worker:
-    image: ar-as-api:latest
-    container_name: ar-as-worker
-    command: >
-      celery -A src.modules.module3_orchestration.celery_app worker
-      --loglevel=info
-      --concurrency=4
-      --max-tasks-per-child=1000
-    environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-ar_as_db}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - QDRANT_HOST=qdrant
-      - QDRANT_PORT=6333
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-    depends_on:
-      api:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    volumes:
-      - worker-logs:/app/logs
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-
-  # ============================================================================
-  # Celery Beat (Scheduler)
-  # ============================================================================
-  celery-beat:
-    image: ar-as-api:latest
-    container_name: ar-as-beat
-    command: >
-      celery -A src.modules.module3_orchestration.celery_app beat
-      --loglevel=info
-      --pidfile=/tmp/celerybeat.pid
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-    depends_on:
-      api:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - beat-data:/tmp
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-
-  # ============================================================================
-  # Flower (Monitoring Celery)
-  # ============================================================================
-  flower:
-    image: ar-as-api:latest
-    container_name: ar-as-flower
-    command: >
-      celery -A src.modules.module3_orchestration.celery_app flower
-      --port=5555
-      --persistent=True
-    ports:
-      - "${FLOWER_PORT:-5555}:5555"
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - FLOWER_BASIC_AUTH=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-admin}
-    depends_on:
-      api:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ar-as-network
-    restart: unless-stopped
 
   # ============================================================================
   # PostgreSQL
@@ -205,247 +112,6 @@ services:
       - ar-as-network
     restart: unless-stopped
 
-  # ============================================================================
-  # MONITORING STACK (Profil: monitoring)
-  # Lancer avec: docker compose --profile monitoring up -d
-  # ============================================================================
-
-  # Elasticsearch - Stockage des logs et métriques (avec sécurité)
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: ar-as-elasticsearch
-    profiles:
-      - monitoring
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=true
-      - xpack.security.authc.api_key.enabled=true
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!}
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
-      - cluster.name=ar-as-cluster
-      - bootstrap.memory_lock=true
-      - cluster.routing.allocation.disk.threshold_enabled=false
-      - action.auto_create_index=.security*,.monitoring*,.watches,.triggered_watches,.watcher-history*,.ml*,*
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    ports:
-      - "${ELASTICSEARCH_PORT:-9200}:9200"
-    volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f -u elastic:${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!} http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
-  # Kibana - Interface de visualisation (avec authentification)
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.11.0
-    container_name: ar-as-kibana
-    profiles:
-      - monitoring
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - ELASTICSEARCH_USERNAME=kibana_system
-      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD:-Ar@s_Kibana_2024!}
-      - xpack.security.enabled=true
-      - xpack.encryptedSavedObjects.encryptionKey=a]rAs2024!EncryptedSavedObj32c
-      - xpack.fleet.enabled=true
-      - xpack.fleet.agents.enabled=true
-      - SERVER_NAME=ar-as-kibana
-    ports:
-      - "${KIBANA_PORT:-5601}:5601"
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 90s
-
-  # Setup container - Configure les utilisateurs Elasticsearch
-  es-setup:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: ar-as-es-setup
-    profiles:
-      - monitoring
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    environment:
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!}
-      - KIBANA_PASSWORD=${KIBANA_PASSWORD:-Ar@s_Kibana_2024!}
-      - APM_PASSWORD=${APM_PASSWORD:-Ar@s_Apm_2024!}
-    command: >
-      bash -c '
-        echo "Waiting for Elasticsearch to be ready..."
-        until curl -s -u elastic:$${ELASTIC_PASSWORD} http://elasticsearch:9200 | grep -q "cluster_name"; do
-          sleep 5
-        done
-        echo "Setting replicas to 0 for single-node cluster..."
-        curl -s -X PUT -u elastic:$${ELASTIC_PASSWORD} \
-          -H "Content-Type: application/json" \
-          "http://elasticsearch:9200/_all/_settings" \
-          -d "{\"index.number_of_replicas\": 0}" || true
-        echo ""
-        echo "Creating default template with 0 replicas..."
-        curl -s -X PUT -u elastic:$${ELASTIC_PASSWORD} \
-          -H "Content-Type: application/json" \
-          "http://elasticsearch:9200/_template/default_zero_replicas" \
-          -d "{\"index_patterns\": [\"*\"], \"order\": 0, \"settings\": {\"number_of_replicas\": 0}}" || true
-        echo ""
-        sleep 10
-        echo "Setting up kibana_system user..."
-        curl -s -X POST -u elastic:$${ELASTIC_PASSWORD} \
-          -H "Content-Type: application/json" \
-          http://elasticsearch:9200/_security/user/kibana_system/_password \
-          -d "{\"password\":\"$${KIBANA_PASSWORD}\"}"
-        echo ""
-        echo "Setting up apm_system user..."
-        curl -s -X POST -u elastic:$${ELASTIC_PASSWORD} \
-          -H "Content-Type: application/json" \
-          http://elasticsearch:9200/_security/user/apm_system/_password \
-          -d "{\"password\":\"$${APM_PASSWORD}\"}"
-        echo ""
-        echo "Creating apm_writer role..."
-        curl -s -X PUT -u elastic:$${ELASTIC_PASSWORD} \
-          -H "Content-Type: application/json" \
-          http://elasticsearch:9200/_security/role/apm_writer \
-          -d "{\"cluster\":[\"monitor\",\"manage_index_templates\",\"manage_ilm\"],\"indices\":[{\"names\":[\"apm-*\",\"logs-apm*\",\"metrics-apm*\",\"traces-apm*\"],\"privileges\":[\"create_index\",\"create\",\"write\",\"view_index_metadata\"]}]}"
-        echo ""
-        echo "Creating apm_user..."
-        curl -s -X PUT -u elastic:$${ELASTIC_PASSWORD} \
-          -H "Content-Type: application/json" \
-          http://elasticsearch:9200/_security/user/apm_user \
-          -d "{\"password\":\"$${APM_PASSWORD}\",\"roles\":[\"apm_system\",\"apm_writer\"],\"full_name\":\"APM Server User\"}"
-        echo ""
-        echo "Setup complete!"
-      '
-    networks:
-      - ar-as-network
-
-  # Logstash - Pipeline de traitement des logs
-  logstash:
-    image: docker.elastic.co/logstash/logstash:8.11.0
-    container_name: ar-as-logstash
-    profiles:
-      - monitoring
-    volumes:
-      - ./monitoring/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
-      - ./monitoring/logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
-    ports:
-      - "5044:5044"
-      - "5000:5000/tcp"
-    environment:
-      - "LS_JAVA_OPTS=-Xmx512m -Xms512m"
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!}
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9600/_node/stats || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
-  # Filebeat - Collecte des logs applicatifs
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:8.11.0
-    container_name: ar-as-filebeat
-    profiles:
-      - monitoring
-    user: root
-    command: filebeat -e --strict.perms=false
-    volumes:
-      - ./monitoring/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - api-logs:/var/log/app/api:ro
-      - worker-logs:/var/log/app/worker:ro
-    environment:
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!}
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-
-  # Metricbeat - Collecte des metriques infrastructure
-  metricbeat:
-    image: docker.elastic.co/beats/metricbeat:8.11.0
-    container_name: ar-as-metricbeat
-    profiles:
-      - monitoring
-    user: root
-    command: metricbeat -e --strict.perms=false
-    volumes:
-      - ./monitoring/metricbeat/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
-      - /proc:/hostfs/proc:ro
-      - /:/hostfs:ro
-    environment:
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-
-  # APM Server - Collecte des traces applicatives (avec authentification)
-  apm-server:
-    image: docker.elastic.co/apm/apm-server:8.11.0
-    container_name: ar-as-apm
-    profiles:
-      - monitoring
-    command: >
-      apm-server -e
-        -E apm-server.host=0.0.0.0:8200
-        -E output.elasticsearch.hosts=["http://elasticsearch:9200"]
-        -E output.elasticsearch.username=apm_user
-        -E output.elasticsearch.password=${APM_PASSWORD:-Ar@s_Apm_2024!}
-        -E apm-server.rum.enabled=true
-        -E setup.template.enabled=true
-        -E setup.template.settings.index.number_of_replicas=0
-        -E apm-server.kibana.enabled=true
-        -E apm-server.kibana.host=http://kibana:5601
-        -E apm-server.kibana.username=elastic
-        -E apm-server.kibana.password=${ELASTIC_PASSWORD:-Ar@s_Elastic_2024!}
-    ports:
-      - "${APM_PORT:-8200}:8200"
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    networks:
-      - ar-as-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8200/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
 networks:
   ar-as-network:
     driver: bridge
@@ -453,9 +119,6 @@ networks:
 
 volumes:
   api-logs:
-  worker-logs:
-  beat-data:
   postgres-data:
   redis-data:
   qdrant-data:
-  elasticsearch-data:

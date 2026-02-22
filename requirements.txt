@@ -1,49 +1,43 @@
 # ==============================================================================
-# Requirements - AR_AS (versions alignées avec l'environnement local)
+# AR_AS RaaS Platform - Dependencies
 # ==============================================================================
 
-# Core API
-fastapi>=0.116.1
-uvicorn==0.35.0
-pydantic==2.11.7
-pydantic-settings==2.10.1
-starlette==0.47.3
+# Web Framework
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+pydantic==2.11.4
+pydantic-settings==2.9.1
 
-# Database PostgreSQL
-sqlalchemy==2.0.43
+# Database
+sqlalchemy[asyncio]==2.0.43
 asyncpg==0.31.0
-psycopg2-binary==2.9.11
-alembic==1.18.1
+psycopg2-binary==2.9.10
 
-# Redis & Celery
-redis==7.1.0
-celery==5.6.2
-flower==2.0.1
+# Redis (Cache)
+redis[hiredis]==5.3.0
 
 # Vector Database
-qdrant-client==1.16.2
+qdrant-client==1.7.4
 
-# ML & NLP (Modules 1 & 2)
-# Note: torch est installé en CPU-only via --index-url dans le Dockerfile
-sentence-transformers==5.2.0
+# Machine Learning
 torch==2.9.1
-transformers==4.55.4
+sentence-transformers==5.2.0
+transformers==4.51.3
 numpy==2.2.6
-# torchvision et torchaudio supprimés (non utilisés dans le projet)
 
-# Monitoring
-elastic-apm==6.20.0
-python-json-logger==3.3.0
-structlog==25.5.0
-
-# Security
-python-jose==3.5.0
+# Security & Rate Limiting
+python-jose[cryptography]==3.4.0
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-slowapi==0.1.9
-bcrypt==5.0.0
+slowapi==0.1.10
 
-# Utilities
-python-dotenv==1.1.1
-tenacity==9.1.2
+# Logging
+python-json-logger==3.3.0
+structlog==25.4.0
+
+# HTTP
 httpx==0.28.1
+
+# Testing
+pytest==8.3.5
+pytest-asyncio==0.26.0
+pytest-cov==6.2.1
