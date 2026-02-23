@@ -21,7 +21,7 @@ class RecommendationRequest(BaseModel):
         ..., ge=-1.0, le=1.0, description="Sentiment score from analysis"
     )
     product_type: ProductType = Field(
-        ..., description="Type of product: vehicle or livreur"
+        ..., description="Type of product: vehicle"
     )
     top_k: Optional[int] = Field(
         default=10, ge=1, le=100, description="Number of recommendations to return"

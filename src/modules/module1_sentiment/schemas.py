@@ -14,7 +14,7 @@ class SentimentInput(BaseModel):
     client_id: str = Field(..., description="Client identifier")
     commentaire: str = Field(..., description="Comment text to analyze")
     product_type: Optional[str] = Field(
-        None, description="Type of product: 'vehicle' or 'livreur'"
+        None, description="Type of product: 'vehicle'"
     )
 
 
@@ -33,7 +33,7 @@ class SentimentResult(BaseModel):
         None, ge=0.0, le=1.0, description="Confidence score of the prediction"
     )
     product_type: Optional[str] = Field(
-        None, description="Type of product: 'vehicle' or 'livreur'"
+        None, description="Type of product: 'vehicle'"
     )
 
     class Config:
