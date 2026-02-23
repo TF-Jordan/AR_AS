@@ -70,9 +70,6 @@ class Settings(BaseSettings):
 
     # Recommendation Settings
     default_top_k: int = 10
-    similarity_weight: float = 0.6
-    availability_weight: float = 0.25
-    reputation_weight: float = 0.15
     cache_ttl_seconds: int = 3600
     sentiment_score_tolerance: float = 0.1
 
@@ -84,6 +81,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    admin_api_key: str = "admin_secret_change_me"
 
     # Logging
     log_level: str = "INFO"

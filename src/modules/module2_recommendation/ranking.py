@@ -1,103 +1,78 @@
 """
-Ranking Service for final recommendation scoring.
-Implements weighted scoring based on similarity, availability, and reputation.
+Configurable Ranking Service for multi-tenant scoring.
+Implements weighted scoring based on tenant-defined criteria.
 """
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List
 
-from src.config import settings
-from src.config.constants import ProductType
-from .schemas import SimilarProduct, RankedProduct, ProductDetails
+from .schemas import SimilarProduct, RankedProduct
 
 logger = logging.getLogger(__name__)
 
 
 class RankingService:
     """
-    Service for ranking similar products based on multiple criteria.
+    Configurable ranking service that uses tenant-defined scoring criteria.
 
-    Scoring factors:
-    - Semantic similarity (from vector search)
-    - Product availability
-    - Product reputation/rating
+    Each tenant defines criteria like:
+        [{"name": "similarite", "weight": 0.5}, {"name": "note", "weight": 0.3}, ...]
 
-    Weights are configurable via settings.
+    The service computes:
+        score_final = SUM(criterion_value_i * weight_i)
     """
 
-    def __init__(
-        self,
-        similarity_weight: Optional[float] = None,
-        availability_weight: Optional[float] = None,
-        reputation_weight: Optional[float] = None,
-    ):
+    def __init__(self, scoring_criteria: List[Dict[str, Any]]):
         """
-        Initialize ranking service with configurable weights.
+        Initialize with tenant-specific scoring criteria.
 
         Args:
-            similarity_weight: Weight for semantic similarity (default: 0.6)
-            availability_weight: Weight for availability (default: 0.25)
-            reputation_weight: Weight for reputation (default: 0.15)
+            scoring_criteria: List of {"name": str, "weight": float} dicts
         """
-        self.similarity_weight = similarity_weight or settings.similarity_weight
-        self.availability_weight = availability_weight or settings.availability_weight
-        self.reputation_weight = reputation_weight or settings.reputation_weight
+        self.criteria = {c["name"]: c["weight"] for c in scoring_criteria}
 
-        # Normalize weights
-        total = self.similarity_weight + self.availability_weight + self.reputation_weight
-        if total != 1.0:
-            self.similarity_weight /= total
-            self.availability_weight /= total
-            self.reputation_weight /= total
+        # Normalize weights to sum to 1.0
+        total = sum(self.criteria.values())
+        if total > 0 and abs(total - 1.0) > 0.01:
+            self.criteria = {k: v / total for k, v in self.criteria.items()}
 
-        logger.info(
-            f"RankingService initialized with weights: "
-            f"similarity={self.similarity_weight:.2f}, "
-            f"availability={self.availability_weight:.2f}, "
-            f"reputation={self.reputation_weight:.2f}"
-        )
+        logger.info(f"RankingService initialized with criteria: {self.criteria}")
 
     def compute_final_score(
         self,
-        similarity_score: float,
-        availability: bool,
-        reputation: float,
-    ) -> float:
+        criterion_values: Dict[str, float],
+    ) -> tuple[float, Dict[str, float]]:
         """
-        Compute weighted final score for a product.
+        Compute weighted final score.
 
         Args:
-            similarity_score: Semantic similarity (0-1)
-            availability: Product availability (True/False)
-            reputation: Product reputation/rating (0-5 normalized to 0-1)
+            criterion_values: Dict mapping criterion name to its value (0-1)
 
         Returns:
-            Final weighted score (0-1)
+            Tuple of (final_score, score_details per criterion)
         """
-        availability_score = 1.0 if availability else 0.0
-        reputation_normalized = min(reputation / 5.0, 1.0) if reputation else 0.0
+        score_details = {}
+        final_score = 0.0
 
-        final_score = (
-            self.similarity_weight * similarity_score
-            + self.availability_weight * availability_score
-            + self.reputation_weight * reputation_normalized
-        )
+        for name, weight in self.criteria.items():
+            value = criterion_values.get(name, 0.0)
+            contribution = weight * value
+            score_details[name] = round(contribution, 4)
+            final_score += contribution
 
-        return round(final_score, 4)
+        return round(final_score, 4), score_details
 
     def rank_products(
         self,
         similar_products: List[SimilarProduct],
-        product_details: Dict[str, ProductDetails],
-        product_type: ProductType,
+        items_data: Dict[str, Dict[str, Any]],
     ) -> List[RankedProduct]:
         """
-        Rank similar products based on computed scores.
+        Rank similar products using tenant-defined criteria.
 
         Args:
             similar_products: List of similar products from vector search
-            product_details: Dict mapping product_id to ProductDetails
-            product_type: Type of products being ranked
+            items_data: Dict mapping item_id to its JSONB data
 
         Returns:
             Sorted list of RankedProduct objects
@@ -105,103 +80,61 @@ class RankingService:
         ranked_products = []
 
         for similar in similar_products:
-            details = product_details.get(similar.product_id)
+            item_data = items_data.get(similar.product_id, {})
 
-            if details is None:
-                logger.warning(f"No details found for product {similar.product_id}")
-                continue
+            # Build criterion values from item data
+            criterion_values = {}
+            for criterion_name in self.criteria:
+                if criterion_name == "similarite":
+                    criterion_values["similarite"] = similar.similarity_score
+                else:
+                    # Try to extract value from item data, normalize to 0-1
+                    raw_value = item_data.get(criterion_name)
+                    if raw_value is not None:
+                        criterion_values[criterion_name] = self._normalize_value(
+                            criterion_name, raw_value
+                        )
+                    else:
+                        criterion_values[criterion_name] = 0.0
 
-            # Get reputation from details
-            reputation = details.reputation or 0.0
-
-            # Compute final score
-            final_score = self.compute_final_score(
-                similarity_score=similar.similarity_score,
-                availability=details.disponible,
-                reputation=reputation,
-            )
+            final_score, score_details = self.compute_final_score(criterion_values)
 
             ranked_product = RankedProduct(
                 product_id=similar.product_id,
-                product_type=product_type,
                 similarity_score=round(similar.similarity_score, 4),
-                availability_score=1.0 if details.disponible else 0.0,
-                reputation_score=round(reputation / 5.0, 4) if reputation else 0.0,
                 final_score=final_score,
                 rank=0,  # Will be set after sorting
-                metadata=details.metadata,
+                score_details=score_details,
+                metadata=item_data,
             )
             ranked_products.append(ranked_product)
 
-        # Sort by final score (descending)
+        # Sort by final score descending
         ranked_products.sort(key=lambda x: x.final_score, reverse=True)
 
-        # Assign ranks (1-based)
+        # Assign 1-based ranks
         for i, product in enumerate(ranked_products):
             product.rank = i + 1
 
         logger.info(f"Ranked {len(ranked_products)} products")
         return ranked_products
 
-    def apply_availability_boost(
-        self, products: List[RankedProduct], boost_factor: float = 0.1
-    ) -> List[RankedProduct]:
+    @staticmethod
+    def _normalize_value(criterion_name: str, value: Any) -> float:
         """
-        Apply additional boost to available products.
-
-        Args:
-            products: List of ranked products
-            boost_factor: Additional score boost for available products
-
-        Returns:
-            Re-ranked products with availability boost
+        Normalize a raw value to 0-1 range.
+        Handles common criterion types.
         """
-        for product in products:
-            if product.availability_score == 1.0:
-                product.final_score = min(
-                    product.final_score + boost_factor, 1.0
-                )
+        if isinstance(value, bool):
+            return 1.0 if value else 0.0
 
-        # Re-sort and re-rank
-        products.sort(key=lambda x: x.final_score, reverse=True)
-        for i, product in enumerate(products):
-            product.rank = i + 1
+        if isinstance(value, (int, float)):
+            # Common patterns: note (0-5), prix (higher=worse), etc.
+            if "note" in criterion_name or "rating" in criterion_name:
+                return min(float(value) / 5.0, 1.0)
+            if "disponibilite" in criterion_name or "disponible" in criterion_name:
+                return 1.0 if value else 0.0
+            # Default: assume 0-1 already or cap at 1
+            return min(max(float(value), 0.0), 1.0)
 
-        return products
-
-    def filter_by_minimum_score(
-        self, products: List[RankedProduct], min_score: float = 0.3
-    ) -> List[RankedProduct]:
-        """
-        Filter out products below minimum score threshold.
-
-        Args:
-            products: List of ranked products
-            min_score: Minimum acceptable final score
-
-        Returns:
-            Filtered list of products
-        """
-        filtered = [p for p in products if p.final_score >= min_score]
-
-        # Re-rank after filtering
-        for i, product in enumerate(filtered):
-            product.rank = i + 1
-
-        logger.info(
-            f"Filtered from {len(products)} to {len(filtered)} products "
-            f"(min_score={min_score})"
-        )
-        return filtered
-
-
-# Singleton instance
-_ranking_service: Optional[RankingService] = None
-
-
-def get_ranking_service() -> RankingService:
-    """Get or create singleton ranking service instance."""
-    global _ranking_service
-    if _ranking_service is None:
-        _ranking_service = RankingService()
-    return _ranking_service
+        return 0.0

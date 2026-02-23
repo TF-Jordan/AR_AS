@@ -1,23 +1,23 @@
-from .engine import RecommendationEngine
+from .engine import RecommendationEngine, get_recommendation_engine
 from .cache import CacheManager, get_cache_manager
-from .embeddings import EmbeddingService
+from .embeddings import EmbeddingService, get_embedding_service
 from .vector_store import VectorStore, get_vector_store
 from .ranking import RankingService
 from .schemas import (
-    RecommendationRequest,
-    RecommendationResult,
+    SimilarProduct,
     RankedProduct,
 )
 
 __all__ = [
     "RecommendationEngine",
+    "get_recommendation_engine",
     "CacheManager",
-    "EmbeddingService",
-    "VectorStore",
-    "RankingService",
-    "RecommendationRequest",
-    "RecommendationResult",
-    "RankedProduct",
     "get_cache_manager",
-    "get_vector_store"
+    "EmbeddingService",
+    "get_embedding_service",
+    "VectorStore",
+    "get_vector_store",
+    "RankingService",
+    "SimilarProduct",
+    "RankedProduct",
 ]

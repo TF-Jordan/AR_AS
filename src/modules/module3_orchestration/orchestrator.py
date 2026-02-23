@@ -1,23 +1,24 @@
 """
-Main Orchestrator for the recommendation system.
+Main Orchestrator for the RaaS recommendation system.
 Coordinates the flow between Module 1 (Sentiment) and Module 2 (Recommendation).
+Multi-tenant aware.
 """
 
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.config.constants import ProductType
 from src.modules.module1_sentiment import (
     SentimentAnalyzer,
     SentimentInput,
 )
 from src.modules.module2_recommendation import (
     RecommendationEngine,
-    RecommendationRequest,
+    get_recommendation_engine,
     CacheManager,
+    get_cache_manager,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,12 +26,12 @@ logger = logging.getLogger(__name__)
 
 class Orchestrator:
     """
-    Main orchestrator coordinating the recommendation workflow.
+    Main orchestrator coordinating the multi-tenant recommendation workflow.
 
     Responsibilities:
     - Orchestrate Module 1 (sentiment) and Module 2 (recommendation)
-    - Manage data flow between modules
-    - Handle cache management
+    - Route requests to correct tenant data stores
+    - Manage cache per tenant
     """
 
     def __init__(
@@ -54,86 +55,70 @@ class Orchestrator:
     @property
     def recommendation_engine(self) -> RecommendationEngine:
         if self._recommendation_engine is None:
-            self._recommendation_engine = RecommendationEngine()
+            self._recommendation_engine = get_recommendation_engine()
         return self._recommendation_engine
 
     @property
     def cache_manager(self) -> CacheManager:
         if self._cache_manager is None:
-            from src.modules.module2_recommendation.cache import get_cache_manager
             self._cache_manager = get_cache_manager()
         return self._cache_manager
 
-    async def process_recommendation_request(
+    async def process_recommendation(
         self,
-        product_id: str,
-        client_id: str,
-        commentaire: str,
-        product_type: str,
+        tenant_slug: str,
+        query: str,
+        scoring_criteria: List[Dict[str, Any]],
         session: AsyncSession,
         top_k: int = 10,
+        client_id: str = "anonymous",
+        location: Optional[Dict[str, float]] = None,
     ) -> Dict[str, Any]:
         """
-        Process a complete recommendation request.
+        Process a complete recommendation request for a tenant.
 
         Flow:
-        1. Analyze sentiment (Module 1)
-        2. Generate recommendations (Module 2)
+        1. Analyze sentiment of query (Module 1)
+        2. Generate recommendations (Module 2) with tenant-specific scoring
         3. Return combined results
         """
-        logger.info(
-            f"Processing recommendation request: "
-            f"product={product_id}, client={client_id}"
-        )
+        logger.info(f"Processing recommendation: tenant={tenant_slug}")
 
         start_time = datetime.utcnow()
 
-        # Step 1: Sentiment Analysis (Module 1)
+        # Step 1: Sentiment Analysis
         sentiment_input = SentimentInput(
-            product_id=product_id,
+            product_id="query",
             client_id=client_id,
-            commentaire=commentaire,
-            product_type=product_type,
+            commentaire=query,
         )
         sentiment_result = self.sentiment_analyzer.analyze(sentiment_input)
+        sentiment_score = sentiment_result.sentiment_score
 
-        logger.info(
-            f"Sentiment analysis completed: score={sentiment_result.sentiment_score:.2f}"
-        )
+        logger.info(f"Sentiment analysis: score={sentiment_score:.2f}")
 
-        # Step 2: Recommendation (Module 2)
-        rec_request = RecommendationRequest(
-            client_id=client_id,
-            product_id=product_id,
-            sentiment_score=sentiment_result.sentiment_score,
-            product_type=ProductType(product_type),
+        # Step 2: Recommendation with tenant scoring
+        rec_result = await self.recommendation_engine.recommend(
+            tenant_slug=tenant_slug,
+            query=query,
+            scoring_criteria=scoring_criteria,
+            session=session,
             top_k=top_k,
+            sentiment_score=sentiment_score,
+            client_id=client_id,
+            location=location,
         )
-
-        rec_result = await self.recommendation_engine.recommend(rec_request, session)
 
         processing_time = (datetime.utcnow() - start_time).total_seconds()
 
-        return {
-            "status": "completed",
-            "processing_time_seconds": processing_time,
-            "sentiment": {
-                "score": sentiment_result.sentiment_score,
-                "label": sentiment_result.sentiment_label,
-                "confidence": sentiment_result.confidence,
-            },
-            "recommendations": rec_result.model_dump(),
-        }
+        rec_result["sentiment_query"] = sentiment_score
+        rec_result["sentiment_label"] = sentiment_result.sentiment_label
+        rec_result["temps_traitement_ms"] = round(processing_time * 1000, 2)
 
-    async def invalidate_product_cache(
-        self,
-        product_id: str,
-        product_type: str,
-    ) -> int:
-        return await self.cache_manager.invalidate(
-            product_id=product_id,
-            product_type=product_type,
-        )
+        return rec_result
+
+    async def invalidate_tenant_cache(self, tenant_slug: str) -> int:
+        return await self.cache_manager.invalidate_tenant(tenant_slug)
 
     async def health_check(self) -> Dict[str, Any]:
         from src.modules.module2_recommendation.vector_store import get_vector_store

@@ -1,12 +1,12 @@
 """
 Qdrant Vector Store for semantic search.
-Implements HNSW-based similarity search.
+Implements HNSW-based similarity search with multi-tenant support.
 """
 
 import logging
 import time
 from typing import Dict, List, Optional, Any
-from uuid import  uuid4
+from uuid import uuid4
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
@@ -19,7 +19,7 @@ from qdrant_client.http.models import (
 )
 
 from src.config import settings
-from src.config.constants import ProductType
+from src.config.constants import TENANT_SCHEMA_PREFIX
 from src.utils.context import get_correlation_id
 from .schemas import SimilarProduct
 
@@ -29,11 +29,7 @@ logger = logging.getLogger(__name__)
 class VectorStore:
     """
     Qdrant vector store for product embeddings.
-
-    Supports:
-    - Collection per product type
-    - HNSW-based similarity search
-    - Metadata storage with real_product_id mapping
+    Multi-tenant: each tenant gets its own collection (tenant_{slug}).
     """
 
     def __init__(
@@ -41,13 +37,6 @@ class VectorStore:
         host: Optional[str] = None,
         port: Optional[int] = None,
     ):
-        """
-        Initialize vector store connection.
-
-        Args:
-            host: Qdrant host
-            port: Qdrant port
-        """
         self.host = host or settings.qdrant_host
         self.port = port or settings.qdrant_port
         self._client: Optional[QdrantClient] = None
@@ -61,39 +50,34 @@ class VectorStore:
 
     @property
     def client(self) -> QdrantClient:
-        """Get Qdrant client."""
         if self._client is None:
             self.connect()
         return self._client
 
-    def _get_collection_name(self, product_type: ProductType) -> str:
-        """Get collection name for product type."""
-        return f"{product_type.value}s"
+    def _get_collection_name(self, tenant_slug: str) -> str:
+        """Get collection name for a tenant."""
+        return f"{TENANT_SCHEMA_PREFIX}{tenant_slug}"
 
-    async def create_collection(
-        self, product_type: ProductType, recreate: bool = False
-    ) -> bool:
+    def create_tenant_collection(self, tenant_slug: str, recreate: bool = False) -> bool:
         """
-        Create or recreate a collection.
+        Create a Qdrant collection for a tenant.
 
         Args:
-            product_type: Type of products for this collection
+            tenant_slug: Tenant slug identifier
             recreate: If True, delete existing collection first
 
         Returns:
             True if created successfully
         """
         self.connect()
-        collection_name = self._get_collection_name(product_type)
+        collection_name = self._get_collection_name(tenant_slug)
 
         try:
-            # Check if collection exists
             collections = self.client.get_collections().collections
             exists = any(c.name == collection_name for c in collections)
 
             if exists and recreate:
                 self.client.delete_collection(collection_name)
-                logger.info(f"Deleted existing collection: {collection_name}")
                 exists = False
 
             if not exists:
@@ -109,7 +93,7 @@ class VectorStore:
                         full_scan_threshold=10000,
                     ),
                 )
-                logger.info(f"Created collection: {collection_name}")
+                logger.info(f"Created tenant collection: {collection_name}")
 
             return True
 
@@ -117,55 +101,19 @@ class VectorStore:
             logger.error(f"Error creating collection {collection_name}: {e}")
             return False
 
-    def create_collection_sync(
-        self, product_type: ProductType, recreate: bool = False
-    ) -> bool:
-        """Synchronous version of create_collection."""
-        self.connect()
-        collection_name = self._get_collection_name(product_type)
-
-        try:
-            collections = self.client.get_collections().collections
-            exists = any(c.name == collection_name for c in collections)
-
-            if exists and recreate:
-                self.client.delete_collection(collection_name)
-                exists = False
-
-            if not exists:
-                self.client.create_collection(
-                    collection_name=collection_name,
-                    vectors_config=VectorParams(
-                        size=self.dimension,
-                        distance=Distance.COSINE,
-                    ),
-                    hnsw_config=HnswConfigDiff(
-                        m=16,
-                        ef_construct=100,
-                        full_scan_threshold=10000,
-                    ),
-                )
-                logger.info(f"Created collection: {collection_name}")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"Error creating collection: {e}")
-            return False
-
     def upsert_vector(
         self,
-        product_type: ProductType,
+        tenant_slug: str,
         real_product_id: str,
         vector: List[float],
         metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
-        Insert or update a single vector.
+        Insert or update a single vector in a tenant's collection.
 
         Args:
-            product_type: Type of product
-            real_product_id: PostgreSQL product ID
+            tenant_slug: Tenant slug
+            real_product_id: Item ID
             vector: Embedding vector
             metadata: Additional metadata
 
@@ -173,7 +121,7 @@ class VectorStore:
             Vector UUID in Qdrant
         """
         self.connect()
-        collection_name = self._get_collection_name(product_type)
+        collection_name = self._get_collection_name(tenant_slug)
         vector_id = str(uuid4())
 
         payload = {
@@ -192,26 +140,26 @@ class VectorStore:
             ],
         )
 
-        logger.debug(f"Upserted vector {vector_id} for product {real_product_id}")
+        logger.debug(f"Upserted vector {vector_id} for item {real_product_id} in {collection_name}")
         return vector_id
 
     def upsert_vectors_batch(
         self,
-        product_type: ProductType,
+        tenant_slug: str,
         items: List[Dict[str, Any]],
     ) -> int:
         """
-        Batch insert vectors.
+        Batch insert vectors for a tenant.
 
         Args:
-            product_type: Type of products
+            tenant_slug: Tenant slug
             items: List of dicts with 'real_product_id', 'vector', and optional 'metadata'
 
         Returns:
             Number of vectors inserted
         """
         self.connect()
-        collection_name = self._get_collection_name(product_type)
+        collection_name = self._get_collection_name(tenant_slug)
 
         points = []
         for item in items:
@@ -240,16 +188,16 @@ class VectorStore:
 
     def search(
         self,
-        product_type: ProductType,
+        tenant_slug: str,
         query_vector: List[float],
         top_k: int = 10,
         score_threshold: float = 0.0,
     ) -> List[SimilarProduct]:
         """
-        Search for similar products.
+        Search for similar items in a tenant's collection.
 
         Args:
-            product_type: Type of products to search
+            tenant_slug: Tenant slug
             query_vector: Query embedding vector
             top_k: Number of results to return
             score_threshold: Minimum similarity score
@@ -259,7 +207,7 @@ class VectorStore:
         """
         start_time = time.time()
         self.connect()
-        collection_name = self._get_collection_name(product_type)
+        collection_name = self._get_collection_name(tenant_slug)
 
         try:
             results = self.client.search(
@@ -287,7 +235,6 @@ class VectorStore:
 
             duration_ms = (time.time() - start_time) * 1000
 
-            # Log vector search metrics
             logger.info(
                 f"Vector search completed: {len(similar_products)} results",
                 extra={
@@ -295,7 +242,7 @@ class VectorStore:
                     "metric_type": "vector_search",
                     "operation": "search",
                     "collection": collection_name,
-                    "product_type": product_type.value,
+                    "tenant_slug": tenant_slug,
                     "query_limit": top_k,
                     "results_count": len(similar_products),
                     "score_threshold": score_threshold,
@@ -317,8 +264,6 @@ class VectorStore:
                 f"Vector search error: {e}",
                 extra={
                     "event": "vector_search_error",
-                    "metric_type": "vector_search",
-                    "operation": "search",
                     "collection": collection_name,
                     "error": str(e),
                     "duration_ms": round(duration_ms, 2),
@@ -328,20 +273,11 @@ class VectorStore:
             return []
 
     def delete_by_product_id(
-        self, product_type: ProductType, real_product_id: str
+        self, tenant_slug: str, real_product_id: str
     ) -> bool:
-        """
-        Delete vectors for a specific product.
-
-        Args:
-            product_type: Type of product
-            real_product_id: PostgreSQL product ID
-
-        Returns:
-            True if deleted successfully
-        """
+        """Delete vectors for a specific item in a tenant's collection."""
         self.connect()
-        collection_name = self._get_collection_name(product_type)
+        collection_name = self._get_collection_name(tenant_slug)
 
         try:
             self.client.delete(
@@ -357,17 +293,17 @@ class VectorStore:
                     )
                 ),
             )
-            logger.info(f"Deleted vectors for product {real_product_id}")
+            logger.info(f"Deleted vectors for item {real_product_id} in {collection_name}")
             return True
 
         except Exception as e:
             logger.error(f"Delete error: {e}")
             return False
 
-    def get_collection_info(self, product_type: ProductType) -> Dict[str, Any]:
-        """Get collection statistics."""
+    def get_collection_info(self, tenant_slug: str) -> Dict[str, Any]:
+        """Get collection statistics for a tenant."""
         self.connect()
-        collection_name = self._get_collection_name(product_type)
+        collection_name = self._get_collection_name(tenant_slug)
 
         try:
             info = self.client.get_collection(collection_name)
