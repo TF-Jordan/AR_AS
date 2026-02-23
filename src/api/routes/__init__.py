@@ -4,7 +4,6 @@ from .recommendations import router as recommendations_router
 from .sentiment import router as sentiment_router
 from .health import router as health_router
 from .admin import router as admin_router
-from .livreur_ranking import router as livreur_ranking_router
 
 api_router = APIRouter()
 
@@ -32,8 +31,3 @@ api_router.include_router(
     tags=["Administration"],
 )
 
-api_router.include_router(
-    livreur_ranking_router,
-    prefix="/livreur-ranking",
-    tags=["Livreur Ranking (Module 4)"],
-)

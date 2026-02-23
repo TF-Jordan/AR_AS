@@ -10,7 +10,7 @@ from typing import Optional
 class SentimentInput(BaseModel):
     """Input schema for sentiment analysis."""
 
-    product_id: str = Field(..., description="Product identifier (vehicle or livreur)")
+    product_id: str = Field(..., description="Product identifier (vehicle)")
     client_id: str = Field(..., description="Client identifier")
     commentaire: str = Field(..., description="Comment text to analyze")
     product_type: Optional[str] = Field(
