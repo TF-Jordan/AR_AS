@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.api.routes import api_router
 from src.api.middleware import CorrelationIdMiddleware
-from src.database.connection import close_database
+from src.database.connection import close_database, async_engine, Base
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+
+    # Create public tables (tenants) if they don't exist
+    from src.database.tenant_models import Tenant  # noqa: F401 - register model
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables verified/created")
+
     yield
     logger.info("Shutting down application...")
     await close_database()

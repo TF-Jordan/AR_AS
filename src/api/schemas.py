@@ -1,5 +1,6 @@
 """
 API schemas for request/response validation.
+Multi-tenant RaaS platform.
 """
 
 from datetime import datetime
@@ -7,56 +8,49 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from src.config.constants import ProductType
-
 
 # ==============================================================================
-# Request Schemas
+# Tenant API Request Schemas
 # ==============================================================================
 
-class RecommendationRequestSchema(BaseModel):
-    """Full recommendation request (sentiment + recommendation)."""
+class ImportItemsRequest(BaseModel):
+    """Import items into tenant's data store."""
 
-    product_id: str = Field(..., description="Product identifier")
-    client_id: str = Field(..., description="Client identifier")
-    commentaire: str = Field(
-        ..., min_length=1, description="Comment text to analyze"
+    items: List[Dict[str, Any]] = Field(
+        ..., min_length=1, max_length=1000,
+        description="List of items. Each item must have an 'id' field.",
     )
-    product_type: ProductType = Field(
-        ..., description="Type of product"
+    vectorize: bool = Field(
+        default=True,
+        description="Whether to generate embeddings and index in Qdrant",
+    )
+
+
+class RecommendationRequest(BaseModel):
+    """Recommendation request for a tenant."""
+
+    query: str = Field(
+        ..., min_length=1, max_length=2000,
+        description="User query / description of what they are looking for",
     )
     top_k: int = Field(
-        default=10, ge=1, le=100, description="Number of recommendations"
+        default=10, ge=1, le=100,
+        description="Number of recommendations to return",
     )
-
-
-class RecommendationOnlyRequest(BaseModel):
-    """Recommendation request with pre-computed sentiment score."""
-
-    product_id: str = Field(..., description="Product identifier")
-    client_id: str = Field(..., description="Client identifier")
-    sentiment_score: float = Field(
-        ..., ge=-1.0, le=1.0, description="Pre-computed sentiment score"
-    )
-    product_type: ProductType = Field(
-        ..., description="Type of product"
-    )
-    top_k: int = Field(
-        default=10, ge=1, le=100, description="Number of recommendations"
+    client_id: str = Field(
+        default="anonymous",
+        description="Client identifier for tracking",
     )
 
 
 class SentimentOnlyRequest(BaseModel):
     """Sentiment analysis request."""
 
-    product_id: str = Field(..., description="Product identifier")
-    client_id: str = Field(..., description="Client identifier")
     commentaire: str = Field(
         ..., min_length=1, description="Comment text to analyze"
     )
-    product_type: Optional[str] = Field(
-        default=None, description="Type of product (optional)"
-    )
+    product_id: str = Field(default="", description="Optional product identifier")
+    client_id: str = Field(default="anonymous", description="Client identifier")
 
 
 # ==============================================================================
@@ -77,35 +71,33 @@ class RankedProductResponse(BaseModel):
     """Individual ranked product in recommendation results."""
 
     product_id: str
-    product_type: str
     similarity_score: float
-    availability_score: float
-    reputation_score: float
     final_score: float
     rank: int
+    score_details: Dict[str, float] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class RecommendationResponse(BaseModel):
     """Recommendation results."""
 
-    client_id: str
-    reference_product_id: str
-    sentiment_score: float
-    product_type: str
+    status: str
+    tenant: str
     recommendations: List[RankedProductResponse]
     total_results: int
+    sentiment_query: float = 0.0
+    sentiment_label: Optional[str] = None
+    temps_traitement_ms: float = 0.0
     cached: bool = False
-    processed_at: Optional[datetime] = None
 
 
-class FullWorkflowResponse(BaseModel):
-    """Complete workflow response (sentiment + recommendations)."""
+class ImportResponse(BaseModel):
+    """Import items response."""
 
     status: str
-    processing_time_seconds: Optional[float] = None
-    sentiment: Optional[Dict[str, Any]] = None
-    recommendations: Optional[Dict[str, Any]] = None
+    items_imported: int
+    vectors_indexed: int
+    tenant: str
 
 
 class HealthResponse(BaseModel):

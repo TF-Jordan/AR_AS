@@ -33,7 +33,6 @@ async def analyze_sentiment(request: SentimentOnlyRequest):
             product_id=request.product_id,
             client_id=request.client_id,
             commentaire=request.commentaire,
-            product_type=request.product_type,
         )
 
         result = analyzer.analyze(input_data)
@@ -60,9 +59,7 @@ async def analyze_sentiment(request: SentimentOnlyRequest):
     description="Batch sentiment analysis for multiple comments.",
 )
 async def analyze_sentiment_batch(requests: list[SentimentOnlyRequest]):
-    """
-    Analyze sentiment for multiple comments in batch.
-    """
+    """Analyze sentiment for multiple comments in batch."""
     logger.info(f"Batch sentiment request: {len(requests)} items")
 
     try:
@@ -72,7 +69,6 @@ async def analyze_sentiment_batch(requests: list[SentimentOnlyRequest]):
                 product_id=req.product_id,
                 client_id=req.client_id,
                 commentaire=req.commentaire,
-                product_type=req.product_type,
             )
             for req in requests
         ]
