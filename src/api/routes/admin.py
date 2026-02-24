@@ -349,3 +349,169 @@ async def delete_tenant(
     tenant.status = "deleted"
     await session.flush()
     logger.info(f"Tenant deleted: {slug}")
+
+
+@router.post(
+    "/tenants/{slug}/regenerate-key",
+    response_model=TenantResponse,
+    summary="Regenerate tenant API key",
+    dependencies=[Depends(require_admin)],
+)
+async def regenerate_tenant_key(
+    slug: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Regenerate the API key for a tenant."""
+    result = await session.execute(
+        select(Tenant).where(Tenant.slug == slug, Tenant.status != "deleted")
+    )
+    tenant = result.scalar_one_or_none()
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant '{slug}' not found",
+        )
+
+    tenant.api_key = generate_api_key()
+    await session.flush()
+    logger.info(f"API key regenerated for tenant: {slug}")
+
+    return TenantResponse(
+        tenant_id=str(tenant.id),
+        name=tenant.name,
+        slug=tenant.slug,
+        domain=tenant.domain,
+        api_key=tenant.api_key,
+        status=tenant.status,
+        scoring_config=tenant.scoring_config,
+        created_at=tenant.created_at.isoformat(),
+        updated_at=tenant.updated_at.isoformat(),
+    )
+
+
+@router.get(
+    "/tenants/{slug}/stats",
+    summary="Get tenant statistics",
+    dependencies=[Depends(require_admin)],
+)
+async def get_tenant_stats(
+    slug: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get detailed statistics for a specific tenant (items, vectors, cache)."""
+    result = await session.execute(
+        select(Tenant).where(Tenant.slug == slug, Tenant.status != "deleted")
+    )
+    tenant = result.scalar_one_or_none()
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant '{slug}' not found",
+        )
+
+    tenant_manager = get_tenant_manager()
+    item_count = await tenant_manager.count_items(session, slug)
+
+    from src.modules.module2_recommendation import get_vector_store
+    vector_store = get_vector_store()
+    collection_info = vector_store.get_collection_info(slug)
+
+    return {
+        "tenant": slug,
+        "items_count": item_count,
+        "vectors_count": collection_info.get("vectors_count", 0),
+        "collection_status": collection_info.get("status", "unknown"),
+    }
+
+
+@router.get(
+    "/metrics",
+    summary="Platform metrics overview",
+    dependencies=[Depends(require_admin)],
+)
+async def get_platform_metrics(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get platform-wide metrics for the monitoring dashboard.
+    Returns active tenants count, total items, total vectors, and service health.
+    """
+    # Count active tenants
+    active_result = await session.execute(
+        select(func.count(Tenant.id)).where(Tenant.status == "active")
+    )
+    active_tenants = active_result.scalar() or 0
+
+    # Count total tenants (non-deleted)
+    total_result = await session.execute(
+        select(func.count(Tenant.id)).where(Tenant.status != "deleted")
+    )
+    total_tenants = total_result.scalar() or 0
+
+    # Get all active tenant slugs for aggregate stats
+    slugs_result = await session.execute(
+        select(Tenant.slug).where(Tenant.status == "active")
+    )
+    tenant_slugs = [row[0] for row in slugs_result.fetchall()]
+
+    # Aggregate item counts
+    tenant_manager = get_tenant_manager()
+    total_items = 0
+    total_vectors = 0
+    tenant_stats = []
+
+    from src.modules.module2_recommendation import get_vector_store
+    vector_store = get_vector_store()
+
+    for slug in tenant_slugs:
+        try:
+            items = await tenant_manager.count_items(session, slug)
+            collection_info = vector_store.get_collection_info(slug)
+            vectors = collection_info.get("vectors_count", 0)
+            total_items += items
+            total_vectors += vectors
+            tenant_stats.append({
+                "slug": slug,
+                "items_count": items,
+                "vectors_count": vectors,
+            })
+        except Exception as e:
+            logger.warning(f"Error getting stats for tenant {slug}: {e}")
+            tenant_stats.append({
+                "slug": slug,
+                "items_count": 0,
+                "vectors_count": 0,
+                "error": str(e),
+            })
+
+    # Service health
+    services = {}
+    try:
+        from src.modules.module2_recommendation.cache import get_cache_manager
+        cache = get_cache_manager()
+        services["redis"] = await cache.health_check()
+    except Exception:
+        services["redis"] = False
+
+    try:
+        services["qdrant"] = vector_store.health_check()
+    except Exception:
+        services["qdrant"] = False
+
+    try:
+        from sqlalchemy import text as sa_text
+        await session.execute(sa_text("SELECT 1"))
+        services["postgresql"] = True
+    except Exception:
+        services["postgresql"] = False
+
+    return {
+        "active_tenants": active_tenants,
+        "total_tenants": total_tenants,
+        "total_items": total_items,
+        "total_vectors": total_vectors,
+        "tenant_stats": tenant_stats,
+        "services": services,
+    }
