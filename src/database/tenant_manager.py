@@ -39,9 +39,12 @@ CREATE TABLE IF NOT EXISTS {schema_name}.reviews (
 )
 """
 
-CREATE_REVIEWS_INDEXES_SQL = """
-CREATE INDEX IF NOT EXISTS idx_{safe_slug}_reviews_item ON {schema_name}.reviews(item_id);
-CREATE INDEX IF NOT EXISTS idx_{safe_slug}_reviews_client ON {schema_name}.reviews(client_id);
+CREATE_REVIEWS_INDEX_ITEM_SQL = """
+CREATE INDEX IF NOT EXISTS idx_{safe_slug}_reviews_item ON {schema_name}.reviews(item_id)
+"""
+
+CREATE_REVIEWS_INDEX_CLIENT_SQL = """
+CREATE INDEX IF NOT EXISTS idx_{safe_slug}_reviews_client ON {schema_name}.reviews(client_id)
 """
 
 
@@ -84,7 +87,10 @@ class TenantManager:
             await session.execute(text(CREATE_SCHEMA_SQL.format(schema_name=schema_name)))
             await session.execute(text(CREATE_ITEMS_TABLE_SQL.format(schema_name=schema_name)))
             await session.execute(text(CREATE_REVIEWS_TABLE_SQL.format(schema_name=schema_name)))
-            await session.execute(text(CREATE_REVIEWS_INDEXES_SQL.format(
+            await session.execute(text(CREATE_REVIEWS_INDEX_ITEM_SQL.format(
+                schema_name=schema_name, safe_slug=safe_slug
+            )))
+            await session.execute(text(CREATE_REVIEWS_INDEX_CLIENT_SQL.format(
                 schema_name=schema_name, safe_slug=safe_slug
             )))
             await session.flush()
