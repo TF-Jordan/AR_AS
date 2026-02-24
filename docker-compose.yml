@@ -36,6 +36,7 @@ services:
       - REDIS_PORT=6379
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-admin_secret_change_me}
     depends_on:
       postgres:
         condition: service_healthy
