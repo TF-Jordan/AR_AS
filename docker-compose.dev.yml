@@ -1,0 +1,55 @@
+# ==============================================================================
+# Docker Compose DEV - Infrastructure only (no API, no frontend)
+# ==============================================================================
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# Then run backend & frontend locally:
+#   Terminal 1:  python main.py api
+#   Terminal 2:  cd frontend && npm run dev
+# ==============================================================================
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ar-as-postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-ar_as_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ar-as-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: ar-as-qdrant
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+volumes:
+  postgres-data:
+  redis-data:
+  qdrant-data:
