@@ -1,0 +1,1708 @@
+%!TEX encoding = UTF-8 Unicode
+%!TEX program = xelatex
+% ============================================================================
+%              RAPPORT DE TRANSFORMATION DU SYSTÈME Raas
+%          Vers une Plateforme Multi-Tenant de Recommandation
+%                     Design Professionnel Tech-Inspired
+% ============================================================================
+
+\documentclass[11pt,a4paper]{report}
+
+% ============================================================================
+%                              PACKAGES ESSENTIELS
+% ============================================================================
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+
+% Graphiques et médias
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption}
+
+% Mathématiques
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% Tableaux avancés
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{colortbl}
+\usepackage{multirow}
+
+% Listes
+\usepackage{enumitem}
+
+% TikZ pour graphiques vectoriels
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shadows, shapes.geometric, arrows.meta, fit, backgrounds, decorations.pathreplacing, patterns}
+
+% Stylisation avancée
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{fancyhdr}
+\usepackage{caption}
+
+% Boîtes colorées
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+% Polices et icônes
+\usepackage{fontawesome5}
+
+% Hyperliens
+\usepackage{hyperref}
+\usepackage{xurl}
+\Urlmuskip=0mu plus 1mu
+
+% ============================================================================
+%                         PALETTE DE COULEURS PREMIUM
+% ============================================================================
+
+\definecolor{raasPrimary}{RGB}{37, 99, 235}
+\definecolor{raasDark}{RGB}{30, 64, 175}
+\definecolor{raasLight}{RGB}{219, 234, 254}
+\definecolor{raasAccent}{RGB}{16, 185, 129}
+\definecolor{raasWarm}{RGB}{245, 158, 11}
+
+\definecolor{raasGray900}{RGB}{17, 24, 39}
+\definecolor{raasGray700}{RGB}{55, 65, 81}
+\definecolor{raasGray500}{RGB}{107, 114, 128}
+\definecolor{raasGray300}{RGB}{209, 213, 219}
+\definecolor{raasGray100}{RGB}{243, 244, 246}
+\definecolor{raasWhite}{RGB}{255, 255, 255}
+
+\definecolor{raasSuccess}{RGB}{34, 197, 94}
+\definecolor{raasWarning}{RGB}{234, 179, 8}
+\definecolor{raasError}{RGB}{239, 68, 68}
+
+% ============================================================================
+%                         CONFIGURATION DES HYPERLIENS
+% ============================================================================
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=raasDark,
+    urlcolor=raasPrimary,
+    citecolor=raasDark,
+    bookmarksnumbered=true
+}
+
+% ============================================================================
+%                         BOÎTES PERSONNALISÉES PREMIUM
+% ============================================================================
+
+\newtcolorbox{infobox}[1][]{
+    enhanced, breakable,
+    colback=raasLight,
+    colframe=raasPrimary,
+    boxrule=0pt, leftrule=4pt,
+    arc=0pt, outer arc=0pt,
+    left=12pt, right=12pt, top=10pt, bottom=10pt,
+    #1
+}
+
+\newtcolorbox{definitionbox}[1][]{
+    enhanced, breakable,
+    colback=raasGray100,
+    colframe=raasGray300,
+    fonttitle=\bfseries\sffamily,
+    title=#1,
+    boxrule=1pt, arc=6pt,
+    left=12pt, right=12pt, top=8pt, bottom=8pt,
+    attach boxed title to top left={yshift=-3mm, xshift=10pt},
+    boxed title style={colback=raasPrimary, arc=3pt}
+}
+
+\newtcolorbox{processbox}[1][]{
+    enhanced, breakable,
+    colback=raasWhite,
+    colframe=raasGray300,
+    boxrule=1pt, arc=8pt,
+    left=15pt, right=15pt, top=12pt, bottom=12pt,
+    shadow={2pt}{-2pt}{0pt}{raasGray300},
+    #1
+}
+
+\newtcolorbox{alertbox}[1][]{
+    enhanced, breakable,
+    colback=raasWarm!10,
+    colframe=raasWarm,
+    boxrule=0pt, leftrule=4pt,
+    arc=0pt, left=12pt, right=12pt, top=10pt, bottom=10pt,
+    #1
+}
+
+\newtcolorbox{successbox}[1][]{
+    enhanced, breakable,
+    colback=raasSuccess!10,
+    colframe=raasSuccess,
+    boxrule=0pt, leftrule=4pt,
+    arc=0pt, left=12pt, right=12pt, top=10pt, bottom=10pt,
+    #1
+}
+
+% ============================================================================
+%                         STYLE DES CHAPITRES - PREMIUM
+% ============================================================================
+
+\titleformat{\chapter}[display]
+    {\normalfont\huge\bfseries\sffamily}
+    {\begin{tikzpicture}[remember picture, overlay]
+        \fill[raasPrimary] (current page.north west) rectangle ([yshift=-3cm]current page.north east);
+        \fill[raasAccent] ([yshift=-3cm]current page.north west) rectangle ([yshift=-3.15cm]current page.north east);
+        \node[anchor=east, text=raasWhite, font=\fontsize{72}{80}\selectfont\bfseries\sffamily]
+            at ([xshift=-2cm, yshift=-1.5cm]current page.north east) {\thechapter};
+    \end{tikzpicture}}
+    {0pt}
+    {\vspace{2cm}\textcolor{raasDark}}
+    [\vspace{0.5cm}{\color{raasGray300}\titlerule[2pt]}]
+
+\titleformat{name=\chapter,numberless}[display]
+    {\normalfont\huge\bfseries\sffamily}
+    {\begin{tikzpicture}[remember picture, overlay]
+        \fill[raasPrimary] (current page.north west) rectangle ([yshift=-2cm]current page.north east);
+        \fill[raasAccent] ([yshift=-2cm]current page.north west) rectangle ([yshift=-2.1cm]current page.north east);
+    \end{tikzpicture}}
+    {0pt}
+    {\vspace{1cm}\textcolor{raasDark}}
+    [\vspace{0.5cm}{\color{raasGray300}\titlerule[2pt]}]
+
+\titlespacing*{\chapter}{0pt}{0pt}{40pt}
+
+% ============================================================================
+%                         STYLE DES SECTIONS
+% ============================================================================
+
+\titleformat{\section}
+    {\normalfont\Large\bfseries\sffamily\color{raasPrimary}}
+    {\colorbox{raasPrimary}{\textcolor{raasWhite}{\hspace{8pt}\thesection\hspace{8pt}}}\hspace{12pt}}
+    {0pt}{}
+    [{\color{raasGray300}\titlerule[1pt]}]
+\titlespacing*{\section}{0pt}{30pt}{15pt}
+
+\titleformat{\subsection}
+    {\normalfont\large\bfseries\sffamily\color{raasDark}}
+    {\textcolor{raasPrimary}{\thesubsection}\hspace{10pt}}
+    {0pt}{}
+\titlespacing*{\subsection}{0pt}{20pt}{10pt}
+
+\titleformat{\subsubsection}
+    {\normalfont\normalsize\bfseries\sffamily\color{raasGray700}}
+    {\textcolor{raasAccent}{\thesubsubsection}\hspace{8pt}}
+    {0pt}{}
+
+% ============================================================================
+%                         STYLE TABLE DES MATIÈRES
+% ============================================================================
+
+\renewcommand{\cfttoctitlefont}{\Huge\bfseries\sffamily\color{raasDark}}
+\renewcommand{\cftchapfont}{\bfseries\sffamily\color{raasPrimary}}
+\renewcommand{\cftchappagefont}{\bfseries\color{raasPrimary}}
+\renewcommand{\cftsecfont}{\sffamily\color{raasGray900}}
+\renewcommand{\cftsubsecfont}{\sffamily\color{raasGray500}}
+\setlength{\cftbeforechapskip}{12pt}
+\setlength{\cftbeforesecskip}{6pt}
+
+\renewcommand{\cftloftitlefont}{\Huge\bfseries\sffamily\color{raasDark}}
+\renewcommand{\cftfigfont}{\sffamily Figure }
+\renewcommand{\cftlottitlefont}{\Huge\bfseries\sffamily\color{raasDark}}
+\renewcommand{\cfttabfont}{\sffamily Tableau }
+
+% ============================================================================
+%                         STYLE DES LÉGENDES
+% ============================================================================
+
+\captionsetup{
+    labelfont={bf, sf, color=raasPrimary},
+    textfont={sf, color=raasGray700},
+    labelsep=period,
+    justification=centering,
+    font=small, skip=10pt
+}
+
+% ============================================================================
+%                         EN-TÊTES ET PIEDS DE PAGE
+% ============================================================================
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\sffamily\small\textcolor{raasGray500}{\leftmark}}
+\fancyhead[R]{\sffamily\small\textcolor{raasPrimary}{\textbf{Raas -- Transformation Multi-Tenant}}}
+\fancyfoot[C]{\begin{tikzpicture}[baseline]
+    \node[fill=raasPrimary, text=raasWhite, rounded corners=3pt, inner sep=5pt, font=\sffamily\small\bfseries] {\thepage};
+\end{tikzpicture}}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\headrule}{\vspace{2pt}{\color{raasGray300}\hrule height 1pt}\vspace{1pt}{\color{raasAccent}\hrule height 2pt width 0.3\textwidth}}
+
+\fancypagestyle{plain}{
+    \fancyhf{}
+    \fancyfoot[C]{\begin{tikzpicture}[baseline]
+        \node[fill=raasPrimary, text=raasWhite, rounded corners=3pt, inner sep=5pt, font=\sffamily\small\bfseries] {\thepage};
+    \end{tikzpicture}}
+    \renewcommand{\headrulewidth}{0pt}
+}
+
+% ============================================================================
+%                         LISTES PERSONNALISÉES
+% ============================================================================
+
+\setlist[itemize,1]{label=\textcolor{raasPrimary}{\faChevronRight}, leftmargin=*, itemsep=6pt}
+\setlist[itemize,2]{label=\textcolor{raasAccent}{$\circ$}, leftmargin=*, itemsep=4pt}
+\setlist[enumerate,1]{label=\protect\circlednum{\arabic*}, leftmargin=*, itemsep=8pt}
+
+\newcommand*\circlednum[1]{\tikz[baseline=(char.base)]{\node[shape=circle, fill=raasPrimary, text=raasWhite, inner sep=2pt, font=\sffamily\small\bfseries] (char) {#1};}}
+
+% ============================================================================
+%                         COMMANDES UTILITAIRES
+% ============================================================================
+
+\newcommand{\concept}[1]{\textcolor{raasPrimary}{\textbf{#1}}}
+\newcommand{\tech}[1]{\texttt{\textcolor{raasDark}{#1}}}
+\newcommand{\flowto}{\textcolor{raasAccent}{\faArrowRight}}
+\newcommand{\statusok}{\textcolor{raasSuccess}{\faCheckCircle}}
+\newcommand{\statuswarn}{\textcolor{raasWarning}{\faExclamationTriangle}}
+\newcommand{\statusno}{\textcolor{raasError}{\faTimesCircle}}
+
+\newcommand{\elegantsep}{\begin{center}\vspace{10pt}\textcolor{raasGray300}{\rule{0.2\textwidth}{0.5pt}\hspace{10pt}\textcolor{raasAccent}{\faDiamond}\hspace{10pt}\rule{0.2\textwidth}{0.5pt}}\vspace{10pt}\end{center}}
+
+% ============================================================================
+%                              DOCUMENT
+% ============================================================================
+
+\begin{document}
+
+% ============================================================================
+%                         PAGE DE TITRE
+% ============================================================================
+
+\begin{titlepage}
+    \begin{tikzpicture}[remember picture, overlay]
+        \fill[raasGray900] (current page.south west) rectangle (current page.north east);
+        \fill[raasPrimary, opacity=0.8] (current page.north west) -- ++(0,-8) -- ++(21,0) -- ++(0,8) -- cycle;
+        \fill[raasDark, opacity=0.9] (current page.north west) -- ++(0,-6) -- ++(15,0) -- ++(6,-2) -- ++(0,8) -- cycle;
+        \foreach \x/\y/\r/\o in {15/-5/3/0.1, 18/-8/2/0.15, 3/-12/4/0.08, 17/-18/2.5/0.12} {
+            \fill[raasAccent, opacity=\o] (\x,-\y) circle (\r);
+        }
+        \draw[raasAccent, line width=2pt, opacity=0.5] (0,-10) -- (21,-10);
+        \node[anchor=center] at (10.5,-4) {
+            \begin{tikzpicture}
+                \node[circle, fill=raasWhite, minimum size=3cm, opacity=0.1] {};
+                \node[circle, fill=raasAccent, minimum size=2cm, opacity=0.2] {};
+                \node[text=raasWhite, font=\fontsize{48}{50}\selectfont] {\faRocket};
+            \end{tikzpicture}
+        };
+        \node[anchor=center, text=raasWhite] at (10.5,-9) {
+            \begin{minipage}{16cm}
+                \centering
+                {\fontsize{14}{16}\selectfont\sffamily\textcolor{raasAccent}{RAPPORT DE TRANSFORMATION}}\\[0.8cm]
+                {\fontsize{60}{64}\selectfont\bfseries\sffamily Raas}\\[0.3cm]
+                {\fontsize{20}{24}\selectfont\sffamily Recommendation-as-a-Service}\\[1cm]
+                {\color{raasGray300}\rule{8cm}{1pt}}\\[1cm]
+                {\fontsize{18}{22}\selectfont\sffamily Transformation vers une Plateforme Multi-Tenant}
+            \end{minipage}
+        };
+        \node[anchor=south, text=raasWhite] at (10.5,-26) {
+            \begin{minipage}{16cm}
+                \centering
+                \begin{tikzpicture}
+                    \node[fill=raasGray700, rounded corners=8pt, inner sep=15pt] {
+                        \begin{tabular}{c@{\hspace{3cm}}c@{\hspace{3cm}}c}
+                            \textcolor{raasAccent}{\faUsers} & \textcolor{raasAccent}{\faCalendarAlt} & \textcolor{raasAccent}{\faMicrochip} \\[5pt]
+                            \textcolor{raasWhite}{\sffamily\small Équipe Raas} &
+                            \textcolor{raasWhite}{\sffamily\small Février 2026} &
+                            \textcolor{raasWhite}{\sffamily\small FastAPI \& IA}
+                        \end{tabular}
+                    };
+                \end{tikzpicture}
+            \end{minipage}
+        };
+    \end{tikzpicture}
+\end{titlepage}
+
+% ============================================================================
+%                              RÉSUMÉ EXÉCUTIF
+% ============================================================================
+
+\chapter*{Résumé Exécutif}
+\addcontentsline{toc}{chapter}{Résumé Exécutif}
+
+\begin{infobox}
+Ce document présente en détail la transformation du système \concept{Raas} d'un moteur de recommandation mono-domaine (spécialisé véhicules) en une plateforme \concept{Recommendation-as-a-Service (RaaS)} multi-tenant, capable de servir simultanément plusieurs domaines métier avec une isolation complète des données.
+\end{infobox}
+
+\vspace{0.5cm}
+
+Le système Raas actuel est un moteur de recommandation performant reposant sur l'intelligence artificielle, conçu à l'origine pour le domaine automobile. Cette spécialisation, bien qu'elle ait prouvé son efficacité, limite considérablement le potentiel commercial et technique de la plateforme à un seul cas d'usage.
+
+La transformation proposée vise à capitaliser sur les acquis technologiques existants --- notamment l'analyse de sentiment, la génération d'embeddings vectoriels et le moteur de scoring --- pour créer une plateforme universelle où chaque plateforme cliente (appelée \concept{tenant}) apporte ses propres données et configure ses propres critères de recommandation.
+
+\elegantsep
+
+Les axes majeurs de cette transformation sont :
+\begin{itemize}
+    \item \textbf{Suppression du couplage au domaine véhicules} et adoption d'un modèle générique
+    \item \textbf{Mise en place d'une authentification OAuth2} via Keycloak pour la gestion multi-tenant
+    \item \textbf{Isolation des données} par collections vectorielles dédiées par tenant
+    \item \textbf{Scoring entièrement configurable} par domaine métier
+    \item \textbf{Interface d'administration} moderne pour le pilotage de la plateforme
+    \item \textbf{Simplification de l'infrastructure} par la suppression des composants superflus
+\end{itemize}
+
+\begin{processbox}
+\textbf{\textcolor{raasPrimary}{\faTags\ Mots-clés :}} Raas, système de recommandation, architecture multi-tenant, intelligence artificielle, embeddings vectoriels, scoring personnalisable, OAuth2, Keycloak
+\end{processbox}
+
+% ============================================================================
+%                              TABLE DES MATIÈRES
+% ============================================================================
+
+\newpage
+\tableofcontents
+\newpage
+\listoffigures
+\newpage
+\listoftables
+
+% ============================================================================
+%                    CHAPITRE 1 : CONTEXTE ET PROBLÉMATIQUE
+% ============================================================================
+
+\chapter{Contexte et Problématique}
+
+\section{Le Système Raas Actuel}
+
+Le système \concept{Raas} est un moteur de recommandation basé sur l'intelligence artificielle, développé initialement pour le domaine de l'automobile. Il repose sur une architecture modulaire composée de quatre modules principaux, orchestrés autour d'une API centrale.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    module/.style={draw, rounded corners=8pt, fill=#1!20, minimum width=3.5cm, minimum height=1.5cm, align=center, font=\sffamily\small},
+    core/.style={draw, rounded corners=8pt, fill=raasPrimary!30, minimum width=5cm, minimum height=1.5cm, align=center, font=\sffamily\bfseries},
+    db/.style={draw, rounded corners=5pt, fill=raasAccent!20, minimum width=2.5cm, minimum height=1cm, align=center, font=\sffamily\footnotesize},
+    arrow/.style={-{Stealth}, thick, raasGray500}
+]
+    % API Core
+    \node[core] (api) at (0,0) {\faCogs\ API FastAPI};
+    
+    % Modules
+    \node[module=blue] (m1) at (-5,2.5) {\faSmile\ Module 1\\Analyse Sentiment};
+    \node[module=green] (m2) at (-1.7,2.5) {\faStar\ Module 2\\Recommandation};
+    \node[module=orange] (m3) at (1.7,2.5) {\faTasks\ Module 3\\Orchestration};
+    \node[module=purple] (m4) at (5,2.5) {\faTruck\ Module 4\\Classement Livreurs};
+    
+    % Bases de données
+    \node[db] (pg) at (-4,-2) {\faDatabase\ PostgreSQL\\230 colonnes véhicules};
+    \node[db] (qd) at (0,-2) {\faDatabase\ Qdrant\\Collection unique};
+    \node[db] (rd) at (4,-2) {\faDatabase\ Redis\\Cache global};
+    
+    % Flèches
+    \draw[arrow] (m1) -- (api);
+    \draw[arrow] (m2) -- (api);
+    \draw[arrow] (m3) -- (api);
+    \draw[arrow] (m4) -- (api);
+    \draw[arrow] (api) -- (pg);
+    \draw[arrow] (api) -- (qd);
+    \draw[arrow] (api) -- (rd);
+\end{tikzpicture}
+\caption{Architecture actuelle du système Raas --- mono-domaine véhicules}
+\label{fig:archi-actuelle}
+\end{figure}
+
+\subsection{Les Quatre Modules Existants}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}\centering}p{2cm}>{\bfseries}p{3.5cm}X}
+\toprule
+\textbf{Module} & \textbf{Nom} & \textbf{Rôle} \\
+\midrule
+1 & Analyse de Sentiment & Analyse les avis et commentaires des utilisateurs pour en extraire le sentiment (positif, négatif, neutre) à l'aide d'un modèle d'IA francophone \\
+2 & Recommandation & Génère des recommandations de véhicules en combinant recherche vectorielle et scoring multicritère \\
+3 & Orchestration & Coordonne les tâches asynchrones via Celery (file d'attente de tâches) \\
+4 & Classement Livreurs & Évalue et classe les livreurs selon une matrice de décision multicritère (méthode TOPSIS) \\
+\bottomrule
+\end{tabularx}
+\caption{Les quatre modules du système Raas actuel}
+\label{tab:modules-actuels}
+\end{table}
+
+\section{Limitations Identifiées}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}\centering}p{1cm}p{3.5cm}X}
+\toprule
+& \textbf{Limitation} & \textbf{Impact sur le système} \\
+\midrule
+\statusno & Couplage au domaine véhicules & La base de données, les modèles, les routes API et le scoring sont tous rigidement liés au domaine automobile, rendant toute adaptation à un autre secteur quasi impossible sans réécriture complète \\
+\statusno & Infrastructure surdimensionnée & La pile ELK (Elasticsearch, Logstash, Kibana) et Celery ajoutent une complexité opérationnelle considérable pour un bénéfice limité \\
+\statusno & Absence de multi-tenant & Impossible de servir plusieurs plateformes clientes simultanément avec isolation des données \\
+\statusno & Authentification basique & Le système JWT actuel ne supporte pas la gestion fine des droits par plateforme \\
+\statusno & Scoring figé & Les critères et poids de recommandation sont définis dans le code, sans possibilité de personnalisation \\
+\bottomrule
+\end{tabularx}
+\caption{Limitations critiques du système actuel}
+\label{tab:limitations}
+\end{table}
+
+\begin{alertbox}
+\textbf{\faLightbulb\ Analogie :} Le système actuel est comme un restaurant qui ne sert que des pizzas. Si un client veut des sushis, il faut construire un restaurant entièrement nouveau. L'objectif est de transformer ce restaurant en une cuisine professionnelle capable de préparer n'importe quel plat selon les recettes de chaque client.
+\end{alertbox}
+
+% ============================================================================
+%                    CHAPITRE 2 : VISION ET OBJECTIFS
+% ============================================================================
+
+\chapter{Vision et Objectifs de la Transformation}
+
+\section{La Vision : Recommendation-as-a-Service}
+
+La transformation vise à faire évoluer Raas d'un outil spécialisé en une \concept{plateforme de service universelle}. Dans ce nouveau paradigme, les plateformes clientes apportent leurs propres données (``Bring Your Own Data'') et Raas fournit uniquement l'intelligence de recommandation.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    platform/.style={draw, rounded corners=8pt, fill=#1!15, minimum width=3.2cm, minimum height=2cm, align=center, font=\sffamily\small, text width=2.8cm},
+    raas/.style={draw, rounded corners=10pt, fill=raasPrimary!15, minimum width=14cm, minimum height=4cm, align=center},
+    service/.style={draw, rounded corners=6pt, fill=raasPrimary!25, minimum width=2.8cm, minimum height=1.2cm, align=center, font=\sffamily\footnotesize},
+    arrow/.style={-{Stealth}, thick, raasGray500},
+    bigarrow/.style={-{Stealth}, line width=2pt, raasPrimary}
+]
+    % Plateformes clientes
+    \node[platform=blue] (p1) at (-5,4) {\faBuilding\\[3pt]\textbf{Immobilier Pro}\\Appartements\\Maisons};
+    \node[platform=orange] (p2) at (-1.7,4) {\faShoppingCart\\[3pt]\textbf{AutoMarket}\\Voitures\\Motos};
+    \node[platform=green] (p3) at (1.7,4) {\faUtensils\\[3pt]\textbf{FoodieApp}\\Restaurants\\Menus};
+    \node[platform=purple] (p4) at (5,4) {\faTshirt\\[3pt]\textbf{ModaShop}\\Vêtements\\Accessoires};
+    
+    % Flèches descendantes
+    \node[font=\sffamily\footnotesize, raasGray500] at (0,2.8) {Descriptions produits (JSON) + Requêtes};
+    \draw[bigarrow] (-5,2.8) -- (-5,1.8);
+    \draw[bigarrow] (-1.7,2.8) -- (-1.7,1.8);
+    \draw[bigarrow] (1.7,2.8) -- (1.7,1.8);
+    \draw[bigarrow] (5,2.8) -- (5,1.8);
+    
+    % Raas
+    \node[raas] at (0,0) {};
+    \node[font=\sffamily\Large\bfseries, raasDark] at (0,1.3) {\faRocket\ Plateforme Raas};
+    
+    \node[service] (s1) at (-4.5,-0.3) {\faShieldAlt\ Keycloak\\Authentification};
+    \node[service] (s2) at (-1.5,-0.3) {\faBrain\ FastAPI\\Moteur IA};
+    \node[service] (s3) at (1.5,-0.3) {\faDatabase\ Qdrant\\Vecteurs};
+    \node[service] (s4) at (4.5,-0.3) {\faCog\ PostgreSQL\\Configs};
+\end{tikzpicture}
+\caption{Vision de la plateforme Raas --- modèle ``Bring Your Own Data''}
+\label{fig:vision-raas}
+\end{figure}
+
+\section{Objectifs Stratégiques}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\centering}p{1.5cm}>{\columncolor{raasLight}\bfseries}p{3.5cm}X}
+\toprule
+\textbf{Icône} & \textbf{Objectif} & \textbf{Description} \\
+\midrule
+\faGlobe & Universalité & Raas doit pouvoir servir n'importe quel domaine métier sans modification de son noyau \\
+\faLock & Isolation & Chaque tenant dispose de son propre espace de données, totalement cloisonné \\
+\faSlidersH & Personnalisation & Les critères de scoring sont configurables par chaque tenant via une interface visuelle \\
+\faTachometerAlt & Performance & Temps de réponse inférieur à 50ms en cache et inférieur à 200ms hors cache \\
+\faExpandArrowsAlt & Scalabilité & Support de plus de 10 tenants simultanés dès la première version \\
+\faShieldAlt & Sécurité & Authentification OAuth2 standard avec Keycloak, limitation de débit par tenant \\
+\bottomrule
+\end{tabularx}
+\caption{Objectifs stratégiques de la transformation}
+\label{tab:objectifs}
+\end{table}
+
+\section{Concept de Tenant}
+
+\begin{definitionbox}[Qu'est-ce qu'un Tenant ?]
+Un \concept{tenant} (littéralement ``locataire'') représente une plateforme cliente qui utilise les services de Raas. Chaque tenant :
+\begin{itemize}
+    \item Possède un identifiant unique (ex : \textit{immopro\_123})
+    \item Gère ses propres données produits dans sa base de données
+    \item Envoie les descriptions de ses produits à Raas pour indexation
+    \item Configure ses propres critères et poids de recommandation
+    \item Est facturé selon son utilisation (quota de requêtes)
+\end{itemize}
+\end{definitionbox}
+
+\begin{successbox}
+\textbf{\faLightbulb\ Analogie de l'Hôtel :} Raas fonctionne comme un hôtel de luxe. Chaque tenant est un client avec sa propre chambre (espace de données), sa propre clé (authentification), et ses propres préférences (scoring). Le personnel de l'hôtel (les modules IA) sert tous les clients avec la même qualité, mais de manière personnalisée.
+\end{successbox}
+
+% ============================================================================
+%                    CHAPITRE 3 : ANALYSE COMPARATIVE
+% ============================================================================
+
+\chapter{Analyse Comparative : Avant et Après}
+
+\section{Composants Conservés}
+
+Plusieurs composants du système actuel sont suffisamment génériques pour être réutilisés directement ou avec des adaptations mineures.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}}p{3.5cm}cp{2.5cm}X}
+\toprule
+\textbf{Composant} & \textbf{Statut} & \textbf{Modifications} & \textbf{Justification} \\
+\midrule
+Module 1 -- Sentiment & \statusok & Aucune & Déjà complètement générique, fonctionne sur tout type de texte \\
+API FastAPI & \statusok & Refactorisation & Le cœur de l'API est conservé, seul le middleware d'authentification est modifié \\
+Redis & \statusok & Gestion quotas & Ajout de la gestion des quotas et du cache par tenant \\
+Qdrant & \statusok & Collections multiples & Passage d'une collection unique à une collection par tenant \\
+Module 4 -- Livreurs & \statusok & Isolation & Module indépendant conservé tel quel avec son API dédiée \\
+Infrastructure Docker & \statusok & Adaptation & Ajout de Keycloak, suppression des services inutiles \\
+\bottomrule
+\end{tabularx}
+\caption{Composants conservés et leurs adaptations}
+\label{tab:conserves}
+\end{table}
+
+\section{Composants Transformés}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}}p{2.5cm}p{4cm}X}
+\toprule
+\textbf{Composant} & \textbf{Avant} & \textbf{Après} \\
+\midrule
+PostgreSQL & Stocke les fiches véhicules (230 colonnes) & Stocke uniquement les configurations des tenants et les poids de scoring \\
+Qdrant & Une seule collection ``vehicles'' & Une collection dédiée par tenant (ex : tenant\_immopro\_123) \\
+Authentification & JWT basique sans gestion de rôles & OAuth2 complet avec Keycloak, gestion multi-tenant native \\
+Limitation de débit & Limite globale de 100 requêtes/minute & Quotas différenciés par tenant, configurables individuellement \\
+Scoring & Critères et poids définis dans le code source & Critères entièrement configurables via une interface d'administration \\
+Module 2 & Fortement couplé au domaine véhicules & Moteur générique acceptant tout type de données \\
+\bottomrule
+\end{tabularx}
+\caption{Évolution des composants transformés}
+\label{tab:transformes}
+\end{table}
+
+\section{Composants Supprimés}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasError!10}}p{3.5cm}X}
+\toprule
+\textbf{Composant supprimé} & \textbf{Raison de la suppression} \\
+\midrule
+Celery + Workers & Le traitement asynchrone natif de FastAPI est suffisant pour les besoins actuels \\
+Celery Beat & Aucune tâche récurrente ne justifie ce composant \\
+Flower & Outil de monitoring lié à Celery, supprimé avec celui-ci \\
+Pile ELK complète & Elasticsearch, Kibana, Logstash, Filebeat et Metricbeat sont remplacés par un tableau de bord intégré plus simple \\
+Modèle Véhicule & Le stockage des données produits incombe désormais aux plateformes clientes \\
+Scripts véhicules & Tous les scripts d'initialisation spécifiques au domaine automobile sont supprimés \\
+\bottomrule
+\end{tabularx}
+\caption{Composants supprimés et justifications}
+\label{tab:supprimes}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    kept/.style={draw, rounded corners, fill=raasSuccess!20, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\sffamily\footnotesize},
+    changed/.style={draw, rounded corners, fill=raasWarm!20, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\sffamily\footnotesize},
+    removed/.style={draw, rounded corners, fill=raasError!20, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\sffamily\footnotesize},
+    new/.style={draw, rounded corners, fill=raasPrimary!20, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\sffamily\footnotesize},
+    legend/.style={font=\sffamily\footnotesize}
+]
+    % Légende
+    \node[kept] at (-5, 3.5) {Conservé};
+    \node[changed] at (-2, 3.5) {Transformé};
+    \node[removed] at (1, 3.5) {Supprimé};
+    \node[new] at (4, 3.5) {Nouveau};
+    
+    % Conservés
+    \node[kept] at (-5, 2) {Module 1 Sentiment};
+    \node[kept] at (-5, 1) {Module 4 Livreurs};
+    \node[kept] at (-5, 0) {FastAPI Core};
+    
+    % Transformés
+    \node[changed] at (-1.5, 2) {Module 2 Reco};
+    \node[changed] at (-1.5, 1) {PostgreSQL};
+    \node[changed] at (-1.5, 0) {Qdrant};
+    \node[changed] at (-1.5, -1) {Redis};
+    
+    % Supprimés
+    \node[removed] at (2, 2) {Celery};
+    \node[removed] at (2, 1) {Pile ELK};
+    \node[removed] at (2, 0) {Modèle Véhicule};
+    
+    % Nouveaux
+    \node[new] at (5.5, 2) {Keycloak};
+    \node[new] at (5.5, 1) {Frontend Next.js};
+    \node[new] at (5.5, 0) {Rate Limiter};
+    \node[new] at (5.5, -1) {Config Scoring};
+\end{tikzpicture}
+\caption{Vue d'ensemble des changements par catégorie}
+\label{fig:vue-changements}
+\end{figure}
+
+% ============================================================================
+%                    CHAPITRE 4 : ARCHITECTURE CIBLE
+% ============================================================================
+
+\chapter{Architecture Technique Cible}
+
+\section{Vue d'Ensemble}
+
+L'architecture cible de Raas s'articule autour de six composants principaux, chacun jouant un rôle précis dans la chaîne de traitement des recommandations.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    client/.style={draw, rounded corners, fill=raasLight, minimum width=1.8cm, minimum height=1cm, align=center, font=\sffamily\footnotesize},
+    gateway/.style={draw, rounded corners=8pt, fill=raasWarm!25, minimum width=12cm, minimum height=1.3cm, align=center, font=\sffamily\small\bfseries},
+    module/.style={draw, rounded corners=6pt, fill=raasPrimary!20, minimum width=3.2cm, minimum height=1.8cm, align=center, font=\sffamily\small},
+    storage/.style={draw, rounded corners=6pt, fill=raasAccent!20, minimum width=3.2cm, minimum height=1.3cm, align=center, font=\sffamily\small},
+    frontend/.style={draw, rounded corners=6pt, fill=raasPrimary!10, minimum width=3.2cm, minimum height=1.3cm, align=center, font=\sffamily\small},
+    arrow/.style={-{Stealth}, thick, raasGray500}
+]
+    % Plateformes clientes
+    \node[client] (c1) at (-4.5,5) {\faBuilding\\Immo};
+    \node[client] (c2) at (-1.5,5) {\faCarSide\\Auto};
+    \node[client] (c3) at (1.5,5) {\faUtensils\\Food};
+    \node[client] (c4) at (4.5,5) {\faStore\\Shop};
+    
+    % Auth + Gateway
+    \node[gateway] (auth) at (0,3.3) {\faShieldAlt\ Keycloak OAuth2 + Passerelle API};
+    
+    % Modules métier
+    \node[module] (m1) at (-4.5,1) {\faSmile\ Analyseur\\de Sentiment\\(Module 1)};
+    \node[module] (m2) at (0,1) {\faBrain\ Moteur de\\Recommandation\\(Module 2)};
+    \node[module] (m3) at (4.5,1) {\faTruck\ Classement\\Livreurs\\(Module 4)};
+    
+    % Stockage
+    \node[storage] (s1) at (-4.5,-1.5) {\faDatabase\ Qdrant\\Collections Tenant};
+    \node[storage] (s2) at (0,-1.5) {\faDatabase\ PostgreSQL\\Configs Tenants};
+    \node[storage] (s3) at (4.5,-1.5) {\faDatabase\ Redis\\Cache + Quotas};
+    
+    % Frontend
+    \node[frontend] (fe) at (0,-3.3) {\faDesktop\ Frontend Next.js -- Dashboard Administration};
+    
+    % Flèches
+    \foreach \c in {c1,c2,c3,c4} {\draw[arrow] (\c) -- (auth);}
+    \draw[arrow] (auth) -- (m1);
+    \draw[arrow] (auth) -- (m2);
+    \draw[arrow] (auth) -- (m3);
+    \draw[arrow] (m1) -- (s1);
+    \draw[arrow] (m2) -- (s2);
+    \draw[arrow] (m2) -- (s1);
+    \draw[arrow] (m3) -- (s3);
+    \draw[arrow] (fe) -- (s2);
+\end{tikzpicture}
+\caption{Architecture technique cible de la plateforme Raas}
+\label{fig:archi-cible}
+\end{figure}
+
+\section{Description des Composants}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}\centering}p{1cm}>{\bfseries}p{2.8cm}p{3.5cm}X}
+\toprule
+& \textbf{Composant} & \textbf{Technologie} & \textbf{Rôle dans le système} \\
+\midrule
+\faShieldAlt & Authentification & Keycloak 25.x & Gère l'identité des tenants, délivre des jetons d'accès sécurisés et vérifie les permissions \\
+\faBrain & API Backend & FastAPI (Python) & Point d'entrée unique pour toutes les requêtes, orchestre les modules et gère le routage \\
+\faDatabase & Stockage vectoriel & Qdrant 1.7.4 & Stocke les embeddings des produits de chaque tenant dans des collections isolées \\
+\faDatabase & Configuration & PostgreSQL 15+ & Stocke les informations des tenants, leurs configurations de scoring et quotas \\
+\faMemory & Cache & Redis 7.1 & Met en cache les résultats fréquents et gère la limitation de débit par tenant \\
+\faDesktop & Administration & Next.js 14+ & Interface web pour créer des tenants, configurer le scoring et surveiller les métriques \\
+\bottomrule
+\end{tabularx}
+\caption{Description détaillée des composants de l'architecture cible}
+\label{tab:composants-cible}
+\end{table}
+
+\section{Pile Technologique Complète}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}\bfseries}p{3cm}p{3.5cm}X}
+\toprule
+\textbf{Catégorie} & \textbf{Technologie} & \textbf{Usage} \\
+\midrule
+\multirow{3}{*}{Backend} & FastAPI 0.116+ & Serveur API principal \\
+ & Python 3.11+ & Langage de programmation \\
+ & Pydantic 2.11+ & Validation des données entrantes \\
+\midrule
+\multirow{2}{*}{Authentification} & Keycloak 25.x & Serveur d'authentification OAuth2 \\
+ & OAuth2 + OIDC & Standards de sécurité \\
+\midrule
+\multirow{2}{*}{Intelligence Artificielle} & distil-camembert & Analyse de sentiment (français) \\
+ & mpnet-base-v2 & Génération d'embeddings (768 dimensions) \\
+\midrule
+\multirow{3}{*}{Frontend} & Next.js 14+ & Framework web avec rendu côté serveur \\
+ & TypeScript & Typage statique pour la fiabilité \\
+ & Shadcn/ui & Bibliothèque de composants visuels \\
+\midrule
+Infrastructure & Docker Compose & Orchestration de tous les services \\
+\bottomrule
+\end{tabularx}
+\caption{Pile technologique complète de Raas}
+\label{tab:stack}
+\end{table}
+
+% ============================================================================
+%                    CHAPITRE 5 : MOTEUR DE RECOMMANDATION
+% ============================================================================
+
+\chapter{Le Moteur de Recommandation Multi-Tenant}
+
+\section{Principe de Fonctionnement}
+
+Le cœur de Raas est son moteur de recommandation. Dans la version multi-tenant, ce moteur devient complètement agnostique du domaine métier : il travaille uniquement avec des descriptions textuelles et des métadonnées numériques, sans aucune connaissance du type de produit traité.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    step/.style={draw, rounded corners=5pt, fill=#1, minimum width=3.2cm, minimum height=1.3cm, align=center, font=\sffamily\small, text=white},
+    arrow/.style={-{Stealth}, thick, raasGray500},
+    label/.style={font=\sffamily\footnotesize, raasGray700}
+]
+    \node[step=raasPrimary] (e1) at (0,0) {\faComment\ Requête\\utilisateur};
+    \node[step=raasDark] (e2) at (4.5,0) {\faBrain\ Génération\\embedding};
+    \node[step=raasAccent] (e3) at (9,0) {\faSearch\ Recherche\\vectorielle};
+    \node[step=raasPrimary] (e4) at (0,-3) {\faFilter\ Filtrage\\métadonnées};
+    \node[step=raasDark] (e5) at (4.5,-3) {\faCalculator\ Scoring\\personnalisé};
+    \node[step=raasAccent] (e6) at (9,-3) {\faStar\ Résultats\\classés};
+    
+    \draw[arrow] (e1) -- node[above, label] {\circlednum{1}} (e2);
+    \draw[arrow] (e2) -- node[above, label] {\circlednum{2}} (e3);
+    \draw[arrow] (e3) -- (9,-1.5) -- (0,-1.5) -- node[left, label] {\circlednum{3}} (e4);
+    \draw[arrow] (e4) -- node[above, label] {\circlednum{4}} (e5);
+    \draw[arrow] (e5) -- node[above, label] {\circlednum{5}} (e6);
+\end{tikzpicture}
+\caption{Flux de traitement d'une recommandation dans Raas}
+\label{fig:flux-reco}
+\end{figure}
+
+\subsection{Détail des Étapes}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{>{\centering}p{1cm}>{\columncolor{raasLight}\bfseries}p{3cm}X}
+\toprule
+\textbf{N°} & \textbf{Étape} & \textbf{Description détaillée} \\
+\midrule
+\circlednum{1} & Requête utilisateur & Le tenant envoie une requête textuelle (ex : ``Appartement lumineux avec balcon à Paris''), accompagnée du nombre de résultats souhaités et de filtres optionnels \\
+\circlednum{2} & Génération d'embedding & Le texte de la requête est transformé en un vecteur de 768 nombres décimaux grâce au modèle d'IA. Ce vecteur capture le sens sémantique du texte \\
+\circlednum{3} & Recherche vectorielle & Le système recherche dans la collection Qdrant du tenant les 100 produits dont les vecteurs sont les plus proches de celui de la requête \\
+\circlednum{4} & Filtrage & Les résultats sont filtrés selon les critères optionnels (prix maximum, catégorie, localisation, etc.) \\
+\circlednum{5} & Scoring personnalisé & Chaque résultat reçoit un score final calculé selon les poids configurés par le tenant \\
+\bottomrule
+\end{tabularx}
+\caption{Description détaillée des étapes du flux de recommandation}
+\label{tab:etapes-reco}
+\end{table}
+
+\section{Le Concept d'Embedding Vectoriel}
+
+\begin{infobox}
+\textbf{\faInfoCircle\ Explication simplifiée :} Un \concept{embedding} est une ``empreinte digitale numérique'' d'un texte. Tout comme deux empreintes digitales de jumeaux se ressemblent, les embeddings de deux textes parlant de sujets similaires seront proches mathématiquement. Cette proximité permet au système de trouver des produits pertinents même si les mots exacts diffèrent.
+\end{infobox}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    box/.style={draw, rounded corners, fill=raasLight, minimum width=5cm, minimum height=0.8cm, align=center, font=\sffamily\small},
+    vec/.style={draw, rounded corners, fill=raasAccent!20, minimum width=5cm, minimum height=0.8cm, align=center, font=\sffamily\small},
+    arrow/.style={-{Stealth}, thick, raasPrimary}
+]
+    \node[box] (t1) at (0,2) {``Appartement lumineux Paris''};
+    \node[vec] (v1) at (8,2) {[0.82, 0.15, 0.67, 0.31, ...]};
+    \draw[arrow] (t1) -- node[above, font=\sffamily\footnotesize] {Modèle IA} (v1);
+    
+    \node[box] (t2) at (0,0) {``Logement clair en Île-de-France''};
+    \node[vec] (v2) at (8,0) {[0.79, 0.18, 0.64, 0.28, ...]};
+    \draw[arrow] (t2) -- node[above, font=\sffamily\footnotesize] {Modèle IA} (v2);
+    
+    \node[font=\sffamily\small, raasAccent] at (12,1) {\faSyncAlt\ Proches !};
+    
+    \node[box] (t3) at (0,-2) {``Pizza quatre fromages''};
+    \node[vec] (v3) at (8,-2) {[0.12, 0.91, 0.03, 0.85, ...]};
+    \draw[arrow] (t3) -- node[above, font=\sffamily\footnotesize] {Modèle IA} (v3);
+    
+    \node[font=\sffamily\small, raasError] at (12,-0.5) {\faTimesCircle\ Éloigné};
+\end{tikzpicture}
+\caption{Principe de similarité sémantique via les embeddings}
+\label{fig:embeddings}
+\end{figure}
+
+\section{Isolation des Collections Vectorielles}
+
+Dans le système multi-tenant, chaque tenant dispose de sa propre collection dans la base vectorielle Qdrant. Cette isolation garantit qu'aucun tenant ne peut accéder aux données d'un autre.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    collection/.style={draw, rounded corners=8pt, fill=#1!15, minimum width=3.5cm, minimum height=2.5cm, align=center, font=\sffamily\small},
+    title/.style={font=\sffamily\small\bfseries, raasDark},
+    item/.style={font=\sffamily\footnotesize, raasGray700}
+]
+    % Container Qdrant
+    \node[draw, rounded corners=10pt, fill=raasGray100, minimum width=14cm, minimum height=4.5cm] at (0,0) {};
+    \node[font=\sffamily\bfseries, raasDark] at (0,1.8) {\faDatabase\ Base Vectorielle Qdrant};
+    
+    \node[collection=blue] at (-4.5,-0.2) {};
+    \node[title] at (-4.5,0.7) {tenant\_immopro};
+    \node[item] at (-4.5,0) {\faHome\ 5\,420 appartements};
+    \node[item] at (-4.5,-0.5) {\faVectorSquare\ 768 dimensions};
+    \node[item] at (-4.5,-1) {\faLock\ Isolé};
+    
+    \node[collection=orange] at (0,-0.2) {};
+    \node[title] at (0,0.7) {tenant\_automarket};
+    \node[item] at (0,0) {\faCarSide\ 12\,300 véhicules};
+    \node[item] at (0,-0.5) {\faVectorSquare\ 768 dimensions};
+    \node[item] at (0,-1) {\faLock\ Isolé};
+    
+    \node[collection=green] at (4.5,-0.2) {};
+    \node[title] at (4.5,0.7) {tenant\_foodieapp};
+    \node[item] at (4.5,0) {\faUtensils\ 3\,150 restaurants};
+    \node[item] at (4.5,-0.5) {\faVectorSquare\ 768 dimensions};
+    \node[item] at (4.5,-1) {\faLock\ Isolé};
+\end{tikzpicture}
+\caption{Isolation des collections vectorielles par tenant dans Qdrant}
+\label{fig:isolation-qdrant}
+\end{figure}
+
+% ============================================================================
+%                    CHAPITRE 6 : SÉCURITÉ ET AUTHENTIFICATION
+% ============================================================================
+
+\chapter{Sécurité et Authentification}
+
+\section{Authentification OAuth2 avec Keycloak}
+
+La sécurité est un pilier fondamental de l'architecture multi-tenant. Raas adopte le standard \concept{OAuth2} via le serveur d'authentification \concept{Keycloak}, garantissant une gestion robuste des identités et des accès.
+
+\begin{definitionbox}[Qu'est-ce qu'OAuth2 ?]
+\concept{OAuth2} est un protocole de sécurité standard utilisé par les plus grandes plateformes mondiales (Google, Facebook, Microsoft). Il permet à une application d'accéder à des ressources au nom d'un utilisateur, sans jamais partager directement les mots de passe.
+\end{definitionbox}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    actor/.style={draw, rounded corners=6pt, fill=#1!20, minimum width=2.8cm, minimum height=1.3cm, align=center, font=\sffamily\small},
+    arrow/.style={-{Stealth}, thick, raasPrimary},
+    label/.style={font=\sffamily\footnotesize, raasGray700, text width=3cm, align=center}
+]
+    \node[actor=blue] (tenant) at (0,0) {\faUser\ Plateforme\\Cliente};
+    \node[actor=orange] (kc) at (5,0) {\faShieldAlt\ Keycloak\\Auth Server};
+    \node[actor=green] (api) at (10,0) {\faCogs\ API\\Raas};
+    
+    \draw[arrow] (tenant) -- node[above, label] {\circlednum{1} Demande\\de jeton} (kc);
+    \draw[arrow] (kc) -- node[below, label] {\circlednum{2} Jeton JWT\\sécurisé} (tenant);
+    \draw[arrow, raasDark] ([yshift=5pt]tenant.east) to[bend left=40] node[above, label] {\circlednum{3} Requête API\\avec jeton} ([yshift=5pt]api.west);
+    \draw[arrow, raasAccent] (api) -- node[below, label] {\circlednum{4} Vérifie\\le jeton} (kc);
+    \draw[arrow, raasSuccess] ([yshift=-5pt]api.west) to[bend left=40] node[below, label] {\circlednum{5} Réponse\\autorisée} ([yshift=-5pt]tenant.east);
+\end{tikzpicture}
+\caption{Flux d'authentification OAuth2 dans Raas}
+\label{fig:flux-oauth}
+\end{figure}
+
+\subsection{Configuration de Keycloak}
+
+Keycloak est organisé autour d'un \concept{Realm} (espace de sécurité) nommé ``raas'' dans lequel chaque tenant possède son propre client enregistré.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}\bfseries}p{3cm}X}
+\toprule
+\textbf{Élément} & \textbf{Description} \\
+\midrule
+Realm & Espace ``raas'' regroupant tous les clients et rôles \\
+Client & Chaque tenant possède un identifiant et un secret (ex : immopro\_client) \\
+Rôles & Deux rôles principaux : \textit{tenant\_user} pour l'accès API, \textit{admin} pour l'administration \\
+Jetons JWT & Contiennent des informations personnalisées : identifiant du tenant, permissions, date d'expiration \\
+\bottomrule
+\end{tabularx}
+\caption{Configuration de Keycloak pour Raas}
+\label{tab:keycloak-config}
+\end{table}
+
+\section{Contrôle d'Accès par Tenant}
+
+Chaque requête entrante passe par une chaîne de vérifications de sécurité avant d'atteindre les modules métier.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    check/.style={draw, rounded corners=5pt, fill=#1!20, minimum width=3cm, minimum height=1.2cm, align=center, font=\sffamily\small},
+    arrow/.style={-{Stealth}, thick, raasGray500},
+    ok/.style={font=\sffamily\footnotesize, raasSuccess},
+    ko/.style={font=\sffamily\footnotesize, raasError}
+]
+    \node[check=blue] (c1) at (0,0) {\faKey\ Vérification\\du jeton};
+    \node[check=orange] (c2) at (4.5,0) {\faUserShield\ Identification\\du tenant};
+    \node[check=purple] (c3) at (9,0) {\faLock\ Vérification\\des droits};
+    \node[check=green] (c4) at (13.5,0) {\faTachometerAlt\ Contrôle\\du quota};
+    
+    \draw[arrow] (c1) -- node[above, ok] {\statusok} (c2);
+    \draw[arrow] (c2) -- node[above, ok] {\statusok} (c3);
+    \draw[arrow] (c3) -- node[above, ok] {\statusok} (c4);
+    
+    \node[ko] at (0,-1.2) {\statusno\ Jeton invalide \faArrowRight\ Rejet};
+    \node[ko] at (4.5,-1.2) {\statusno\ Tenant inconnu \faArrowRight\ Rejet};
+    \node[ko] at (9,-1.2) {\statusno\ Accès interdit \faArrowRight\ Rejet};
+    \node[ko] at (13.5,-1.2) {\statusno\ Quota dépassé \faArrowRight\ Rejet};
+\end{tikzpicture}
+\caption{Chaîne de vérification de sécurité pour chaque requête}
+\label{fig:chaine-securite}
+\end{figure}
+
+\section{Limitation de Débit par Tenant}
+
+Chaque tenant dispose d'un quota de requêtes par minute, configurable individuellement. Ce mécanisme protège le système contre les abus et garantit une qualité de service équitable.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}\centering}p{2.5cm}ccp{4cm}}
+\toprule
+\textbf{Plan} & \textbf{Requêtes/min} & \textbf{Rafale} & \textbf{Usage recommandé} \\
+\midrule
+Découverte & 50 & 10 & Tests et développement \\
+Standard & 100 & 20 & Production petite/moyenne entreprise \\
+Premium & 500 & 50 & Applications à fort trafic \\
+Entreprise & Illimité & -- & Sur mesure, négocié \\
+\bottomrule
+\end{tabularx}
+\caption{Plans de quotas disponibles pour les tenants}
+\label{tab:quotas}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    bucket/.style={draw, rounded corners, fill=#1!15, minimum width=2.5cm, minimum height=3cm, align=center},
+    drop/.style={circle, fill=raasPrimary, minimum size=0.3cm},
+    label/.style={font=\sffamily\footnotesize}
+]
+    % Bucket 1
+    \node[bucket=blue] (b1) at (0,0) {};
+    \node[label, above] at (0,1.8) {\textbf{Immobilier Pro}};
+    \node[label] at (0,-0.8) {72/100 req};
+    \foreach \i in {1,...,7} {
+        \node[drop] at ({-0.6+0.2*\i}, {-1.2+0.15*\i}) {};
+    }
+    \node[label, raasSuccess] at (0,-2) {\statusok\ OK};
+    
+    % Bucket 2
+    \node[bucket=orange] (b2) at (4,0) {};
+    \node[label, above] at (4,1.8) {\textbf{AutoMarket}};
+    \node[label] at (4,-0.8) {98/100 req};
+    \foreach \i in {1,...,10} {
+        \node[drop] at ({3.4+0.12*\i}, {-1.2+0.15*\i}) {};
+    }
+    \node[label, raasWarning] at (4,-2) {\statuswarn\ Attention};
+    
+    % Bucket 3
+    \node[bucket=red] (b3) at (8,0) {};
+    \node[label, above] at (8,1.8) {\textbf{FoodieApp}};
+    \node[label] at (8,-0.8) {120/100 req};
+    \foreach \i in {1,...,10} {
+        \node[drop, fill=raasError] at ({7.4+0.12*\i}, {-1.2+0.15*\i}) {};
+    }
+    \node[label, raasError] at (8,-2) {\statusno\ Quota dépassé};
+\end{tikzpicture}
+\caption{Illustration du mécanisme de limitation de débit (Token Bucket)}
+\label{fig:rate-limit}
+\end{figure}
+
+% ============================================================================
+%                    CHAPITRE 7 : SCORING PERSONNALISABLE
+% ============================================================================
+
+\chapter{Mécanisme de Scoring Personnalisable}
+
+\section{Le Défi de la Personnalisation}
+
+Chaque domaine métier possède ses propres critères de qualité. Un système de recommandation universel doit permettre à chaque tenant de définir \textbf{quels critères} utiliser et \textbf{quel poids} accorder à chacun.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}\centering}p{2.5cm}X}
+\toprule
+\textbf{Domaine} & \textbf{Critères prioritaires typiques} \\
+\midrule
+\faCarSide\ Véhicules & Similarité sémantique, correspondance de prix, kilométrage, année, disponibilité \\
+\faUtensils\ Restaurants & Similarité sémantique, note moyenne, distance géographique, type de cuisine \\
+\faHome\ Immobilier & Similarité sémantique, prix au mètre carré, surface, nombre de pièces, quartier \\
+\faShoppingCart\ E-commerce & Similarité sémantique, popularité, avis clients, prix, délai de livraison \\
+\bottomrule
+\end{tabularx}
+\caption{Exemples de critères de recommandation par domaine métier}
+\label{tab:criteres-domaines}
+\end{table}
+
+\section{Architecture du Scoring}
+
+Le système de scoring de Raas repose sur deux types de critères :
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}\bfseries}p{3cm}p{3cm}X}
+\toprule
+\textbf{Type} & \textbf{Caractéristique} & \textbf{Description} \\
+\midrule
+Critère système & Toujours présent & La similarité sémantique est obligatoire et constitue le critère de base de toute recommandation \\
+Critère personnalisé & Ajouté par le tenant & Chaque tenant peut ajouter autant de critères additionnels qu'il le souhaite (prix, distance, note, etc.) \\
+\bottomrule
+\end{tabularx}
+\caption{Types de critères de scoring}
+\label{tab:types-criteres}
+\end{table}
+
+\section{Configuration des Poids}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    bar/.style={fill=raasPrimary, minimum height=0.5cm, rounded corners=2pt},
+    barbg/.style={fill=raasGray300, minimum height=0.5cm, minimum width=7cm, rounded corners=2pt},
+    label/.style={font=\sffamily\small, anchor=east}
+]
+    % Titre
+    \node[font=\sffamily\bfseries\large, raasDark] at (4,4.5) {\faCarSide\ Véhicules};
+    
+    \node[label] at (0,3.5) {Similarité};
+    \node[barbg] at (4,3.5) {};
+    \node[bar, minimum width=4.2cm, anchor=west] at (0.5,3.5) {};
+    \node[font=\sffamily\small\bfseries] at (7.8,3.5) {60\%};
+    
+    \node[label] at (0,2.5) {Disponibilité};
+    \node[barbg] at (4,2.5) {};
+    \node[bar, minimum width=1.75cm, anchor=west, fill=raasAccent] at (0.5,2.5) {};
+    \node[font=\sffamily\small\bfseries] at (7.8,2.5) {25\%};
+    
+    \node[label] at (0,1.5) {Réputation};
+    \node[barbg] at (4,1.5) {};
+    \node[bar, minimum width=1.05cm, anchor=west, fill=raasWarm] at (0.5,1.5) {};
+    \node[font=\sffamily\small\bfseries] at (7.8,1.5) {15\%};
+    
+    % Séparateur
+    \draw[raasGray300, thick] (-1,0.5) -- (8,0.5);
+    
+    % Titre 2
+    \node[font=\sffamily\bfseries\large, raasDark] at (4,-0.2) {\faHome\ Immobilier};
+    
+    \node[label] at (0,-1.2) {Similarité};
+    \node[barbg] at (4,-1.2) {};
+    \node[bar, minimum width=4.9cm, anchor=west] at (0.5,-1.2) {};
+    \node[font=\sffamily\small\bfseries] at (7.8,-1.2) {70\%};
+    
+    \node[label] at (0,-2.2) {Prix/m²};
+    \node[barbg] at (4,-2.2) {};
+    \node[bar, minimum width=1.4cm, anchor=west, fill=raasAccent] at (0.5,-2.2) {};
+    \node[font=\sffamily\small\bfseries] at (7.8,-2.2) {20\%};
+    
+    \node[label] at (0,-3.2) {Surface};
+    \node[barbg] at (4,-3.2) {};
+    \node[bar, minimum width=0.7cm, anchor=west, fill=raasWarm] at (0.5,-3.2) {};
+    \node[font=\sffamily\small\bfseries] at (7.8,-3.2) {10\%};
+\end{tikzpicture}
+\caption{Comparaison des configurations de scoring entre deux domaines}
+\label{fig:config-scoring}
+\end{figure}
+
+\section{Calcul du Score Final}
+
+Le score final d'un produit est calculé comme une somme pondérée de tous les critères, chaque critère étant normalisé entre 0 et 1.
+
+\begin{processbox}
+\textbf{Formule de scoring :}
+$$\text{Score Final} = \sum_{i=1}^{n} w_i \times c_i$$
+
+où $w_i$ est le poids du critère $i$ (configuré par le tenant) et $c_i$ la valeur normalisée du critère.
+
+\vspace{0.5cm}
+
+\textbf{Exemple concret --- Domaine Immobilier :}
+
+\vspace{0.3cm}
+
+\begin{tabular}{lccc}
+\textbf{Critère} & \textbf{Valeur normalisée} & \textbf{Poids} & \textbf{Contribution} \\
+\hline
+Similarité sémantique & 0.92 & $\times$ 70\% & = 0.644 \\
+Correspondance prix/m² & 0.85 & $\times$ 20\% & = 0.170 \\
+Surface adéquate & 0.78 & $\times$ 10\% & = 0.078 \\
+\hline
+\multicolumn{3}{r}{\textbf{Score Final :}} & \textbf{0.892} \\
+\end{tabular}
+
+\vspace{0.3cm}
+\textcolor{raasAccent}{\faStar} Ce bien immobilier obtient un score de pertinence de \textbf{89,2\%}.
+\end{processbox}
+
+\section{Interface de Configuration}
+
+L'interface d'administration offre une gestion complètement dynamique des critères de scoring :
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\centering}p{1.5cm}>{\columncolor{raasLight}\bfseries}p{3.5cm}X}
+\toprule
+\textbf{Icône} & \textbf{Fonctionnalité} & \textbf{Description} \\
+\midrule
+\faPlus & Ajout de critère & Bouton pour créer un nouveau critère personnalisé avec nom, clé de métadonnée et type de normalisation \\
+\faTimes & Suppression & Bouton pour retirer un critère (sauf la similarité, qui est obligatoire) \\
+\faSlidersH & Réglage des poids & Curseurs interactifs permettant d'ajuster les poids avec recalcul automatique du total (toujours 100\%) \\
+\faChartPie & Aperçu temps réel & Graphique circulaire montrant la répartition des poids en temps réel \\
+\faCheck & Validation & Vérification que la somme des poids est bien égale à 100\% avant enregistrement \\
+\bottomrule
+\end{tabularx}
+\caption{Fonctionnalités de l'interface de configuration du scoring}
+\label{tab:interface-scoring}
+\end{table}
+
+% ============================================================================
+%                    CHAPITRE 8 : INTERFACE API
+% ============================================================================
+
+\chapter{Interface de Communication (API)}
+
+\section{Principe de l'API}
+
+L'API de Raas est le point d'entrée unique par lequel les plateformes clientes interagissent avec le système. Elle expose un ensemble de routes organisées en deux catégories : les \concept{routes Tenant} (pour les opérations courantes) et les \concept{routes Administration} (pour la gestion de la plateforme).
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    route/.style={draw, rounded corners=5pt, fill=#1!15, minimum width=5.5cm, minimum height=0.8cm, align=left, font=\sffamily\small},
+    group/.style={draw, rounded corners=8pt, fill=#1!8, minimum width=6.5cm, minimum height=#2, align=center},
+    title/.style={font=\sffamily\bfseries, raasDark}
+]
+    % Groupe Tenant
+    \node[group={raasPrimary}{5cm}] at (-4,0) {};
+    \node[title] at (-4,2) {\faUser\ Routes Tenant};
+    
+    \node[route=blue] at (-4,1) {\faUpload\ Ajouter des produits};
+    \node[route=blue] at (-4,0) {\faStar\ Obtenir des recommandations};
+    \node[route=blue] at (-4,-1) {\faTrash\ Supprimer un produit};
+    \node[route=blue] at (-4,-2) {\faChartBar\ Compter ses produits};
+    
+    % Groupe Admin
+    \node[group={raasWarm}{5cm}] at (4,0) {};
+    \node[title] at (4,2) {\faUserShield\ Routes Administration};
+    
+    \node[route=orange] at (4,1) {\faPlusCircle\ Créer un tenant};
+    \node[route=orange] at (4,0) {\faSlidersH\ Configurer le scoring};
+    \node[route=orange] at (4,-1) {\faChartLine\ Consulter les métriques};
+    \node[route=orange] at (4,-2) {\faPause\ Suspendre un tenant};
+\end{tikzpicture}
+\caption{Organisation des routes de l'API Raas}
+\label{fig:routes-api}
+\end{figure}
+
+\section{Flux d'Ajout de Produits}
+
+Lorsqu'une plateforme cliente souhaite alimenter Raas avec ses produits, elle envoie une liste de descriptions accompagnées de métadonnées.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    step/.style={draw, rounded corners=5pt, fill=#1!20, minimum width=3cm, minimum height=1.5cm, align=center, font=\sffamily\small, text width=2.5cm},
+    arrow/.style={-{Stealth}, thick, raasGray500}
+]
+    \node[step=blue] (s1) at (0,0) {\faFileUpload\\[3pt]Le tenant envoie les descriptions de ses produits};
+    \node[step=orange] (s2) at (4.5,0) {\faShieldAlt\\[3pt]Vérification de l'identité et des droits};
+    \node[step=green] (s3) at (9,0) {\faBrain\\[3pt]Génération des embeddings pour chaque produit};
+    \node[step=purple] (s4) at (13.5,0) {\faDatabase\\[3pt]Stockage dans la collection dédiée du tenant};
+    
+    \draw[arrow] (s1) -- (s2);
+    \draw[arrow] (s2) -- (s3);
+    \draw[arrow] (s3) -- (s4);
+\end{tikzpicture}
+\caption{Processus d'ajout de produits par un tenant}
+\label{fig:ajout-produits}
+\end{figure}
+
+\section{Flux de Recommandation}
+
+\begin{processbox}
+\textbf{Scénario concret --- Immobilier :}
+
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item La plateforme \textit{Immobilier Pro} envoie la requête : ``Appartement lumineux avec balcon, proche métro, Paris 15e''
+    \item Raas vérifie l'authentification et identifie le tenant
+    \item Le texte est transformé en embedding vectoriel
+    \item Le système recherche les 100 appartements les plus similaires dans la collection \textit{tenant\_immopro}
+    \item Les filtres optionnels sont appliqués (prix max : 300\,000\euro{}, minimum 2 pièces)
+    \item Le scoring personnalisé est calculé selon les poids de l'immobilier
+    \item Les 10 meilleurs résultats sont retournés avec leurs scores
+\end{enumerate}
+
+\vspace{0.3cm}
+
+\textbf{Temps de réponse :} environ 45 millisecondes (avec cache).
+\end{processbox}
+
+\section{Format des Échanges}
+
+Le système utilise le format JSON pour tous ses échanges. Les réponses incluent systématiquement des informations utiles comme le temps de traitement et les identifiants des produits.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}\bfseries}p{3cm}p{2.5cm}X}
+\toprule
+\textbf{Information} & \textbf{Type} & \textbf{Description} \\
+\midrule
+Identifiant produit & Texte & L'identifiant du produit dans la base de la plateforme cliente \\
+Score final & Nombre décimal & Score de pertinence entre 0 et 1 \\
+Score de similarité & Nombre décimal & La similarité sémantique brute entre 0 et 1 \\
+Métadonnées & Objet & Informations supplémentaires sur le produit (prix, catégorie, etc.) \\
+Temps de traitement & Nombre entier & Durée du traitement en millisecondes \\
+\bottomrule
+\end{tabularx}
+\caption{Informations retournées par une recommandation}
+\label{tab:format-reponse}
+\end{table}
+
+% ============================================================================
+%                    CHAPITRE 9 : INTERFACE D'ADMINISTRATION
+% ============================================================================
+
+\chapter{Interface d'Administration}
+
+\section{Tableau de Bord Principal}
+
+L'interface d'administration de Raas est une application web moderne construite avec Next.js, offrant une vision complète et en temps réel de l'état de la plateforme.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    page/.style={draw, rounded corners=6pt, fill=#1!12, minimum width=3.2cm, minimum height=1.5cm, align=center, font=\sffamily\small, text width=2.8cm},
+    arrow/.style={-{Stealth}, thick, raasGray500},
+    main/.style={draw, rounded corners=8pt, fill=raasPrimary!15, minimum width=4cm, minimum height=1.8cm, align=center, font=\sffamily\bfseries}
+]
+    % Page principale
+    \node[main] (dash) at (0,0) {\faDesktop\ Tableau de Bord\\Principal};
+    
+    % Sous-pages
+    \node[page=blue] (p1) at (-5,-3) {\faUsers\\[3pt]Gestion\\des Tenants};
+    \node[page=green] (p2) at (-1.7,-3) {\faSlidersH\\[3pt]Configuration\\du Scoring};
+    \node[page=orange] (p3) at (1.7,-3) {\faChartLine\\[3pt]Monitoring\\Métriques};
+    \node[page=purple] (p4) at (5,-3) {\faUpload\\[3pt]Gestion\\des Produits};
+    
+    % Flèches
+    \draw[arrow] (dash) -- (p1);
+    \draw[arrow] (dash) -- (p2);
+    \draw[arrow] (dash) -- (p3);
+    \draw[arrow] (dash) -- (p4);
+\end{tikzpicture}
+\caption{Structure de navigation de l'interface d'administration}
+\label{fig:navigation-admin}
+\end{figure}
+
+\section{Fonctionnalités Clés}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{>{\centering}p{1.5cm}>{\columncolor{raasLight}\bfseries}p{3cm}X}
+\toprule
+\textbf{Icône} & \textbf{Page} & \textbf{Fonctionnalités offertes} \\
+\midrule
+\faUsers & Gestion Tenants & Création, modification, suspension et suppression de tenants. Configuration des quotas et des informations OAuth2. Vue d'ensemble de l'activité de chaque tenant \\
+\faSlidersH & Configuration Scoring & Curseurs visuels interactifs pour ajuster les poids des critères. Ajout et suppression dynamiques de critères personnalisés. Aperçu graphique de la répartition \\
+\faChartLine & Monitoring & Graphiques temps réel du nombre de requêtes par minute, de la latence (P50, P95, P99), du taux de cache et du taux d'erreur. Alertes automatiques en cas de dépassement de quotas \\
+\faUpload & Gestion Produits & Outil d'import de produits par lot. Compteur de produits par tenant. Possibilité de suppression individuelle ou par lot \\
+\bottomrule
+\end{tabularx}
+\caption{Pages et fonctionnalités de l'interface d'administration}
+\label{tab:pages-admin}
+\end{table}
+
+\section{Indicateurs de Performance Clés (KPI)}
+
+Le tableau de bord affiche en permanence les indicateurs suivants pour chaque tenant et pour l'ensemble de la plateforme :
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    kpi/.style={draw, rounded corners=8pt, fill=#1!15, minimum width=3cm, minimum height=2.2cm, align=center, font=\sffamily\small},
+    value/.style={font=\sffamily\Large\bfseries, raasDark},
+    title/.style={font=\sffamily\footnotesize, raasGray500}
+]
+    \node[kpi=blue] at (0,0) {};
+    \node[value] at (0,0.3) {12};
+    \node[title] at (0,-0.4) {Tenants actifs};
+    \node[font=\fontsize{20}{22}\selectfont] at (0,1) {\faUsers};
+    
+    \node[kpi=green] at (4,0) {};
+    \node[value] at (4,0.3) {45ms};
+    \node[title] at (4,-0.4) {Latence P50};
+    \node[font=\fontsize{20}{22}\selectfont] at (4,1) {\faTachometerAlt};
+    
+    \node[kpi=orange] at (8,0) {};
+    \node[value] at (8,0.3) {87\%};
+    \node[title] at (8,-0.4) {Taux de cache};
+    \node[font=\fontsize{20}{22}\selectfont] at (8,1) {\faMemory};
+    
+    \node[kpi=purple] at (12,0) {};
+    \node[value] at (12,0.3) {0.2\%};
+    \node[title] at (12,-0.4) {Taux d'erreur};
+    \node[font=\fontsize{20}{22}\selectfont] at (12,1) {\faBug};
+\end{tikzpicture}
+\caption{Indicateurs de performance clés affichés sur le tableau de bord}
+\label{fig:kpi}
+\end{figure}
+
+% ============================================================================
+%                    CHAPITRE 10 : FEUILLE DE ROUTE
+% ============================================================================
+
+\chapter{Feuille de Route d'Implémentation}
+
+\section{Planning des Phases}
+
+La transformation est organisée en huit phases séquentielles, chacune construisant sur les acquis de la précédente. La durée totale estimée est d'environ \textbf{10 semaines (2,5 mois)}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    phase/.style={draw, rounded corners=6pt, fill=#1!18, minimum width=13cm, minimum height=1cm, align=left, font=\sffamily\small, text width=12.5cm},
+    num/.style={circle, fill=#1, text=white, minimum size=0.7cm, font=\sffamily\bfseries\small, inner sep=0pt},
+    dur/.style={font=\sffamily\footnotesize\bfseries, raasGray500}
+]
+    \node[phase=green] at (0,0) {\hspace{1cm}\statusok\ Préparation : audit, scripts de nettoyage, configuration Keycloak};
+    \node[num=raasSuccess] at (-6,0) {0};
+    \node[dur] at (7.5,0) {3 jours};
+    
+    \node[phase=blue] at (0,-1.3) {\hspace{1cm}Nettoyage : suppression Celery, ELK, modèles véhicules};
+    \node[num=raasPrimary] at (-6,-1.3) {1};
+    \node[dur] at (7.5,-1.3) {1 sem.};
+    
+    \node[phase=blue] at (0,-2.6) {\hspace{1cm}Nouveaux modèles : création des tables Tenant et ScoringConfig};
+    \node[num=raasPrimary] at (-6,-2.6) {2};
+    \node[dur] at (7.5,-2.6) {1 sem.};
+    
+    \node[phase=blue] at (0,-3.9) {\hspace{1cm}Authentification : intégration OAuth2, middleware de sécurité};
+    \node[num=raasPrimary] at (-6,-3.9) {3};
+    \node[dur] at (7.5,-3.9) {1 sem.};
+    
+    \node[phase=orange] at (0,-5.2) {\hspace{1cm}Refonte Module 2 : moteur de recommandation multi-tenant};
+    \node[num=raasWarm] at (-6,-5.2) {4};
+    \node[dur] at (7.5,-5.2) {2 sem.};
+    
+    \node[phase=blue] at (0,-6.5) {\hspace{1cm}Nouvelles routes API : endpoints tenant et administration};
+    \node[num=raasPrimary] at (-6,-6.5) {5};
+    \node[dur] at (7.5,-6.5) {1 sem.};
+    
+    \node[phase=orange] at (0,-7.8) {\hspace{1cm}Frontend Next.js : tableau de bord, gestion tenants, scoring};
+    \node[num=raasWarm] at (-6,-7.8) {6};
+    \node[dur] at (7.5,-7.8) {2 sem.};
+    
+    \node[phase=blue] at (0,-9.1) {\hspace{1cm}Tests, documentation et déploiement final};
+    \node[num=raasPrimary] at (-6,-9.1) {7-8};
+    \node[dur] at (7.5,-9.1) {2 sem.};
+    
+    % Flèche temporelle
+    \draw[-{Stealth}, thick, raasAccent] (-7.5,0.5) -- (-7.5,-9.5);
+    \node[font=\sffamily\footnotesize\bfseries, raasAccent, rotate=90] at (-8,-4.5) {PROGRESSION};
+\end{tikzpicture}
+\caption{Feuille de route détaillée des 8 phases de transformation}
+\label{fig:feuille-route}
+\end{figure}
+
+\section{Détail des Phases}
+
+\begin{longtable}{>{\columncolor{raasLight}\bfseries}p{2.5cm}p{2cm}p{9cm}}
+\toprule
+\textbf{Phase} & \textbf{Durée} & \textbf{Livrables attendus} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Phase} & \textbf{Durée} & \textbf{Livrables attendus} \\
+\midrule
+\endhead
+Phase 0 Préparation & 2--3 jours & Audit des dépendances, scripts de nettoyage, configuration initiale de Keycloak, branche de développement \\
+\midrule
+Phase 1 Nettoyage & 1 semaine & Suppression de Celery (workers, beat, flower), de la pile ELK, des modèles véhicules et des migrations associées \\
+\midrule
+Phase 2 Modèles DB & 1 semaine & Création des tables Tenant et ScoringConfig dans PostgreSQL, migrations Alembic, services d'accès aux données \\
+\midrule
+Phase 3 OAuth2 & 1 semaine & Intégration complète de Keycloak, middleware d'authentification, middleware de limitation de débit, tests d'intégration \\
+\midrule
+Phase 4 Module 2 & 2 semaines & Moteur de recommandation multi-tenant, support des collections dynamiques Qdrant, scoring flexible, tests unitaires complets \\
+\midrule
+Phase 5 API & 1 semaine & Nouveaux endpoints tenant (produits, recommandations) et administration (CRUD tenants, configuration scoring, métriques) \\
+\midrule
+Phase 6 Frontend & 2 semaines & Application Next.js complète avec tableau de bord, gestion des tenants, configuration du scoring et monitoring \\
+\midrule
+Phase 7--8 & 2 semaines & Tests de bout en bout, documentation API, guide d'intégration, optimisation Docker, déploiement \\
+\bottomrule
+\caption{Détail des livrables par phase de transformation}
+\label{tab:phases-detail}
+\end{longtable}
+
+% ============================================================================
+%                    CHAPITRE 11 : RISQUES
+% ============================================================================
+
+\chapter{Analyse des Risques et Mitigations}
+
+\section{Matrice des Risques}
+
+Tout projet de transformation comporte des risques qu'il convient d'identifier et de gérer de manière proactive.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{>{\columncolor{raasLight}}p{3.5cm}cX}
+\toprule
+\textbf{Risque identifié} & \textbf{Impact} & \textbf{Stratégie de mitigation} \\
+\midrule
+Complexité de l'intégration OAuth2 & \textcolor{raasError}{\textbf{Élevé}} & Réaliser un prototype de validation (POC) avec Keycloak avant l'intégration complète dans le système \\
+\midrule
+Performance avec collections Qdrant multiples & \textcolor{raasWarm}{\textbf{Moyen}} & Effectuer des tests de charge (benchmarks) dès la Phase 4 pour valider que la multiplication des collections n'impacte pas les temps de réponse \\
+\midrule
+Gestion des quotas Redis & \textcolor{raasWarm}{\textbf{Moyen}} & L'algorithme Token Bucket choisi est un standard éprouvé de l'industrie, largement documenté et testé \\
+\midrule
+Courbe d'apprentissage Next.js & \textcolor{raasSuccess}{\textbf{Faible}} & Utilisation de templates et composants pré-construits (Shadcn/ui) pour accélérer le développement \\
+\midrule
+Rupture de compatibilité pour les utilisateurs existants & \textcolor{raasError}{\textbf{Élevé}} & Mise en place d'un versioning de l'API (v2) et d'une période de transition permettant la migration progressive \\
+\bottomrule
+\end{tabularx}
+\caption{Matrice des risques et stratégies de mitigation}
+\label{tab:risques}
+\end{table}
+
+\section{Visualisation des Risques}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+    % Axes
+    \draw[-{Stealth}, thick, raasGray500] (0,0) -- (10,0) node[below, font=\sffamily\small] {Probabilité};
+    \draw[-{Stealth}, thick, raasGray500] (0,0) -- (0,7) node[left, font=\sffamily\small, rotate=90, anchor=south] {Impact};
+    
+    % Zones
+    \fill[raasSuccess!15] (0,0) rectangle (5,3.5);
+    \fill[raasWarm!15] (5,0) rectangle (10,3.5);
+    \fill[raasWarm!15] (0,3.5) rectangle (5,7);
+    \fill[raasError!15] (5,3.5) rectangle (10,7);
+    
+    \node[font=\sffamily\footnotesize, raasSuccess] at (2.5,0.5) {Risque faible};
+    \node[font=\sffamily\footnotesize, raasWarm] at (7.5,0.5) {Risque modéré};
+    \node[font=\sffamily\footnotesize, raasWarm] at (2.5,6.5) {Risque modéré};
+    \node[font=\sffamily\footnotesize, raasError] at (7.5,6.5) {Risque critique};
+    
+    % Risques
+    \node[circle, fill=raasPrimary, text=white, minimum size=0.8cm, font=\sffamily\footnotesize\bfseries] at (6,5.5) {1};
+    \node[circle, fill=raasWarm, text=white, minimum size=0.8cm, font=\sffamily\footnotesize\bfseries] at (4,4) {2};
+    \node[circle, fill=raasWarm, text=white, minimum size=0.8cm, font=\sffamily\footnotesize\bfseries] at (3,3) {3};
+    \node[circle, fill=raasSuccess, text=white, minimum size=0.8cm, font=\sffamily\footnotesize\bfseries] at (2,1.5) {4};
+    \node[circle, fill=raasPrimary, text=white, minimum size=0.8cm, font=\sffamily\footnotesize\bfseries] at (3.5,5.5) {5};
+    
+    % Légende
+    \node[font=\sffamily\footnotesize, anchor=west] at (11,5.5) {1: OAuth2};
+    \node[font=\sffamily\footnotesize, anchor=west] at (11,4.5) {2: Qdrant};
+    \node[font=\sffamily\footnotesize, anchor=west] at (11,3.5) {3: Redis};
+    \node[font=\sffamily\footnotesize, anchor=west] at (11,2.5) {4: Next.js};
+    \node[font=\sffamily\footnotesize, anchor=west] at (11,1.5) {5: Compatibilité};
+\end{tikzpicture}
+\caption{Cartographie des risques par probabilité et impact}
+\label{fig:carte-risques}
+\end{figure}
+
+% ============================================================================
+%                    CHAPITRE 12 : CRITÈRES DE SUCCÈS
+% ============================================================================
+
+\chapter{Critères de Succès}
+
+La réussite de la transformation sera mesurée selon trois catégories de critères :
+
+\section{Critères Fonctionnels}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\centering}p{1cm}>{\columncolor{raasLight}}p{4cm}X}
+\toprule
+& \textbf{Critère} & \textbf{Seuil de validation} \\
+\midrule
+\statusok & Création de tenant & Un administrateur peut créer un tenant fonctionnel via l'interface web \\
+\statusok & Authentification & Un tenant peut s'authentifier via OAuth2 et recevoir un jeton d'accès valide \\
+\statusok & Import de produits & Un tenant peut importer plus de 1\,000 produits en une seule opération \\
+\statusok & Recommandations & Les recommandations sont pertinentes et retournées en moins de 50ms (cache) \\
+\statusok & Scoring configurable & Les poids de scoring sont modifiables via l'interface et appliqués immédiatement \\
+\statusok & Isolation totale & Aucun tenant ne peut accéder aux données d'un autre tenant \\
+\bottomrule
+\end{tabularx}
+\caption{Critères de succès fonctionnels}
+\label{tab:criteres-fonctionnels}
+\end{table}
+
+\section{Critères Techniques}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\centering}p{1cm}>{\columncolor{raasLight}}p{4cm}X}
+\toprule
+& \textbf{Critère} & \textbf{Seuil de validation} \\
+\midrule
+\statusok & Indépendance domaine & Zéro référence au domaine ``véhicules'' dans le code transformé \\
+\statusok & Couverture de tests & Au minimum 85\% du code couvert par des tests automatisés \\
+\statusok & Latence P95 & 95\% des requêtes traitées en moins de 200ms (hors cache) \\
+\statusok & Scalabilité & Support de 10 tenants simultanés ou plus dès le lancement \\
+\statusok & Sécurité & OAuth2 + HTTPS + limitation de débit opérationnels \\
+\bottomrule
+\end{tabularx}
+\caption{Critères de succès techniques}
+\label{tab:criteres-techniques}
+\end{table}
+
+\section{Critères Opérationnels}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\centering}p{1cm}>{\columncolor{raasLight}}p{4cm}X}
+\toprule
+& \textbf{Critère} & \textbf{Seuil de validation} \\
+\midrule
+\statusok & Documentation & Documentation API complète, guide d'intégration et guide administrateur \\
+\statusok & Interface responsive & Le tableau de bord est fonctionnel sur ordinateur et mobile \\
+\statusok & Monitoring & Métriques en temps réel par tenant disponibles sur le dashboard \\
+\statusok & Déploiement simplifié & Lancement complet de la plateforme en une seule commande Docker Compose \\
+\bottomrule
+\end{tabularx}
+\caption{Critères de succès opérationnels}
+\label{tab:criteres-operationnels}
+\end{table}
+
+% ============================================================================
+%                    CONCLUSION
+% ============================================================================
+
+\chapter*{Conclusion}
+\addcontentsline{toc}{chapter}{Conclusion}
+
+\begin{infobox}
+La transformation de \concept{Raas} en plateforme multi-tenant représente une évolution stratégique majeure, permettant de capitaliser sur les acquis technologiques du système actuel tout en ouvrant des perspectives de croissance considérables.
+\end{infobox}
+
+\vspace{0.5cm}
+
+Ce rapport a présenté en détail les différentes dimensions de cette transformation :
+
+\begin{enumerate}
+    \item \textbf{Un diagnostic clair} des limitations du système mono-domaine actuel, qui justifie pleinement la nécessité de cette évolution
+
+    \item \textbf{Une vision ambitieuse} de plateforme ``Recommendation-as-a-Service'' où chaque client apporte ses données et bénéficie d'une intelligence de recommandation de pointe
+
+    \item \textbf{Une architecture technique solide} reposant sur des technologies éprouvées (FastAPI, Keycloak, Qdrant, PostgreSQL, Redis) et des standards de l'industrie (OAuth2)
+
+    \item \textbf{Un moteur de recommandation générique} capable de traiter n'importe quel type de données avec un scoring entièrement personnalisable par tenant
+
+    \item \textbf{Une sécurité renforcée} avec authentification OAuth2, isolation des données et limitation de débit par tenant
+
+    \item \textbf{Une interface d'administration moderne} offrant une gestion complète de la plateforme avec monitoring en temps réel
+
+    \item \textbf{Une feuille de route réaliste} en 8 phases sur environ 10 semaines, avec des livrables progressifs et mesurables
+
+    \item \textbf{Une gestion proactive des risques} avec des stratégies de mitigation identifiées pour chaque risque potentiel
+\end{enumerate}
+
+\elegantsep
+
+\begin{successbox}
+\textbf{\faQuoteLeft\ En résumé}
+
+\concept{Raas} évolue d'un outil spécialisé en une \textbf{plateforme universelle de recommandation}. Grâce à l'architecture multi-tenant, un seul système servira simultanément des domaines aussi variés que l'immobilier, la restauration, l'automobile ou le e-commerce --- chacun avec ses propres données, ses propres critères et une \concept{isolation totale}. Cette transformation positionne Raas comme une solution de référence sur le marché des services de recommandation intelligente.
+\end{successbox}
+
+% ============================================================================
+%                    GLOSSAIRE
+% ============================================================================
+
+\chapter*{Glossaire}
+\addcontentsline{toc}{chapter}{Glossaire}
+
+\begin{longtable}{>{\columncolor{raasLight}\bfseries}p{3.5cm}p{11cm}}
+\toprule
+\textbf{Terme} & \textbf{Définition} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Terme} & \textbf{Définition} \\
+\midrule
+\endhead
+API & Interface de Programmation Applicative, ensemble de règles permettant à des applications de communiquer entre elles \\
+\midrule
+Cache & Mémoire temporaire permettant de stocker les résultats de calculs fréquents pour les retourner plus rapidement \\
+\midrule
+Collection & Dans Qdrant, un espace de stockage dédié contenant les vecteurs d'un tenant spécifique \\
+\midrule
+Embedding & Représentation numérique d'un texte sous forme de vecteur de nombres, capturant son sens sémantique \\
+\midrule
+FastAPI & Framework Python moderne et performant pour la création d'API web \\
+\midrule
+Fine-tuning & Processus d'ajustement d'un modèle d'intelligence artificielle pré-entraîné pour un domaine spécifique \\
+\midrule
+JWT & JSON Web Token, format standard de jeton d'authentification contenant des informations vérifiables \\
+\midrule
+Keycloak & Serveur d'authentification et de gestion d'identités, supportant OAuth2 et le multi-tenant \\
+\midrule
+Latence & Temps écoulé entre l'envoi d'une requête et la réception de la réponse \\
+\midrule
+Multi-tenant & Architecture où plusieurs clients (tenants) partagent une même infrastructure tout en ayant leurs données isolées \\
+\midrule
+OAuth2 & Protocole standard de sécurité pour l'autorisation d'accès aux ressources \\
+\midrule
+P50/P95/P99 & Percentiles de latence : 50\%, 95\% et 99\% des requêtes sont traitées en dessous de cette durée \\
+\midrule
+Qdrant & Base de données spécialisée dans le stockage et la recherche de similarité entre vecteurs numériques \\
+\midrule
+RaaS & Recommendation-as-a-Service, modèle de service où la recommandation est fournie en tant que plateforme \\
+\midrule
+Rate Limiting & Mécanisme de limitation du nombre de requêtes autorisées par unité de temps pour chaque tenant \\
+\midrule
+Realm & Dans Keycloak, espace de sécurité regroupant les utilisateurs, rôles et clients d'une même organisation \\
+\midrule
+Redis & Base de données en mémoire ultra-rapide, utilisée pour le cache et la gestion des quotas \\
+\midrule
+Scoring & Processus de calcul d'un score de pertinence pour chaque produit recommandé, basé sur des critères pondérés \\
+\midrule
+Tenant & Plateforme cliente utilisant les services de Raas, identifiée de manière unique et isolée des autres \\
+\midrule
+Token Bucket & Algorithme de limitation de débit simulant un seau qui se remplit progressivement de jetons \\
+\midrule
+TOPSIS & Méthode d'aide à la décision multicritère utilisée pour le classement des livreurs \\
+\midrule
+Vecteur & Suite ordonnée de nombres représentant un point dans un espace mathématique à plusieurs dimensions \\
+\bottomrule
+\caption{Glossaire des termes techniques utilisés dans ce rapport}
+\label{tab:glossaire}
+\end{longtable}
+
+\end{document}
