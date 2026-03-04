@@ -28,8 +28,32 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables verified/created")
 
+    # ── Event Bus: register all handlers ──
+    from src.events.bus import get_event_bus
+    from src.events.types import (
+        ItemsImported,
+        ItemDeleted,
+        TenantDeprovisioned,
+    )
+    from src.events.handlers import (
+        handle_items_vectorize,
+        handle_cache_invalidation,
+        handle_audit_log,
+    )
+
+    bus = get_event_bus()
+    bus.subscribe(ItemsImported, handle_items_vectorize)
+    bus.subscribe(ItemsImported, handle_cache_invalidation)
+    bus.subscribe(ItemDeleted, handle_cache_invalidation)
+    bus.subscribe(TenantDeprovisioned, handle_cache_invalidation)
+    bus.subscribe_all(handle_audit_log)
+    logger.info(f"Event bus initialized with {bus.handler_count} handler(s)")
+
     yield
+
+    # ── Shutdown: drain pending event tasks ──
     logger.info("Shutting down application...")
+    await bus.drain(timeout=30.0)
     await close_database()
 
 

@@ -20,11 +20,11 @@ from src.api.schemas import (
 )
 from src.database.tenant_models import Tenant
 from src.database.tenant_manager import get_tenant_manager
-from src.modules.module2_recommendation import (
-    get_embedding_service,
-    get_vector_store,
-)
+from src.modules.module2_recommendation import get_vector_store
 from src.modules.module3_orchestration import Orchestrator
+from src.events.bus import get_event_bus
+from src.events.types import ItemsImported, ItemDeleted, RecommendationServed
+from src.utils.context import get_correlation_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -62,19 +62,14 @@ async def import_items(
 
     tenant_manager = get_tenant_manager()
 
-    # Insert items into PostgreSQL
+    # Insert items into PostgreSQL (fast, synchronous part)
     items_imported = await tenant_manager.insert_items(
         session, tenant.slug, request.items
     )
 
-    # Generate embeddings and index in Qdrant
-    vectors_indexed = 0
+    # Prepare embedding data for background vectorization
+    items_for_embedding = []
     if request.vectorize:
-        embedding_service = get_embedding_service()
-        vector_store = get_vector_store()
-
-        # Fetch embedding texts
-        items_for_embedding = []
         for item in request.items:
             item_id = str(item["id"])
             data = {k: v for k, v in item.items() if k != "id"}
@@ -94,31 +89,24 @@ async def import_items(
                     "data": data,
                 })
 
-        if items_for_embedding:
-            texts = [i["text"] for i in items_for_embedding]
-            vectors = embedding_service.encode_batch_for_qdrant(texts)
-
-            batch_items = []
-            for item_info, vector in zip(items_for_embedding, vectors):
-                batch_items.append({
-                    "real_product_id": item_info["id"],
-                    "vector": vector,
-                    "metadata": item_info["data"],
-                })
-
-            vectors_indexed = vector_store.upsert_vectors_batch(
-                tenant.slug, batch_items
-            )
+    # Publish event — vectorization + cache invalidation happen in background
+    await get_event_bus().publish(ItemsImported(
+        tenant_slug=tenant.slug,
+        correlation_id=get_correlation_id(),
+        item_ids=[str(item["id"]) for item in request.items],
+        items_for_embedding=items_for_embedding,
+        vectorize=request.vectorize,
+    ))
 
     logger.info(
         f"Import completed: tenant={tenant.slug}, "
-        f"items={items_imported}, vectors={vectors_indexed}"
+        f"items={items_imported}, vectorization={'queued' if request.vectorize else 'skipped'}"
     )
 
     return ImportResponse(
-        status="success",
+        status="accepted",
         items_imported=items_imported,
-        vectors_indexed=vectors_indexed,
+        vectors_indexed=0,
         tenant=tenant.slug,
     )
 
@@ -189,9 +177,16 @@ async def delete_item(
             detail=f"Item '{item_id}' not found",
         )
 
-    # Also delete from Qdrant
+    # Delete from Qdrant (synchronous — must be consistent)
     vector_store = get_vector_store()
     vector_store.delete_by_product_id(tenant.slug, item_id)
+
+    # Publish event — cache invalidation happens in background
+    await get_event_bus().publish(ItemDeleted(
+        tenant_slug=tenant.slug,
+        correlation_id=get_correlation_id(),
+        item_id=item_id,
+    ))
 
 
 # ============================================================
@@ -232,7 +227,7 @@ async def get_recommendations(
             client_id=request.client_id,
         )
 
-        return RecommendationResponse(
+        response = RecommendationResponse(
             status=result.get("status", "success"),
             tenant=tenant.slug,
             recommendations=[
@@ -244,6 +239,18 @@ async def get_recommendations(
             temps_traitement_ms=result.get("temps_traitement_ms", 0.0),
             cached=result.get("cached", False),
         )
+
+        # Publish event for audit/metrics (background)
+        await get_event_bus().publish(RecommendationServed(
+            tenant_slug=tenant.slug,
+            correlation_id=get_correlation_id(),
+            query=request.query[:200],
+            results_count=response.total_results,
+            cached=response.cached,
+            processing_time_ms=response.temps_traitement_ms,
+        ))
+
+        return response
 
     except Exception as e:
         logger.error(f"Recommendation error: {e}")

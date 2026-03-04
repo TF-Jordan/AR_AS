@@ -15,6 +15,8 @@ from src.api.auth import require_admin
 from src.api.dependencies import get_db_session
 from src.database.tenant_models import Tenant, generate_api_key
 from src.database.tenant_manager import get_tenant_manager
+from src.events.bus import get_event_bus
+from src.events.types import TenantProvisioned, TenantDeprovisioned
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -116,9 +118,14 @@ async def system_status():
     try:
         orchestrator = get_orchestrator()
         health = await orchestrator.health_check()
+        bus = get_event_bus()
         return {
             "status": "operational",
             "services": health.get("services", {}),
+            "event_bus": {
+                "handlers": bus.handler_count,
+                "pending_tasks": bus.pending_tasks,
+            },
         }
     except Exception as e:
         logger.error(f"Status check error: {e}")
@@ -177,6 +184,13 @@ async def create_tenant(
         )
 
     logger.info(f"Tenant created: {request.slug} ({request.domain})")
+
+    # Publish lifecycle event
+    await get_event_bus().publish(TenantProvisioned(
+        tenant_slug=request.slug,
+        tenant_name=request.name,
+        domain=request.domain,
+    ))
 
     return TenantResponse(
         tenant_id=str(tenant.id),
@@ -349,6 +363,11 @@ async def delete_tenant(
     tenant.status = "deleted"
     await session.flush()
     logger.info(f"Tenant deleted: {slug}")
+
+    # Publish lifecycle event (cache purge, audit)
+    await get_event_bus().publish(TenantDeprovisioned(
+        tenant_slug=slug,
+    ))
 
 
 @router.post(
