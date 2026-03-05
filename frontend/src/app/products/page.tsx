@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +36,7 @@ import {
 } from "@/components/ui/table";
 import { apiClient } from "@/lib/api";
 import type { Tenant, TenantItem } from "@/types/api";
-import { Upload, Trash2, RefreshCw, Package, ChevronLeft, ChevronRight } from "lucide-react";
+import { Upload, Trash2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 
 function ImportDialog({
   tenant,
@@ -61,10 +60,10 @@ function ImportDialog({
     try {
       const items = JSON.parse(jsonInput);
       if (!Array.isArray(items)) {
-        throw new Error("Le JSON doit \u00eatre un tableau d'objets");
+        throw new Error("Le JSON doit être un tableau d'objets");
       }
 
-      const res = await apiClient.importItems(tenant.api_key, items, vectorize);
+      const res = await apiClient.importMyTenantItems(tenant.slug, items, vectorize);
       setResult(res);
       onImported();
     } catch (e) {
@@ -126,13 +125,13 @@ function ImportDialog({
               onChange={(e) => setVectorize(e.target.checked)}
               className="rounded"
             />
-            <Label htmlFor="vectorize">Vectoriser (g&eacute;n&eacute;rer embeddings)</Label>
+            <Label htmlFor="vectorize">Vectoriser (générer embeddings)</Label>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
           {result && (
             <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm">
-              Import r&eacute;ussi: {result.items_imported} items, {result.vectors_indexed} vecteurs
+              Import réussi: {result.items_imported} items, {result.vectors_indexed} vecteurs
             </div>
           )}
         </div>
@@ -158,7 +157,7 @@ function TenantProducts({ tenant }: { tenant: Tenant }) {
     setLoading(true);
     setError("");
     try {
-      const data = await apiClient.listItems(tenant.api_key, limit, offset);
+      const data = await apiClient.listMyTenantItems(tenant.slug, limit, offset);
       setItems(data.items);
       setTotal(data.total);
     } catch (e) {
@@ -166,7 +165,7 @@ function TenantProducts({ tenant }: { tenant: Tenant }) {
     } finally {
       setLoading(false);
     }
-  }, [tenant.api_key, offset]);
+  }, [tenant.slug, offset]);
 
   useEffect(() => {
     loadItems();
@@ -174,7 +173,7 @@ function TenantProducts({ tenant }: { tenant: Tenant }) {
 
   const handleDelete = async (itemId: string) => {
     try {
-      await apiClient.deleteItem(tenant.api_key, itemId);
+      await apiClient.deleteMyTenantItem(tenant.slug, itemId);
       loadItems();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de suppression");
@@ -197,7 +196,7 @@ function TenantProducts({ tenant }: { tenant: Tenant }) {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={loadItems}>
               <RefreshCw className="mr-1 h-3 w-3" />
-              Rafra&icirc;chir
+              Rafraîchir
             </Button>
             <ImportDialog tenant={tenant} onImported={loadItems} />
           </div>
@@ -215,7 +214,7 @@ function TenantProducts({ tenant }: { tenant: Tenant }) {
           </div>
         ) : items.length === 0 ? (
           <p className="text-center py-4 text-muted-foreground">
-            Aucun item. Importez des donn&eacute;es pour commencer.
+            Aucun item. Importez des données pour commencer.
           </p>
         ) : (
           <>
@@ -223,8 +222,8 @@ function TenantProducts({ tenant }: { tenant: Tenant }) {
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
-                  <TableHead>Donn&eacute;es</TableHead>
-                  <TableHead>Cr&eacute;&eacute; le</TableHead>
+                  <TableHead>Données</TableHead>
+                  <TableHead>Créé le</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -254,7 +253,7 @@ function TenantProducts({ tenant }: { tenant: Tenant }) {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Supprimer l&apos;item {item.id} ?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              L&apos;item sera supprim&eacute; de la base de donn&eacute;es et du vector store.
+                              L&apos;item sera supprimé de la base de données et du vector store.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -284,7 +283,7 @@ function TenantProducts({ tenant }: { tenant: Tenant }) {
                     onClick={() => setOffset(Math.max(0, offset - limit))}
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    Pr&eacute;c&eacute;dent
+                    Précédent
                   </Button>
                   <Button
                     variant="outline"
@@ -314,7 +313,7 @@ export default function ProductsPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await apiClient.listTenants();
+      const data = await apiClient.listMyTenants();
       setTenants(data.tenants);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de chargement");
@@ -333,7 +332,7 @@ export default function ProductsPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Gestion des Produits</h2>
           <p className="text-muted-foreground">
-            G&eacute;rez les catalogues de produits de chaque tenant
+            Gérez les catalogues de produits de chaque tenant
           </p>
         </div>
 
@@ -356,7 +355,7 @@ export default function ProductsPage() {
         ) : tenants.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              Aucun tenant. Cr&eacute;ez d&apos;abord un tenant depuis la page Tenants.
+              Aucun tenant. Créez d&apos;abord un tenant depuis la page Tenants.
             </CardContent>
           </Card>
         ) : (

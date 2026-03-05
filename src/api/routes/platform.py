@@ -1,5 +1,6 @@
 """
-Administration API endpoints for tenant management.
+Platform owner API endpoints.
+Manages tenants, scoring, and catalog for the authenticated platform.
 """
 
 import logging
@@ -11,19 +12,20 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth import require_admin
+from src.api.auth import require_platform_owner
 from src.api.dependencies import get_db_session
-from src.database.tenant_models import Tenant, generate_tenant_api_key
+from src.database.tenant_models import Platform, Tenant, generate_tenant_api_key
 from src.database.tenant_manager import get_tenant_manager
 from src.events.bus import get_event_bus
-from src.events.types import TenantProvisioned, TenantDeprovisioned
+from src.events.types import TenantProvisioned, TenantDeprovisioned, ItemsImported, ItemDeleted
+from src.utils.context import get_correlation_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 # ============================================================
-# Request / Response Schemas
+# Schemas
 # ============================================================
 
 class ScoringCriterion(BaseModel):
@@ -59,6 +61,10 @@ class CreateTenantRequest(BaseModel):
         total_weight = sum(c.weight for c in criteria)
         if abs(total_weight - 1.0) > 0.01:
             raise ValueError(f"Scoring weights must sum to 1.0, got {total_weight:.2f}")
+        # Validate unique criterion names
+        names = [c.name for c in criteria]
+        if len(names) != len(set(names)):
+            raise ValueError("Les noms des critères doivent être uniques")
         return v
 
 
@@ -79,6 +85,9 @@ class UpdateTenantRequest(BaseModel):
         total_weight = sum(c.weight for c in criteria)
         if abs(total_weight - 1.0) > 0.01:
             raise ValueError(f"Scoring weights must sum to 1.0, got {total_weight:.2f}")
+        names = [c.name for c in criteria]
+        if len(names) != len(set(names)):
+            raise ValueError("Les noms des critères doivent être uniques")
         return v
 
 
@@ -102,380 +111,56 @@ class TenantListResponse(BaseModel):
     total: int
 
 
+class PlatformDashboardResponse(BaseModel):
+    platform_name: str
+    platform_slug: str
+    active_tenants: int
+    total_tenants: int
+    total_items: int
+    total_vectors: int
+    tenant_stats: List[dict]
+
+
 # ============================================================
-# Admin Endpoints
+# Dashboard
 # ============================================================
 
 @router.get(
-    "/status",
-    summary="System status",
-    description="Get overall system status.",
+    "/dashboard",
+    response_model=PlatformDashboardResponse,
+    summary="Platform dashboard metrics",
 )
-async def system_status():
-    """Get system status overview."""
-    from src.modules.module3_orchestration import get_orchestrator
-
-    try:
-        orchestrator = get_orchestrator()
-        health = await orchestrator.health_check()
-        bus = get_event_bus()
-        return {
-            "status": "operational",
-            "services": health.get("services", {}),
-            "event_bus": {
-                "handlers": bus.handler_count,
-                "pending_tasks": bus.pending_tasks,
-            },
-        }
-    except Exception as e:
-        logger.error(f"Status check error: {e}")
-        return {"status": "degraded", "error": str(e)}
-
-
-@router.post(
-    "/tenants",
-    response_model=TenantResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create a new tenant",
-    dependencies=[Depends(require_admin)],
-)
-async def create_tenant(
-    request: CreateTenantRequest,
+async def platform_dashboard(
+    platform: Platform = Depends(require_platform_owner),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """
-    Create a new tenant with automatic provisioning.
-    Creates PostgreSQL schema and Qdrant collection.
-    """
-    # Check slug uniqueness
-    existing = await session.execute(
-        select(Tenant).where(Tenant.slug == request.slug)
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Tenant with slug '{request.slug}' already exists",
-        )
-
-    # Create tenant record
-    scoring_config = {
-        "criteria": [c.model_dump() for c in request.scoring["criteria"]]
-    }
-
-    tenant = Tenant(
-        name=request.name,
-        slug=request.slug,
-        domain=request.domain,
-        api_key=generate_tenant_api_key(),
-        scoring_config=scoring_config,
-    )
-    session.add(tenant)
-    await session.flush()
-
-    # Provision infrastructure
-    tenant_manager = get_tenant_manager()
-    try:
-        await tenant_manager.provision_tenant(session, request.slug)
-    except Exception as e:
-        logger.error(f"Provisioning failed for {request.slug}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Tenant provisioning failed: {e}",
-        )
-
-    logger.info(f"Tenant created: {request.slug} ({request.domain})")
-
-    # Publish lifecycle event
-    await get_event_bus().publish(TenantProvisioned(
-        tenant_slug=request.slug,
-        tenant_name=request.name,
-        domain=request.domain,
-    ))
-
-    return TenantResponse(
-        tenant_id=str(tenant.id),
-        name=tenant.name,
-        slug=tenant.slug,
-        domain=tenant.domain,
-        api_key=tenant.api_key,
-        status=tenant.status,
-        scoring_config=tenant.scoring_config,
-        created_at=tenant.created_at.isoformat(),
-        updated_at=tenant.updated_at.isoformat(),
-    )
-
-
-@router.get(
-    "/tenants",
-    response_model=TenantListResponse,
-    summary="List all tenants",
-    dependencies=[Depends(require_admin)],
-)
-async def list_tenants(
-    session: AsyncSession = Depends(get_db_session),
-):
-    """List all tenants."""
-    result = await session.execute(
-        select(Tenant).where(Tenant.status != "deleted").order_by(Tenant.created_at.desc())
-    )
-    tenants = result.scalars().all()
-
-    count_result = await session.execute(
-        select(func.count(Tenant.id)).where(Tenant.status != "deleted")
-    )
-    total = count_result.scalar() or 0
-
-    return TenantListResponse(
-        tenants=[
-            TenantResponse(
-                tenant_id=str(t.id),
-                name=t.name,
-                slug=t.slug,
-                domain=t.domain,
-                api_key=t.api_key,
-                status=t.status,
-                scoring_config=t.scoring_config,
-                created_at=t.created_at.isoformat(),
-                updated_at=t.updated_at.isoformat(),
-            )
-            for t in tenants
-        ],
-        total=total,
-    )
-
-
-@router.get(
-    "/tenants/{slug}",
-    response_model=TenantResponse,
-    summary="Get tenant details",
-    dependencies=[Depends(require_admin)],
-)
-async def get_tenant(
-    slug: str,
-    session: AsyncSession = Depends(get_db_session),
-):
-    """Get details of a specific tenant."""
-    result = await session.execute(
-        select(Tenant).where(Tenant.slug == slug, Tenant.status != "deleted")
-    )
-    tenant = result.scalar_one_or_none()
-
-    if tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tenant '{slug}' not found",
-        )
-
-    return TenantResponse(
-        tenant_id=str(tenant.id),
-        name=tenant.name,
-        slug=tenant.slug,
-        domain=tenant.domain,
-        api_key=tenant.api_key,
-        status=tenant.status,
-        scoring_config=tenant.scoring_config,
-        created_at=tenant.created_at.isoformat(),
-        updated_at=tenant.updated_at.isoformat(),
-    )
-
-
-@router.put(
-    "/tenants/{slug}",
-    response_model=TenantResponse,
-    summary="Update a tenant",
-    dependencies=[Depends(require_admin)],
-)
-async def update_tenant(
-    slug: str,
-    request: UpdateTenantRequest,
-    session: AsyncSession = Depends(get_db_session),
-):
-    """Update tenant configuration."""
-    result = await session.execute(
-        select(Tenant).where(Tenant.slug == slug, Tenant.status != "deleted")
-    )
-    tenant = result.scalar_one_or_none()
-
-    if tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tenant '{slug}' not found",
-        )
-
-    if request.name is not None:
-        tenant.name = request.name
-    if request.domain is not None:
-        tenant.domain = request.domain
-    if request.status is not None:
-        tenant.status = request.status
-    if request.scoring is not None:
-        tenant.scoring_config = {
-            "criteria": [c.model_dump() for c in request.scoring["criteria"]]
-        }
-
-    await session.flush()
-    logger.info(f"Tenant updated: {slug}")
-
-    return TenantResponse(
-        tenant_id=str(tenant.id),
-        name=tenant.name,
-        slug=tenant.slug,
-        domain=tenant.domain,
-        api_key=tenant.api_key,
-        status=tenant.status,
-        scoring_config=tenant.scoring_config,
-        created_at=tenant.created_at.isoformat(),
-        updated_at=tenant.updated_at.isoformat(),
-    )
-
-
-@router.delete(
-    "/tenants/{slug}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete a tenant",
-    dependencies=[Depends(require_admin)],
-)
-async def delete_tenant(
-    slug: str,
-    session: AsyncSession = Depends(get_db_session),
-):
-    """
-    Soft-delete a tenant and deprovision its infrastructure.
-    """
-    result = await session.execute(
-        select(Tenant).where(Tenant.slug == slug, Tenant.status != "deleted")
-    )
-    tenant = result.scalar_one_or_none()
-
-    if tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tenant '{slug}' not found",
-        )
-
-    # Deprovision infrastructure
-    tenant_manager = get_tenant_manager()
-    try:
-        await tenant_manager.deprovision_tenant(session, slug)
-    except Exception as e:
-        logger.error(f"Deprovisioning failed for {slug}: {e}")
-
-    tenant.status = "deleted"
-    await session.flush()
-    logger.info(f"Tenant deleted: {slug}")
-
-    # Publish lifecycle event (cache purge, audit)
-    await get_event_bus().publish(TenantDeprovisioned(
-        tenant_slug=slug,
-    ))
-
-
-@router.post(
-    "/tenants/{slug}/regenerate-key",
-    response_model=TenantResponse,
-    summary="Regenerate tenant API key",
-    dependencies=[Depends(require_admin)],
-)
-async def regenerate_tenant_key(
-    slug: str,
-    session: AsyncSession = Depends(get_db_session),
-):
-    """Regenerate the API key for a tenant."""
-    result = await session.execute(
-        select(Tenant).where(Tenant.slug == slug, Tenant.status != "deleted")
-    )
-    tenant = result.scalar_one_or_none()
-
-    if tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tenant '{slug}' not found",
-        )
-
-    tenant.api_key = generate_tenant_api_key()
-    await session.flush()
-    logger.info(f"API key regenerated for tenant: {slug}")
-
-    return TenantResponse(
-        tenant_id=str(tenant.id),
-        name=tenant.name,
-        slug=tenant.slug,
-        domain=tenant.domain,
-        api_key=tenant.api_key,
-        status=tenant.status,
-        scoring_config=tenant.scoring_config,
-        created_at=tenant.created_at.isoformat(),
-        updated_at=tenant.updated_at.isoformat(),
-    )
-
-
-@router.get(
-    "/tenants/{slug}/stats",
-    summary="Get tenant statistics",
-    dependencies=[Depends(require_admin)],
-)
-async def get_tenant_stats(
-    slug: str,
-    session: AsyncSession = Depends(get_db_session),
-):
-    """Get detailed statistics for a specific tenant (items, vectors, cache)."""
-    result = await session.execute(
-        select(Tenant).where(Tenant.slug == slug, Tenant.status != "deleted")
-    )
-    tenant = result.scalar_one_or_none()
-
-    if tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tenant '{slug}' not found",
-        )
-
-    tenant_manager = get_tenant_manager()
-    item_count = await tenant_manager.count_items(session, slug)
-
-    from src.modules.module2_recommendation import get_vector_store
-    vector_store = get_vector_store()
-    collection_info = vector_store.get_collection_info(slug)
-
-    return {
-        "tenant": slug,
-        "items_count": item_count,
-        "vectors_count": collection_info.get("vectors_count", 0),
-        "collection_status": collection_info.get("status", "unknown"),
-    }
-
-
-@router.get(
-    "/metrics",
-    summary="Platform metrics overview",
-    dependencies=[Depends(require_admin)],
-)
-async def get_platform_metrics(
-    session: AsyncSession = Depends(get_db_session),
-):
-    """
-    Get platform-wide metrics for the monitoring dashboard.
-    Returns active tenants count, total items, total vectors, and service health.
-    """
-    # Count active tenants
+    """Get dashboard metrics for the authenticated platform."""
+    # Count tenants
     active_result = await session.execute(
-        select(func.count(Tenant.id)).where(Tenant.status == "active")
+        select(func.count(Tenant.id)).where(
+            Tenant.platform_id == platform.id,
+            Tenant.status == "active",
+        )
     )
     active_tenants = active_result.scalar() or 0
 
-    # Count total tenants (non-deleted)
     total_result = await session.execute(
-        select(func.count(Tenant.id)).where(Tenant.status != "deleted")
+        select(func.count(Tenant.id)).where(
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        )
     )
     total_tenants = total_result.scalar() or 0
 
-    # Get all active tenant slugs for aggregate stats
+    # Get tenant slugs for stats
     slugs_result = await session.execute(
-        select(Tenant.slug).where(Tenant.status == "active")
+        select(Tenant.slug).where(
+            Tenant.platform_id == platform.id,
+            Tenant.status == "active",
+        )
     )
     tenant_slugs = [row[0] for row in slugs_result.fetchall()]
 
-    # Aggregate item counts
     tenant_manager = get_tenant_manager()
     total_items = 0
     total_vectors = 0
@@ -505,32 +190,488 @@ async def get_platform_metrics(
                 "error": str(e),
             })
 
-    # Service health
-    services = {}
-    try:
-        from src.modules.module2_recommendation.cache import get_cache_manager
-        cache = get_cache_manager()
-        services["redis"] = await cache.health_check()
-    except Exception:
-        services["redis"] = False
+    return PlatformDashboardResponse(
+        platform_name=platform.name,
+        platform_slug=platform.slug,
+        active_tenants=active_tenants,
+        total_tenants=total_tenants,
+        total_items=total_items,
+        total_vectors=total_vectors,
+        tenant_stats=tenant_stats,
+    )
 
-    try:
-        services["qdrant"] = vector_store.health_check()
-    except Exception:
-        services["qdrant"] = False
 
+# ============================================================
+# Tenant CRUD
+# ============================================================
+
+@router.post(
+    "/tenants",
+    response_model=TenantResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new tenant",
+)
+async def create_tenant(
+    request: CreateTenantRequest,
+    platform: Platform = Depends(require_platform_owner),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Create a new tenant for this platform."""
+    # Check slug uniqueness
+    existing = await session.execute(
+        select(Tenant).where(Tenant.slug == request.slug)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Tenant with slug '{request.slug}' already exists",
+        )
+
+    scoring_config = {
+        "criteria": [c.model_dump() for c in request.scoring["criteria"]]
+    }
+
+    tenant = Tenant(
+        platform_id=platform.id,
+        name=request.name,
+        slug=request.slug,
+        domain=request.domain,
+        api_key=generate_tenant_api_key(),
+        scoring_config=scoring_config,
+    )
+    session.add(tenant)
+    await session.flush()
+
+    # Provision infrastructure
+    tenant_manager = get_tenant_manager()
     try:
-        from sqlalchemy import text as sa_text
-        await session.execute(sa_text("SELECT 1"))
-        services["postgresql"] = True
-    except Exception:
-        services["postgresql"] = False
+        await tenant_manager.provision_tenant(session, request.slug)
+    except Exception as e:
+        logger.error(f"Provisioning failed for {request.slug}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Tenant provisioning failed: {e}",
+        )
+
+    logger.info(f"Tenant created: {request.slug} by platform {platform.slug}")
+
+    await get_event_bus().publish(TenantProvisioned(
+        tenant_slug=request.slug,
+        tenant_name=request.name,
+        domain=request.domain,
+    ))
+
+    return TenantResponse(
+        tenant_id=str(tenant.id),
+        name=tenant.name,
+        slug=tenant.slug,
+        domain=tenant.domain,
+        api_key=tenant.api_key,
+        status=tenant.status,
+        scoring_config=tenant.scoring_config,
+        created_at=tenant.created_at.isoformat(),
+        updated_at=tenant.updated_at.isoformat(),
+    )
+
+
+@router.get(
+    "/tenants",
+    response_model=TenantListResponse,
+    summary="List my tenants",
+)
+async def list_tenants(
+    platform: Platform = Depends(require_platform_owner),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """List all tenants belonging to this platform."""
+    result = await session.execute(
+        select(Tenant).where(
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        ).order_by(Tenant.created_at.desc())
+    )
+    tenants = result.scalars().all()
+
+    count_result = await session.execute(
+        select(func.count(Tenant.id)).where(
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        )
+    )
+    total = count_result.scalar() or 0
+
+    return TenantListResponse(
+        tenants=[
+            TenantResponse(
+                tenant_id=str(t.id),
+                name=t.name,
+                slug=t.slug,
+                domain=t.domain,
+                api_key=t.api_key,
+                status=t.status,
+                scoring_config=t.scoring_config,
+                created_at=t.created_at.isoformat(),
+                updated_at=t.updated_at.isoformat(),
+            )
+            for t in tenants
+        ],
+        total=total,
+    )
+
+
+@router.get(
+    "/tenants/{slug}",
+    response_model=TenantResponse,
+    summary="Get tenant details",
+)
+async def get_tenant(
+    slug: str,
+    platform: Platform = Depends(require_platform_owner),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get details of a specific tenant (must belong to this platform)."""
+    result = await session.execute(
+        select(Tenant).where(
+            Tenant.slug == slug,
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        )
+    )
+    tenant = result.scalar_one_or_none()
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant '{slug}' not found",
+        )
+
+    return TenantResponse(
+        tenant_id=str(tenant.id),
+        name=tenant.name,
+        slug=tenant.slug,
+        domain=tenant.domain,
+        api_key=tenant.api_key,
+        status=tenant.status,
+        scoring_config=tenant.scoring_config,
+        created_at=tenant.created_at.isoformat(),
+        updated_at=tenant.updated_at.isoformat(),
+    )
+
+
+@router.put(
+    "/tenants/{slug}",
+    response_model=TenantResponse,
+    summary="Update a tenant",
+)
+async def update_tenant(
+    slug: str,
+    request: UpdateTenantRequest,
+    platform: Platform = Depends(require_platform_owner),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Update tenant configuration (must belong to this platform)."""
+    result = await session.execute(
+        select(Tenant).where(
+            Tenant.slug == slug,
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        )
+    )
+    tenant = result.scalar_one_or_none()
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant '{slug}' not found",
+        )
+
+    if request.name is not None:
+        tenant.name = request.name
+    if request.domain is not None:
+        tenant.domain = request.domain
+    if request.status is not None:
+        tenant.status = request.status
+    if request.scoring is not None:
+        tenant.scoring_config = {
+            "criteria": [c.model_dump() for c in request.scoring["criteria"]]
+        }
+
+    await session.flush()
+    logger.info(f"Tenant updated: {slug} by platform {platform.slug}")
+
+    return TenantResponse(
+        tenant_id=str(tenant.id),
+        name=tenant.name,
+        slug=tenant.slug,
+        domain=tenant.domain,
+        api_key=tenant.api_key,
+        status=tenant.status,
+        scoring_config=tenant.scoring_config,
+        created_at=tenant.created_at.isoformat(),
+        updated_at=tenant.updated_at.isoformat(),
+    )
+
+
+@router.delete(
+    "/tenants/{slug}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a tenant",
+)
+async def delete_tenant(
+    slug: str,
+    platform: Platform = Depends(require_platform_owner),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Soft-delete a tenant (must belong to this platform)."""
+    result = await session.execute(
+        select(Tenant).where(
+            Tenant.slug == slug,
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        )
+    )
+    tenant = result.scalar_one_or_none()
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant '{slug}' not found",
+        )
+
+    tenant_manager = get_tenant_manager()
+    try:
+        await tenant_manager.deprovision_tenant(session, slug)
+    except Exception as e:
+        logger.error(f"Deprovisioning failed for {slug}: {e}")
+
+    tenant.status = "deleted"
+    await session.flush()
+    logger.info(f"Tenant deleted: {slug} by platform {platform.slug}")
+
+    await get_event_bus().publish(TenantDeprovisioned(tenant_slug=slug))
+
+
+@router.post(
+    "/tenants/{slug}/regenerate-key",
+    response_model=TenantResponse,
+    summary="Regenerate tenant API key",
+)
+async def regenerate_tenant_key(
+    slug: str,
+    platform: Platform = Depends(require_platform_owner),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Regenerate API key for a tenant (must belong to this platform)."""
+    result = await session.execute(
+        select(Tenant).where(
+            Tenant.slug == slug,
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        )
+    )
+    tenant = result.scalar_one_or_none()
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant '{slug}' not found",
+        )
+
+    tenant.api_key = generate_tenant_api_key()
+    await session.flush()
+    logger.info(f"API key regenerated for tenant: {slug}")
+
+    return TenantResponse(
+        tenant_id=str(tenant.id),
+        name=tenant.name,
+        slug=tenant.slug,
+        domain=tenant.domain,
+        api_key=tenant.api_key,
+        status=tenant.status,
+        scoring_config=tenant.scoring_config,
+        created_at=tenant.created_at.isoformat(),
+        updated_at=tenant.updated_at.isoformat(),
+    )
+
+
+@router.get(
+    "/tenants/{slug}/stats",
+    summary="Get tenant statistics",
+)
+async def get_tenant_stats(
+    slug: str,
+    platform: Platform = Depends(require_platform_owner),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get statistics for a specific tenant (must belong to this platform)."""
+    result = await session.execute(
+        select(Tenant).where(
+            Tenant.slug == slug,
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        )
+    )
+    tenant = result.scalar_one_or_none()
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tenant '{slug}' not found",
+        )
+
+    tenant_manager = get_tenant_manager()
+    item_count = await tenant_manager.count_items(session, slug)
+
+    from src.modules.module2_recommendation import get_vector_store
+    vector_store = get_vector_store()
+    collection_info = vector_store.get_collection_info(slug)
 
     return {
-        "active_tenants": active_tenants,
-        "total_tenants": total_tenants,
-        "total_items": total_items,
-        "total_vectors": total_vectors,
-        "tenant_stats": tenant_stats,
-        "services": services,
+        "tenant": slug,
+        "items_count": item_count,
+        "vectors_count": collection_info.get("vectors_count", 0),
+        "collection_status": collection_info.get("status", "unknown"),
     }
+
+
+# ============================================================
+# Items management (platform-level)
+# ============================================================
+
+@router.get(
+    "/tenants/{slug}/items",
+    summary="List items for a tenant",
+)
+async def list_tenant_items(
+    slug: str,
+    limit: int = 100,
+    offset: int = 0,
+    platform: Platform = Depends(require_platform_owner),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """List items in a tenant's catalog (must belong to this platform)."""
+    result = await session.execute(
+        select(Tenant).where(
+            Tenant.slug == slug,
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        )
+    )
+    tenant = result.scalar_one_or_none()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail=f"Tenant '{slug}' not found")
+
+    tenant_manager = get_tenant_manager()
+    items = await tenant_manager.get_items(session, slug, limit=limit, offset=offset)
+    total = await tenant_manager.count_items(session, slug)
+
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "tenant": slug,
+    }
+
+
+@router.post(
+    "/tenants/{slug}/items/import",
+    status_code=status.HTTP_201_CREATED,
+    summary="Import items for a tenant",
+)
+async def import_tenant_items(
+    slug: str,
+    request: dict,
+    platform: Platform = Depends(require_platform_owner),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Import items into a tenant's catalog (must belong to this platform)."""
+    result = await session.execute(
+        select(Tenant).where(
+            Tenant.slug == slug,
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        )
+    )
+    tenant = result.scalar_one_or_none()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail=f"Tenant '{slug}' not found")
+
+    items = request.get("items", [])
+    vectorize = request.get("vectorize", True)
+
+    if not items:
+        raise HTTPException(status_code=400, detail="No items provided")
+
+    for i, item in enumerate(items):
+        if "id" not in item:
+            raise HTTPException(status_code=400, detail=f"Item at index {i} missing 'id'")
+
+    tenant_manager = get_tenant_manager()
+    items_imported = await tenant_manager.insert_items(session, slug, items)
+
+    items_for_embedding = []
+    if vectorize:
+        for item in items:
+            item_id = str(item["id"])
+            data = {k: v for k, v in item.items() if k != "id"}
+            embedding_text = item.get("embedding_text")
+            if not embedding_text:
+                text_parts = [f"{k}: {v}" for k, v in data.items() if isinstance(v, str)]
+                embedding_text = ". ".join(text_parts)
+            if embedding_text:
+                items_for_embedding.append({"id": item_id, "text": embedding_text, "data": data})
+
+    await get_event_bus().publish(ItemsImported(
+        tenant_slug=slug,
+        correlation_id=get_correlation_id(),
+        item_ids=[str(item["id"]) for item in items],
+        items_for_embedding=items_for_embedding,
+        vectorize=vectorize,
+    ))
+
+    return {
+        "status": "accepted",
+        "items_imported": items_imported,
+        "vectors_indexed": 0,
+        "tenant": slug,
+    }
+
+
+@router.delete(
+    "/tenants/{slug}/items/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an item from a tenant",
+)
+async def delete_tenant_item(
+    slug: str,
+    item_id: str,
+    platform: Platform = Depends(require_platform_owner),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Delete an item from a tenant's catalog (must belong to this platform)."""
+    result = await session.execute(
+        select(Tenant).where(
+            Tenant.slug == slug,
+            Tenant.platform_id == platform.id,
+            Tenant.status != "deleted",
+        )
+    )
+    tenant = result.scalar_one_or_none()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail=f"Tenant '{slug}' not found")
+
+    tenant_manager = get_tenant_manager()
+    deleted = await tenant_manager.delete_item(session, slug, item_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found")
+
+    from src.modules.module2_recommendation import get_vector_store
+    vector_store = get_vector_store()
+    vector_store.delete_by_product_id(slug, item_id)
+
+    await get_event_bus().publish(ItemDeleted(
+        tenant_slug=slug,
+        correlation_id=get_correlation_id(),
+        item_id=item_id,
+    ))

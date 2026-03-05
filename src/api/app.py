@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
 
     # Create public tables (tenants) if they don't exist
-    from src.database.tenant_models import Tenant  # noqa: F401 - register model
+    from src.database.tenant_models import Platform, Tenant  # noqa: F401 - register models
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables verified/created")

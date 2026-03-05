@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { AppShell } from "@/components/app-shell";
+import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -88,7 +89,7 @@ function CreateTenantDialog({ onCreated }: { onCreated: () => void }) {
         return;
       }
 
-      await apiClient.createTenant({
+      await apiClient.createMyTenant({
         name,
         slug,
         domain,
@@ -105,7 +106,7 @@ function CreateTenantDialog({ onCreated }: { onCreated: () => void }) {
       ]);
       onCreated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur lors de la cr\u00e9ation");
+      setError(e instanceof Error ? e.message : "Erreur lors de la création");
     } finally {
       setLoading(false);
     }
@@ -121,9 +122,9 @@ function CreateTenantDialog({ onCreated }: { onCreated: () => void }) {
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Cr&eacute;er un tenant</DialogTitle>
+          <DialogTitle>Créer un tenant</DialogTitle>
           <DialogDescription>
-            Cr&eacute;ez un nouveau tenant avec ses crit&egrave;res de scoring.
+            Créez un nouveau tenant avec ses critères de scoring.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -143,7 +144,7 @@ function CreateTenantDialog({ onCreated }: { onCreated: () => void }) {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Crit&egrave;res de scoring</Label>
+              <Label>Critères de scoring</Label>
               <Button type="button" variant="outline" size="sm" onClick={addCriterion}>
                 <Plus className="mr-1 h-3 w-3" />
                 Ajouter
@@ -152,7 +153,7 @@ function CreateTenantDialog({ onCreated }: { onCreated: () => void }) {
             {criteria.map((c, i) => (
               <div key={i} className="flex gap-2 items-center">
                 <Input
-                  placeholder="Nom du crit\u00e8re"
+                  placeholder="Nom du critère"
                   value={c.name}
                   onChange={(e) => updateCriterion(i, "name", e.target.value)}
                   className="flex-1"
@@ -185,7 +186,7 @@ function CreateTenantDialog({ onCreated }: { onCreated: () => void }) {
 
           <DialogFooter>
             <Button type="submit" disabled={loading}>
-              {loading ? "Cr\u00e9ation..." : "Cr\u00e9er"}
+              {loading ? "Création..." : "Créer"}
             </Button>
           </DialogFooter>
         </form>
@@ -215,12 +216,13 @@ function TenantApiKeyCell({ apiKey }: { apiKey: string }) {
       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopy}>
         <Copy className="h-3 w-3" />
       </Button>
-      {copied && <span className="text-xs text-green-600">Copi&eacute;!</span>}
+      {copied && <span className="text-xs text-green-600">Copié!</span>}
     </div>
   );
 }
 
 export default function TenantsPage() {
+  const { role } = useAuth();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -229,7 +231,7 @@ export default function TenantsPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await apiClient.listTenants();
+      const data = await apiClient.listMyTenants();
       setTenants(data.tenants);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de chargement");
@@ -244,7 +246,7 @@ export default function TenantsPage() {
 
   const handleDelete = async (slug: string) => {
     try {
-      await apiClient.deleteTenant(slug);
+      await apiClient.deleteMyTenant(slug);
       loadTenants();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur lors de la suppression");
@@ -253,20 +255,20 @@ export default function TenantsPage() {
 
   const handleRegenerateKey = async (slug: string) => {
     try {
-      await apiClient.regenerateKey(slug);
+      await apiClient.regenerateMyTenantKey(slug);
       loadTenants();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur lors de la r\u00e9g\u00e9n\u00e9ration");
+      setError(e instanceof Error ? e.message : "Erreur lors de la régénération");
     }
   };
 
   const handleToggleStatus = async (tenant: Tenant) => {
     try {
       const newStatus = tenant.status === "active" ? "suspended" : "active";
-      await apiClient.updateTenant(tenant.slug, { status: newStatus });
+      await apiClient.updateMyTenant(tenant.slug, { status: newStatus });
       loadTenants();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur lors de la mise \u00e0 jour");
+      setError(e instanceof Error ? e.message : "Erreur lors de la mise à jour");
     }
   };
 
@@ -277,13 +279,13 @@ export default function TenantsPage() {
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Gestion des Tenants</h2>
             <p className="text-muted-foreground">
-              Cr&eacute;ez et g&eacute;rez les tenants de la plateforme
+              Créez et gérez les tenants de votre plateforme
             </p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={loadTenants}>
               <RefreshCw className="mr-2 h-4 w-4" />
-              Rafra&icirc;chir
+              Rafraîchir
             </Button>
             <CreateTenantDialog onCreated={loadTenants} />
           </div>
@@ -308,7 +310,7 @@ export default function TenantsPage() {
               </div>
             ) : tenants.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">
-                Aucun tenant. Cr&eacute;ez-en un pour commencer.
+                Aucun tenant. Créez-en un pour commencer.
               </p>
             ) : (
               <Table>
@@ -318,8 +320,8 @@ export default function TenantsPage() {
                     <TableHead>Slug</TableHead>
                     <TableHead>Domaine</TableHead>
                     <TableHead>Statut</TableHead>
-                    <TableHead>Cl&eacute; API</TableHead>
-                    <TableHead>Crit&egrave;res</TableHead>
+                    <TableHead>Clé API</TableHead>
+                    <TableHead>Critères</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -345,7 +347,7 @@ export default function TenantsPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground">
-                          {tenant.scoring_config?.criteria?.length || 0} crit&egrave;res
+                          {tenant.scoring_config?.criteria?.length || 0} critères
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
@@ -354,7 +356,7 @@ export default function TenantsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            title="R\u00e9g\u00e9n\u00e9rer cl\u00e9 API"
+                            title="Régénérer clé API"
                             onClick={() => handleRegenerateKey(tenant.slug)}
                           >
                             <Key className="h-4 w-4" />
@@ -369,7 +371,7 @@ export default function TenantsPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Supprimer {tenant.name} ?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Cette action supprimera le tenant, son sch&eacute;ma PostgreSQL et sa collection Qdrant. Cette action est irr&eacute;versible.
+                                  Cette action supprimera le tenant, son schéma PostgreSQL et sa collection Qdrant. Cette action est irréversible.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>

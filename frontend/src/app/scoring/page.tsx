@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { Separator } from "@/components/ui/separator";
 import { apiClient } from "@/lib/api";
 import type { Tenant, ScoringCriterion } from "@/types/api";
 import { Save, Plus, Trash2, RefreshCw } from "lucide-react";
@@ -77,7 +76,7 @@ function ScoringEditor({
         weight: c.weight,
       }));
 
-      await apiClient.updateTenant(tenant.slug, {
+      await apiClient.updateMyTenant(tenant.slug, {
         scoring: { criteria: scoringCriteria },
       });
 
@@ -103,7 +102,7 @@ function ScoringEditor({
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={autoBalance}>
-              &Eacute;quilibrer
+              Équilibrer
             </Button>
             <Button size="sm" onClick={handleSave} disabled={saving || !isValid}>
               <Save className="mr-2 h-4 w-4" />
@@ -119,7 +118,7 @@ function ScoringEditor({
               <Input
                 value={criterion.name}
                 onChange={(e) => updateName(index, e.target.value)}
-                placeholder="Nom du crit\u00e8re"
+                placeholder="Nom du critère"
                 className="w-48"
               />
               <div className="flex-1">
@@ -145,15 +144,15 @@ function ScoringEditor({
         <div className="flex items-center justify-between pt-2">
           <Button variant="outline" size="sm" onClick={addCriterion}>
             <Plus className="mr-1 h-3 w-3" />
-            Ajouter un crit&egrave;re
+            Ajouter un critère
           </Button>
           <span className={`text-sm font-medium ${isValid ? "text-green-600" : "text-destructive"}`}>
-            Total: {(totalWeight * 100).toFixed(0)}% {isValid ? "\u2713" : "(doit \u00eatre 100%)"}
+            Total: {(totalWeight * 100).toFixed(0)}% {isValid ? "✓" : "(doit être 100%)"}
           </span>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {success && <p className="text-sm text-green-600">Configuration sauvegard&eacute;e avec succ&egrave;s!</p>}
+        {success && <p className="text-sm text-green-600">Configuration sauvegardée avec succès!</p>}
       </CardContent>
     </Card>
   );
@@ -168,7 +167,7 @@ export default function ScoringPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await apiClient.listTenants();
+      const data = await apiClient.listMyTenants();
       setTenants(data.tenants);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de chargement");
@@ -188,12 +187,12 @@ export default function ScoringPage() {
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Configuration Scoring</h2>
             <p className="text-muted-foreground">
-              Configurez les crit&egrave;res de scoring pour chaque tenant
+              Configurez les critères de scoring pour chaque tenant
             </p>
           </div>
           <Button variant="outline" onClick={loadTenants}>
             <RefreshCw className="mr-2 h-4 w-4" />
-            Rafra&icirc;chir
+            Rafraîchir
           </Button>
         </div>
 
@@ -216,7 +215,7 @@ export default function ScoringPage() {
         ) : tenants.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              Aucun tenant. Cr&eacute;ez d&apos;abord un tenant depuis la page Tenants.
+              Aucun tenant. Créez d&apos;abord un tenant depuis la page Tenants.
             </CardContent>
           </Card>
         ) : (

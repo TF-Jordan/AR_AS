@@ -2,17 +2,22 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
+import type { UserRole, PlatformInfo } from "@/types/api";
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  adminKey: string;
-  login: (key: string) => void;
+  role: UserRole | null;
+  platform: PlatformInfo | null;
+  token: string;
+  login: (token: string, role: UserRole, platform?: PlatformInfo) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
-  adminKey: "",
+  role: null,
+  platform: null,
+  token: "",
   login: () => {},
   logout: () => {},
 });
@@ -22,34 +27,61 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [adminKey, setAdminKey] = useState("");
+  const [token, setToken] = useState("");
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [platform, setPlatform] = useState<PlatformInfo | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("admin_api_key");
-    if (stored) {
-      setAdminKey(stored);
-      apiClient.setAdminKey(stored);
+    const storedToken = localStorage.getItem("auth_token");
+    const storedRole = localStorage.getItem("auth_role") as UserRole | null;
+    const storedPlatform = localStorage.getItem("auth_platform");
+
+    if (storedToken && storedRole) {
+      setToken(storedToken);
+      setRole(storedRole);
+      apiClient.setToken(storedToken);
       setIsAuthenticated(true);
+
+      if (storedPlatform) {
+        try {
+          setPlatform(JSON.parse(storedPlatform));
+        } catch {
+          // ignore parse error
+        }
+      }
     }
   }, []);
 
-  const login = (key: string) => {
-    localStorage.setItem("admin_api_key", key);
-    apiClient.setAdminKey(key);
-    setAdminKey(key);
+  const login = (newToken: string, newRole: UserRole, newPlatform?: PlatformInfo) => {
+    localStorage.setItem("auth_token", newToken);
+    localStorage.setItem("auth_role", newRole);
+    if (newPlatform) {
+      localStorage.setItem("auth_platform", JSON.stringify(newPlatform));
+    } else {
+      localStorage.removeItem("auth_platform");
+    }
+
+    apiClient.setToken(newToken);
+    setToken(newToken);
+    setRole(newRole);
+    setPlatform(newPlatform || null);
     setIsAuthenticated(true);
   };
 
   const logout = () => {
-    localStorage.removeItem("admin_api_key");
-    apiClient.setAdminKey("");
-    setAdminKey("");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_role");
+    localStorage.removeItem("auth_platform");
+    apiClient.setToken("");
+    setToken("");
+    setRole(null);
+    setPlatform(null);
     setIsAuthenticated(false);
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, adminKey, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, role, platform, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

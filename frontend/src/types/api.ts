@@ -85,3 +85,82 @@ export interface UpdateTenantRequest {
     criteria: ScoringCriterion[];
   };
 }
+
+// ── Auth types ──
+
+export type UserRole = "super_admin" | "platform_owner";
+
+export interface AuthResponse {
+  token: string;
+  role: UserRole;
+  platform?: {
+    slug: string;
+    name: string;
+    domain: string;
+    email: string;
+  };
+}
+
+export interface PlatformInfo {
+  slug: string;
+  name: string;
+  domain: string;
+  email: string;
+}
+
+// ── Super Admin types ──
+
+export interface PlatformEntry {
+  platform_id: string;
+  name: string;
+  slug: string;
+  domain: string;
+  email: string;
+  api_key: string;
+  is_active: boolean;
+  tenants_count: number;
+  created_at: string;
+  updated_at: string;
+  tenants?: {
+    tenant_id: string;
+    name: string;
+    slug: string;
+    domain: string;
+    status: string;
+    created_at: string;
+  }[];
+}
+
+export interface PlatformListResponse {
+  platforms: PlatformEntry[];
+  total: number;
+}
+
+export interface SuperAdminDashboard {
+  total_platforms: number;
+  active_platforms: number;
+  total_tenants: number;
+  active_tenants: number;
+  services: Record<string, boolean>;
+  event_bus: {
+    handlers: number;
+    pending_tasks: number;
+  };
+}
+
+// ── Platform Owner types ──
+
+export interface PlatformDashboard {
+  platform_name: string;
+  platform_slug: string;
+  active_tenants: number;
+  total_tenants: number;
+  total_items: number;
+  total_vectors: number;
+  tenant_stats: {
+    slug: string;
+    items_count: number;
+    vectors_count: number;
+    error?: string;
+  }[];
+}

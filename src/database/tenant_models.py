@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -16,23 +17,30 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .connection import Base
 
 
-def generate_api_key() -> str:
-    """Generate a unique API key with sk_live_ prefix."""
-    return f"sk_live_{secrets.token_urlsafe(32)}"
+def generate_api_key(prefix: str = "sk_live_") -> str:
+    """Generate a unique API key with given prefix."""
+    return f"{prefix}{secrets.token_urlsafe(32)}"
 
 
-class Tenant(Base):
+def generate_tenant_api_key() -> str:
+    return generate_api_key("sk_live_")
+
+
+def generate_platform_api_key() -> str:
+    return generate_api_key("pk_live_")
+
+
+class Platform(Base):
     """
-    Tenant model - represents a client platform of the RaaS system.
-    Stored in the public schema.
+    Platform model - represents a platform owner who manages tenants.
     """
 
-    __tablename__ = "tenants"
+    __tablename__ = "platforms"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -44,9 +52,59 @@ class Tenant(Base):
         String(100), unique=True, nullable=False, index=True
     )
     domain: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     api_key: Mapped[str] = mapped_column(
         String(100), unique=True, nullable=False, index=True,
-        default=generate_api_key,
+        default=generate_platform_api_key,
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    tenants: Mapped[List["Tenant"]] = relationship(
+        "Tenant", back_populates="platform", lazy="selectin"
+    )
+
+    def __repr__(self) -> str:
+        return f"<Platform(slug={self.slug}, email={self.email}, active={self.is_active})>"
+
+
+class Tenant(Base):
+    """
+    Tenant model - represents a client of a platform.
+    Stored in the public schema.
+    """
+
+    __tablename__ = "tenants"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    platform_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("platforms.id"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    slug: Mapped[str] = mapped_column(
+        String(100), unique=True, nullable=False, index=True
+    )
+    domain: Mapped[str] = mapped_column(String(100), nullable=False)
+    api_key: Mapped[str] = mapped_column(
+        String(100), unique=True, nullable=False, index=True,
+        default=generate_tenant_api_key,
     )
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="active"
@@ -66,6 +124,10 @@ class Tenant(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    platform: Mapped["Platform"] = relationship(
+        "Platform", back_populates="tenants"
     )
 
     def __repr__(self) -> str:
